@@ -1,3 +1,4 @@
+# pyre-ignore-all-errors
 """
 FastAPI application — central API entry point.
 """
@@ -36,6 +37,10 @@ async def lifespan(app: FastAPI):
     registry = ModelRegistry()
     ledger = BlackBoxLedger()
     pipeline = PipelineOrchestrator()
+    
+    from pulsenet.api.routes.predict import batcher
+    await batcher.start()
+    log.info("Dynamic batcher worker started")
 
     # Try to load existing model
     model_path = Path("models/isolation_forest.joblib")
@@ -68,6 +73,7 @@ async def lifespan(app: FastAPI):
 
     yield  # App runs
 
+    await batcher.stop()
     log.info("PulseNet API shutting down")
 
 

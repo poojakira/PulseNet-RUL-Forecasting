@@ -1,5 +1,6 @@
 """
 Isolation Forest anomaly detection model with hyperparameter tuning.
+# pyre-ignore-all-errors
 """
 
 from __future__ import annotations
@@ -8,8 +9,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 import joblib
-import numpy as np
-from sklearn.ensemble import IsolationForest
+import numpy as np  # pyre-ignore[21]
+try:
+    from cuml.ensemble import IsolationForest  # pyre-ignore[21]
+    CUML_AVAILABLE = True
+except ImportError:
+    from sklearn.ensemble import IsolationForest
+    CUML_AVAILABLE = False
 from sklearn.metrics import f1_score
 
 from pulsenet.models.base import BaseAnomalyModel
@@ -44,7 +50,8 @@ class IsolationForestModel(BaseAnomalyModel):
         """Train Isolation Forest on healthy data."""
         self.model = IsolationForest(**self.params)
         self.model.fit(X)
-        log.info("IsolationForest trained", extra={"samples": len(X), **self.params})
+        backend = "cuml(GPU)" if CUML_AVAILABLE else "sklearn(CPU)"
+        log.info(f"IsolationForest trained via {backend}", extra={"samples": len(X), **self.params})
 
     def predict(self, X: np.ndarray | Any) -> np.ndarray:
         """Binary predictions: 0 = normal, 1 = anomaly."""

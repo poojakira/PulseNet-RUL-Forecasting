@@ -21,6 +21,15 @@ services:
       - PULSENET_JWT_SECRET=change-me-in-production
       - PULSENET_ENCRYPTION_KEY=
       - PYTHONPATH=/app/src
+      - NCCL_DEBUG=INFO
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -41,6 +50,14 @@ services:
       - ./outputs:/app/outputs
     environment:
       - PYTHONPATH=/app/src
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       - api
     restart: unless-stopped
@@ -55,6 +72,15 @@ services:
       - ./models:/app/models
     environment:
       - PYTHONPATH=/app/src
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NCCL_DEBUG=INFO
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       - api
     restart: unless-stopped
