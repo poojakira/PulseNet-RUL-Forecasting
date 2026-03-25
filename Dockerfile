@@ -1,13 +1,13 @@
 # ============================================================
-# PulseNet — Multi-stage Docker build
+# PulseNet — NVIDIA HPC Docker Build
 # ============================================================
-FROM python:3.11-slim AS base
+FROM nvcr.io/nvidia/pytorch:23.10-py3 AS base
 
 WORKDIR /app
 
-# System deps
+# System dependencies (skip heavy ML ones since NGC has them)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl && \
+    curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Python deps

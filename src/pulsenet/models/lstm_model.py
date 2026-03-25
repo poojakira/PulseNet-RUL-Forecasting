@@ -22,6 +22,7 @@ try:
     import torch
     import torch.nn as nn
     from torch.utils.data import DataLoader, TensorDataset
+    import torch.distributed as dist
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -96,25 +97,46 @@ class LSTMModel(BaseAnomalyModel):
         self._n_features = X.shape[2]
         self.model = _LSTMAutoencoder(
             self._n_features, self.hidden_size, self.num_layers, self.dropout
-        ).to(self.device)
+        )
 
         dataset = TensorDataset(torch.FloatTensor(X))
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        if dist.is_initialized():
+            local_rank = dist.get_rank()
+            self.device = torch.device(f"cuda:{local_rank}")
+            self.model = self.model.to(self.device)
+            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[local_rank])
+            sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+            loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler)
+        else:
+            self.model = self.model.to(self.device)
+            sampler = None
+            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
+        scaler = torch.amp.GradScaler("cuda" if self.device.type == "cuda" else "cpu")
 
         self.model.train()
         for epoch in range(self.epochs):
+            if sampler is not None:
+                sampler.set_epoch(epoch)
+            
             total_loss = 0.0
             for (batch,) in loader:
                 batch = batch.to(self.device)
-                output = self.model(batch)
-                loss = criterion(output, batch)
                 optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                
+                with torch.amp.autocast("cuda" if self.device.type == "cuda" else "cpu"):
+                    output = self.model(batch)
+                    loss = criterion(output, batch)
+                
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 total_loss += loss.item()
-            if (epoch + 1) % 10 == 0:
+
+            if (epoch + 1) % 10 == 0 and (not dist.is_initialized() or dist.get_rank() == 0):
                 log.info(f"LSTM Epoch {epoch + 1}/{self.epochs}",
                          extra={"loss": f"{total_loss / len(loader):.6f}"})
 
