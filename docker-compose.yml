@@ -1,0 +1,60 @@
+# ============================================================
+# PulseNet — Docker Compose (API + Dashboard + Streaming)
+# ============================================================
+# Usage: docker-compose up --build
+
+version: "3.9"
+
+services:
+  # --- FastAPI Backend ---
+  api:
+    build: .
+    container_name: pulsenet-api
+    command: python main.py --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - PULSENET_JWT_SECRET=change-me-in-production
+      - PULSENET_ENCRYPTION_KEY=
+      - PYTHONPATH=/app/src
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # --- Streamlit Dashboard ---
+  dashboard:
+    build: .
+    container_name: pulsenet-dashboard
+    command: streamlit run src/pulsenet/dashboard/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - PYTHONPATH=/app/src
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # --- Streaming Worker ---
+  streaming:
+    build: .
+    container_name: pulsenet-streaming
+    command: python main_pipeline.py --mode stream
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app/src
+    depends_on:
+      - api
+    restart: unless-stopped

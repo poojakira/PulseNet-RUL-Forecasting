@@ -1,0 +1,53 @@
+# ==========================================
+# 1. SECURITY & ENCRYPTION (CRITICAL)
+# ==========================================
+secret.key
+*.pem
+*.key
+
+# ==========================================
+# 2. DATASETS & FEATURES (LARGE FILES)
+# ==========================================
+# Exclude raw NASA datasets
+*_FD001.txt
+RUL_FD001.txt
+
+# Exclude generated CSVs (Original and Encrypted)
+*.csv
+
+# ==========================================
+# 3. BLOCKCHAIN & AUDIT LOGS
+# ==========================================
+blackbox_ledger.json
+secure_log.txt
+latest_session_report.txt
+mlruns/
+
+# ==========================================
+# 4. MACHINE LEARNING MODELS
+# ==========================================
+*.joblib
+*.pkl
+*.h5
+
+# ==========================================
+# 5. PYTHON & ENVIRONMENT
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+.pytest_cache/
+.pyre/
+*.egg-info/
+
+
+# ==========================================
+# 6. SYSTEM & IDE
+# ==========================================
+.DS_Store
+.vscode/
+.idea/
