@@ -45,7 +45,7 @@ class TestHealthEndpoint:
         data = resp.json()
         assert "status" in data
         assert "version" in data
-        assert data["version"] == "2.0.0"
+        assert data["version"] == "2.1.0"
 
     def test_health_fields(self, client):
         resp = client.get("/health")
@@ -53,12 +53,15 @@ class TestHealthEndpoint:
         assert "model_loaded" in data
         assert "blockchain_blocks" in data
         assert "uptime_seconds" in data
+        assert "gpu_devices" in data
+        assert "system_resources" in data
 
 
 class TestAuthEndpoint:
     """Test /token endpoint."""
 
     def test_valid_login(self, client):
+        # Admin default password is now admin123 (hashed in auth.py)
         resp = client.post("/token", json={"username": "admin", "password": "admin123"})
         assert resp.status_code == 200
         data = resp.json()
@@ -70,7 +73,9 @@ class TestAuthEndpoint:
         assert resp.status_code == 401
 
     def test_operator_login(self, client):
-        resp = client.post("/token", json={"username": "operator", "password": "ops123"})
+        resp = client.post(
+            "/token", json={"username": "operator", "password": "ops123"}
+        )
         assert resp.status_code == 200
         assert resp.json()["role"] == "operator"
 

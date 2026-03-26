@@ -47,8 +47,11 @@ def sample_features(sample_sensor_data) -> pd.DataFrame:
 @pytest.fixture
 def feature_columns(sample_features) -> list[str]:
     """Return feature column names."""
-    return [str(c) for c in sample_features.columns
-            if c not in ("unit_number", "time_in_cycles")]
+    return [
+        str(c)
+        for c in sample_features.columns
+        if c not in ("unit_number", "time_in_cycles")
+    ]
 
 
 @pytest.fixture

@@ -29,15 +29,18 @@ async def get_audit_log(
     ledger = _audit_refs.get("ledger")
     if ledger is None:
         return AuditResponse(
-            chain_length=0, is_valid=False,
+            chain_length=0,
+            is_valid=False,
             validation_message="Ledger not initialized",
             recent_blocks=[],
         )
 
     is_valid, msg = ledger.validate_integrity()
     audit.log_access(
-        endpoint="/audit", method="GET",
-        user=user["username"], role=user["role"],
+        endpoint="/audit",
+        method="GET",
+        user=user["username"],
+        role=user["role"],
     )
 
     return AuditResponse(
@@ -63,8 +66,10 @@ async def verify_chain(
     metrics = ledger.get_metrics()
 
     audit.log_access(
-        endpoint="/verify-chain", method="GET",
-        user=user["username"], role=user["role"],
+        endpoint="/verify-chain",
+        method="GET",
+        user=user["username"],
+        role=user["role"],
         metadata={"result": is_valid},
     )
 

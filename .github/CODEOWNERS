@@ -1,0 +1,10 @@
+# PulseNet Codeowners
+
+*       @poojakiran @rhutvikpachghare
+
+/docs/  @rhutvikpachghare
+/tests/ @rhutvikpachghare
+
+/src/pulsenet/models/   @poojakiran
+/src/pulsenet/pipeline/ @poojakiran
+/src/pulsenet/security/ @poojakiran
