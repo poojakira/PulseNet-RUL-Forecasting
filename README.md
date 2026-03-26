@@ -18,6 +18,8 @@
 
 ## Architecture
 
+📄 **[Read the Full System Design Document](docs/design_doc.md)**
+
 ```mermaid
 graph LR
     subgraph Ingestion["📥 Data Ingestion"]
