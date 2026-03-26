@@ -47,7 +47,9 @@ class AuditLogger:
         with open(self.log_file, "a") as f:
             f.write(json.dumps(entry) + "\n")
 
-        log.debug("Access logged", extra={"endpoint": endpoint, "user": user, "role": role})
+        log.debug(
+            "Access logged", extra={"endpoint": endpoint, "user": user, "role": role}
+        )
         return entry_hash
 
     def get_recent(self, n: int = 50) -> list[dict]:

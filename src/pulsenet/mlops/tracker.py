@@ -8,7 +8,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -34,10 +34,14 @@ class MLOpsTracker:
 
         try:
             import mlflow
+
             mlflow.set_tracking_uri(tracking_uri)
             mlflow.set_experiment(experiment_name)
             self._mlflow_available = True
-            log.info("MLflow initialized", extra={"uri": tracking_uri, "experiment": experiment_name})
+            log.info(
+                "MLflow initialized",
+                extra={"uri": tracking_uri, "experiment": experiment_name},
+            )
         except ImportError:
             log.warning("MLflow not installed — using local file tracking")
 
@@ -58,6 +62,7 @@ class MLOpsTracker:
 
     def _log_mlflow(self, params, metrics, model_path, artifacts) -> str:
         import mlflow
+
         with mlflow.start_run() as run:
             for k, v in params.items():
                 mlflow.log_param(k, v)
@@ -122,7 +127,7 @@ class MLOpsTracker:
         epsilon = 1e-8
         kl_per_feature = (
             np.log((new_std + epsilon) / (ref_std + epsilon))
-            + (ref_std ** 2 + (ref_mean - new_mean) ** 2) / (2 * (new_std + epsilon) ** 2)
+            + (ref_std**2 + (ref_mean - new_mean) ** 2) / (2 * (new_std + epsilon) ** 2)
             - 0.5
         )
         avg_kl = float(np.mean(np.abs(kl_per_feature)))
@@ -134,7 +139,9 @@ class MLOpsTracker:
             "drift_threshold": self.drift_threshold,
             "drift_detected": drift_detected,
             "retrain_recommended": drift_detected,
-            "drifted_features": int(np.sum(np.abs(kl_per_feature) > self.drift_threshold)),
+            "drifted_features": int(
+                np.sum(np.abs(kl_per_feature) > self.drift_threshold)
+            ),
         }
 
         if drift_detected:
@@ -164,6 +171,7 @@ class MLOpsTracker:
         if self._mlflow_available:
             try:
                 import mlflow
+
                 for k, v in entry.items():
                     if k != "timestamp":
                         mlflow.log_metric(f"inference_{k}", float(v))

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-import joblib
 
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.logger import get_logger
@@ -23,6 +22,7 @@ try:
     import torch.nn as nn
     from torch.utils.data import DataLoader, TensorDataset
     import torch.distributed as dist
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -32,16 +32,27 @@ except ImportError:
 class _LSTMAutoencoder(nn.Module):
     """LSTM Encoder-Decoder for sequence reconstruction."""
 
-    def __init__(self, n_features: int, hidden_size: int = 64,
-                 num_layers: int = 2, dropout: float = 0.2):
+    def __init__(
+        self,
+        n_features: int,
+        hidden_size: int = 64,
+        num_layers: int = 2,
+        dropout: float = 0.2,
+    ):
         super().__init__()
         self.encoder = nn.LSTM(
-            n_features, hidden_size, num_layers=num_layers,
-            dropout=dropout, batch_first=True,
+            n_features,
+            hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            batch_first=True,
         )
         self.decoder = nn.LSTM(
-            hidden_size, hidden_size, num_layers=num_layers,
-            dropout=dropout, batch_first=True,
+            hidden_size,
+            hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            batch_first=True,
         )
         self.output_layer = nn.Linear(hidden_size, n_features)
 
@@ -89,7 +100,6 @@ class LSTMModel(BaseAnomalyModel):
         """Train on sequences shaped (N, seq_len, features)."""
         if X.ndim == 2:
             # Auto-window if flat
-            from pulsenet.pipeline.preprocessing import create_sequences
             log.info("Auto-windowing flat array into sequences")
             # Cannot window without unit info — assume single unit
             X = self._window_flat(X, self.seq_len)
@@ -105,7 +115,9 @@ class LSTMModel(BaseAnomalyModel):
             local_rank = dist.get_rank()
             self.device = torch.device(f"cuda:{local_rank}")
             self.model = self.model.to(self.device)
-            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[local_rank])
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[local_rank]
+            )
             sampler = torch.utils.data.distributed.DistributedSampler(dataset)
             loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler)
         else:
@@ -121,28 +133,49 @@ class LSTMModel(BaseAnomalyModel):
         for epoch in range(self.epochs):
             if sampler is not None:
                 sampler.set_epoch(epoch)
-            
+
             total_loss = 0.0
             for (batch,) in loader:
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
-                
-                with torch.amp.autocast("cuda" if self.device.type == "cuda" else "cpu"):
+
+                with torch.amp.autocast(
+                    "cuda" if self.device.type == "cuda" else "cpu"
+                ):
                     output = self.model(batch)
                     loss = criterion(output, batch)
-                
+
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
                 total_loss += loss.item()
 
-            if (epoch + 1) % 10 == 0 and (not dist.is_initialized() or dist.get_rank() == 0):
-                log.info(f"LSTM Epoch {epoch + 1}/{self.epochs}",
-                         extra={"loss": f"{total_loss / len(loader):.6f}"})
+            if (epoch + 1) % 10 == 0 and (
+                not dist.is_initialized() or dist.get_rank() == 0
+            ):
+                log.info(
+                    f"LSTM Epoch {epoch + 1}/{self.epochs}",
+                    extra={"loss": f"{total_loss / len(loader):.6f}"},
+                )
 
         # Set threshold from training reconstruction error
         train_errors = self._compute_errors(X)
         self.threshold = float(np.percentile(train_errors, 95))
+
+        # GPU memory reporting
+        if self.device.type == "cuda":
+            peak_mb = torch.cuda.max_memory_allocated(self.device) / 1024**2
+            reserved_mb = torch.cuda.max_memory_reserved(self.device) / 1024**2
+            log.info(
+                "GPU memory usage after training",
+                extra={
+                    "peak_allocated_mb": f"{peak_mb:.1f}",
+                    "peak_reserved_mb": f"{reserved_mb:.1f}",
+                    "device": str(self.device),
+                },
+            )
+            torch.cuda.reset_peak_memory_stats(self.device)
+
         log.info("LSTM trained", extra={"threshold": f"{self.threshold:.6f}"})
 
     def predict(self, X: np.ndarray | Any) -> np.ndarray:
@@ -175,16 +208,19 @@ class LSTMModel(BaseAnomalyModel):
     def save(self, path: Path | str) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
-            "state_dict": self.model.state_dict(),
-            "threshold": self.threshold,
-            "n_features": self._n_features,
-            "config": {
-                "hidden_size": self.hidden_size,
-                "num_layers": self.num_layers,
-                "dropout": self.dropout,
+        torch.save(
+            {
+                "state_dict": self.model.state_dict(),
+                "threshold": self.threshold,
+                "n_features": self._n_features,
+                "config": {
+                    "hidden_size": self.hidden_size,
+                    "num_layers": self.num_layers,
+                    "dropout": self.dropout,
+                },
             },
-        }, path)
+            path,
+        )
         log.info("LSTM model saved", extra={"path": str(path)})
 
     def load(self, path: Path | str) -> None:
