@@ -12,21 +12,29 @@ import os
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+
+from pydantic import BaseModel, ValidationError
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]  # PulseNet-main/
 _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
 
 
-def _dict_to_namespace(d: dict) -> SimpleNamespace:
-    """Recursively convert a dict to SimpleNamespace for attribute access."""
-    for k, v in d.items():
-        if isinstance(v, dict):
-            d[k] = _dict_to_namespace(v)
-        elif isinstance(v, list):
-            d[k] = [_dict_to_namespace(i) if isinstance(i, dict) else i for i in v]
-    return SimpleNamespace(**d)
+class PulseNetConfigSchema(BaseModel):
+    """Strict validation schema for config.yaml"""
+
+    models: dict
+    api: dict
+    streaming: dict
+
+
+def _dict_to_namespace(d: dict | list) -> SimpleNamespace | list:
+    """Recursively convert dict to SimpleNamespace for dot-notation access."""
+    if isinstance(d, dict):
+        return SimpleNamespace(**{k: _dict_to_namespace(v) for k, v in d.items()})
+    elif isinstance(d, list):
+        return [_dict_to_namespace(v) for v in d]
+    return d
 
 
 def _apply_env_overrides(d: dict, prefix: str = "PULSENET") -> dict:
@@ -54,15 +62,52 @@ def _apply_env_overrides(d: dict, prefix: str = "PULSENET") -> dict:
     return d
 
 
-def load_config(path: Path | str | None = None) -> SimpleNamespace:
-    """Load and return configuration as a nested namespace."""
-    path = Path(path) if path else _CONFIG_PATH
-    if not path.exists():
-        raise FileNotFoundError(f"Config file not found: {path}")
-    with open(path, "r") as f:
-        raw: dict[str, Any] = yaml.safe_load(f)
-    raw = _apply_env_overrides(raw)
-    return _dict_to_namespace(raw)
+def load_config(config_path: str = "config.yaml") -> SimpleNamespace:
+    """Load, validate, and parse YAML config, with env var overrides."""
+
+    # 1. Start with hardcoded defaults
+    config_dict = {
+        "models": {
+            "active_model": "isolation_forest",
+            "batch_size": 256,
+            "threshold": 0.5,
+        },
+        "api": {
+            "host": "0.0.0.0",
+            "port": 8000,
+            "workers": 4,
+            "rate_limit": 100,
+        },
+        "streaming": {
+            "queue_maxsize": 10000,
+            "flush_interval_ms": 100,
+            "enable_backpressure": True,
+        },
+    }
+
+    # 2. Override with YAML if present
+    path = Path(config_path)
+    if path.exists():
+        with open(path) as f:
+            yaml_content = yaml.safe_load(f) or {}
+
+            # Deep update
+            for section, values in yaml_content.items():
+                if section in config_dict and isinstance(values, dict):
+                    config_dict[section].update(values)
+                else:
+                    config_dict[section] = values
+
+    # 3. Validate schema
+    try:
+        PulseNetConfigSchema(**config_dict)
+    except ValidationError as e:
+        raise ValueError(f"Invalid config.yaml format: {e}")
+
+    # 4. Override with Environment Variables
+    config_dict = _apply_env_overrides(config_dict)
+
+    return _dict_to_namespace(config_dict)
 
 
 # Module-level singleton — import anywhere as `from pulsenet.config import cfg`

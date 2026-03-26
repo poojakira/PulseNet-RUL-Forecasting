@@ -12,10 +12,8 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 import numpy as np  # pyre-ignore
-import pandas as pd  # pyre-ignore
 
 from pulsenet.logger import get_logger  # pyre-ignore
 
@@ -125,7 +123,7 @@ class BenchmarkSuite:
                 surviving.append(mask.sum() / len(data))
 
             integrity = np.mean(surviving) * 100
-            results[f"loss_{int(rate*100)}pct"] = {
+            results[f"loss_{int(rate * 100)}pct"] = {
                 "data_integrity_pct": round(integrity, 2),
                 "avg_surviving": round(np.mean(surviving) * len(data), 1),
                 "target_met": integrity > 95,
@@ -177,6 +175,7 @@ class BenchmarkSuite:
     def profile_resources(self) -> dict:
         """Capture current resource usage including GPU stats (via pynvml)."""
         import psutil  # pyre-ignore
+
         proc = psutil.Process(os.getpid())
         mem = proc.memory_info()
         result = {
@@ -185,10 +184,11 @@ class BenchmarkSuite:
             "memory_vms_mb": round(mem.vms / 1024 / 1024, 1),
             "threads": proc.num_threads(),
         }
-        
+
         # GPU Profiling via pynvml
         try:
             import pynvml  # pyre-ignore
+
             pynvml.nvmlInit()
             device_count = pynvml.nvmlDeviceGetCount()
             gpus = []
@@ -197,18 +197,20 @@ class BenchmarkSuite:
                 util = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 power_w = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0
-                gpus.append({
-                    "gpu_id": i,
-                    "utilization_pct": util.gpu,
-                    "vram_used_mb": round(mem_info.used / 1024**2, 1),
-                    "vram_total_mb": round(mem_info.total / 1024**2, 1),
-                    "power_watts": round(power_w, 1)
-                })
+                gpus.append(
+                    {
+                        "gpu_id": i,
+                        "utilization_pct": util.gpu,
+                        "vram_used_mb": round(mem_info.used / 1024**2, 1),
+                        "vram_total_mb": round(mem_info.total / 1024**2, 1),
+                        "power_watts": round(power_w, 1),
+                    }
+                )
             if gpus:
                 result["gpus"] = gpus
             pynvml.nvmlShutdown()
         except ImportError:
-            pass # No pynvml installed
+            pass  # No pynvml installed
         except Exception as e:
             log.warning(f"Could not profile GPUs: {e}")
 
@@ -255,7 +257,9 @@ class BenchmarkSuite:
             lines.append("| Packet Loss | Data Integrity | Target Met |")
             lines.append("|------------|---------------|------------|")
             for k, v in r.items():
-                lines.append(f"| {k} | {v['data_integrity_pct']}% | {'✅' if v['target_met'] else '❌'} |")
+                lines.append(
+                    f"| {k} | {v['data_integrity_pct']}% | {'✅' if v['target_met'] else '❌'} |"
+                )
             lines.append("")
 
         if "encryption" in self.results:
@@ -263,8 +267,12 @@ class BenchmarkSuite:
             lines.append("## Encryption Overhead\n")
             lines.append("| Operation | Mean (ms) | P95 (ms) |")
             lines.append("|-----------|----------|---------|")
-            lines.append(f"| Encrypt | {r['encrypt_mean_ms']} | {r['encrypt_p95_ms']} |")
-            lines.append(f"| Decrypt | {r['decrypt_mean_ms']} | {r['decrypt_p95_ms']} |")
+            lines.append(
+                f"| Encrypt | {r['encrypt_mean_ms']} | {r['encrypt_p95_ms']} |"
+            )
+            lines.append(
+                f"| Decrypt | {r['decrypt_mean_ms']} | {r['decrypt_p95_ms']} |"
+            )
 
         report = "\n".join(lines)
         report_path = self.output_dir / "benchmark_report.md"
@@ -276,6 +284,7 @@ class BenchmarkSuite:
         """Generate benchmark visualization plots."""
         try:
             import matplotlib  # pyre-ignore
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt  # pyre-ignore
 
@@ -296,7 +305,9 @@ class BenchmarkSuite:
             # Plot 2: Network resilience
             if "network_resilience" in self.results:
                 data = self.results["network_resilience"]
-                rates = [k.replace("loss_", "").replace("pct", "%") for k in data.keys()]
+                rates = [
+                    k.replace("loss_", "").replace("pct", "%") for k in data.keys()
+                ]
                 integ = [v["data_integrity_pct"] for v in data.values()]
                 axes[1].bar(range(len(rates)), integ, color="#3498db", alpha=0.8)
                 axes[1].set_xticks(range(len(rates)))

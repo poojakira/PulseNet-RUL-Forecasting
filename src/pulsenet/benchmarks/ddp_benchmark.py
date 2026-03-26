@@ -12,11 +12,11 @@ import time
 import numpy as np  # pyre-ignore
 import torch  # pyre-ignore
 import torch.distributed as dist  # pyre-ignore
-from torch.utils.data import DataLoader, TensorDataset  # pyre-ignore
 
 from pulsenet.models.transformer_model import TransformerModel  # pyre-ignore
 
 # pyre-ignore-all-errors
+
 
 def main():
     if not torch.cuda.is_available():
@@ -28,9 +28,8 @@ def main():
     rank = dist.get_rank()
     local_rank = int(os.environ.get("LOCAL_RANK", rank))
     world_size = dist.get_world_size()
-    
+
     torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
 
     if rank == 0:
         print(f"--- Starting DDP Throughput Benchmark (World Size: {world_size}) ---")
@@ -43,13 +42,13 @@ def main():
 
     if rank == 0:
         print(f"Generating {samples} synthetic sequences for testing...")
-    
+
     # Pre-windowed shape for transformer: (B, seq_len, features)
     X = np.random.randn(samples, seq_len, n_features).astype(np.float32)
 
     # Initialize Model natively configures DDP inside when running via torchrun
     model = TransformerModel(batch_size=batch_size, epochs=1)
-    
+
     if rank == 0:
         print("Warming up...")
 
@@ -63,7 +62,7 @@ def main():
     throughput = samples_processed_global / elapsed
 
     if rank == 0:
-        print(f"\n--- DDP Benchmark Results ---")
+        print("\n--- DDP Benchmark Results ---")
         print(f"GPUs Configured      : {world_size}")
         print(f"Per-GPU Batch Size   : {batch_size}")
         print(f"Global Batch Size    : {batch_size * world_size}")
@@ -73,6 +72,7 @@ def main():
         print("-------------------------------------------\n")
 
     dist.destroy_process_group()
+
 
 if __name__ == "__main__":
     main()

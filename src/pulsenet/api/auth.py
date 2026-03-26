@@ -31,7 +31,9 @@ except ImportError:
             return _jwt.decode(token, key, algorithms=algorithms)
 
 
-_JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET", "pulsenet-dev-secret-change-in-production")
+_JWT_SECRET = os.environ.get(
+    "PULSENET_JWT_SECRET", "pulsenet-dev-secret-change-in-production"
+)
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
 
@@ -42,12 +44,59 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "operator": {"predict", "health"},
 }
 
-# Simple user store (replace with DB in production)
-USER_DB: dict[str, dict] = {
-    "admin": {"password": "admin123", "role": "admin"},
-    "engineer": {"password": "eng123", "role": "engineer"},
-    "operator": {"password": "ops123", "role": "operator"},
-}
+
+def _hash_password(password: str) -> str:
+    """SHA-256 hash for password comparison."""
+    import hashlib
+
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def _load_users() -> dict[str, dict]:
+    """Load users from PULSENET_USERS env var (JSON) or secure defaults.
+
+    Production: set PULSENET_USERS='{"admin": {"password_hash": "...", "role": "admin"}}'
+    Dev fallback: loads default users but logs a security warning.
+    """
+    import json
+
+    users_json = os.environ.get("PULSENET_USERS")
+    if users_json:
+        try:
+            users = json.loads(users_json)
+            log.info("Users loaded from PULSENET_USERS environment variable")
+            return users
+        except json.JSONDecodeError:
+            log.error("Invalid JSON in PULSENET_USERS — falling back to defaults")
+
+    # Dev-only defaults — log warning
+    log.warning(
+        "⚠️  Using default credentials (dev only). "
+        "Set PULSENET_USERS env var for production."
+    )
+    return {
+        "admin": {
+            "password_hash": _hash_password(
+                os.environ.get("PULSENET_ADMIN_PASSWORD", "admin123")
+            ),
+            "role": "admin",
+        },
+        "engineer": {
+            "password_hash": _hash_password(
+                os.environ.get("PULSENET_ENGINEER_PASSWORD", "eng123")
+            ),
+            "role": "engineer",
+        },
+        "operator": {
+            "password_hash": _hash_password(
+                os.environ.get("PULSENET_OPERATOR_PASSWORD", "ops123")
+            ),
+            "role": "operator",
+        },
+    }
+
+
+USER_DB: dict[str, dict] = _load_users()
 
 security = HTTPBearer(auto_error=False)
 
@@ -77,9 +126,9 @@ def verify_token(token: str) -> dict:
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """Validate credentials. Returns user dict or None."""
+    """Validate credentials against hashed passwords. Returns user dict or None."""
     user = USER_DB.get(username)
-    if user and user["password"] == password:
+    if user and user.get("password_hash") == _hash_password(password):
         return {"username": username, "role": user["role"]}
     return None
 
@@ -99,6 +148,7 @@ async def get_current_user(
 
 def require_role(allowed_roles: set[str]):
     """FastAPI dependency factory for role-based access control."""
+
     async def check_role(user: dict = Depends(get_current_user)):
         if user["role"] not in allowed_roles:
             raise HTTPException(
@@ -106,11 +156,13 @@ def require_role(allowed_roles: set[str]):
                 detail=f"Role '{user['role']}' not authorized. Required: {allowed_roles}",
             )
         return user
+
     return check_role
 
 
 def require_permission(permission: str):
     """Check if user's role has a specific permission."""
+
     async def check_perm(user: dict = Depends(get_current_user)):
         user_perms = ROLE_PERMISSIONS.get(user["role"], set())
         if permission not in user_perms:
@@ -119,4 +171,5 @@ def require_permission(permission: str):
                 detail=f"Permission '{permission}' not granted to role '{user['role']}'",
             )
         return user
+
     return check_perm
