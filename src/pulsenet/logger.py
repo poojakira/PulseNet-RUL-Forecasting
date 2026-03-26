@@ -28,10 +28,26 @@ class _JSONFormatter(logging.Formatter):
         }
         # Merge extra fields (skip internal logging keys)
         skip = {
-            "name", "msg", "args", "created", "relativeCreated",
-            "exc_info", "exc_text", "stack_info", "lineno", "funcName",
-            "filename", "module", "pathname", "thread", "threadName",
-            "processName", "process", "levelname", "levelno", "message",
+            "name",
+            "msg",
+            "args",
+            "created",
+            "relativeCreated",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "filename",
+            "module",
+            "pathname",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "levelname",
+            "levelno",
+            "message",
             "taskName",
         }
         for k, v in record.__dict__.items():

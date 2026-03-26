@@ -62,7 +62,8 @@ class TestIsolationForest:
     def test_tune(self, sample_X, sample_y):
         model = IsolationForestModel()
         result = model.tune(
-            sample_X, sample_y,
+            sample_X,
+            sample_y,
             n_estimators_list=[50, 100],
             contamination_list=[0.05, 0.1],
             max_samples_list=[0.8],

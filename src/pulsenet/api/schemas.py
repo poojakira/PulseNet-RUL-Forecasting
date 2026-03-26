@@ -10,8 +10,10 @@ from pydantic import BaseModel, Field
 
 # ===== Request Models =====
 
+
 class SensorInput(BaseModel):
     """Single sensor reading for prediction."""
+
     sensor_2: float = Field(..., description="Sensor 2 reading")
     sensor_3: float = Field(..., description="Sensor 3 reading")
     sensor_4: float = Field(..., description="Sensor 4 reading")
@@ -30,27 +32,34 @@ class SensorInput(BaseModel):
 
 class BatchSensorInput(BaseModel):
     """Batch of sensor readings."""
+
     readings: list[SensorInput]
     model_name: str = Field(default="isolation_forest", description="Model to use")
 
 
 class TrainRequest(BaseModel):
     """Training configuration request."""
+
     model_name: str = Field(default="isolation_forest")
     tune: bool = Field(default=False, description="Run hyperparameter tuning")
-    epochs: Optional[int] = Field(default=None, description="Training epochs (LSTM/Transformer)")
+    epochs: Optional[int] = Field(
+        default=None, description="Training epochs (LSTM/Transformer)"
+    )
 
 
 class TokenRequest(BaseModel):
     """JWT token request."""
+
     username: str
     password: str
 
 
 # ===== Response Models =====
 
+
 class PredictionResponse(BaseModel):
     """Single prediction result."""
+
     prediction: int = Field(..., description="0=Normal, 1=Anomaly")
     health_index: float = Field(..., description="Health score 0-100%")
     anomaly_score: float = Field(..., description="Raw anomaly score")
@@ -60,6 +69,7 @@ class PredictionResponse(BaseModel):
 
 class BatchPredictionResponse(BaseModel):
     """Batch prediction results."""
+
     predictions: list[PredictionResponse]
     total: int
     anomalies_detected: int
@@ -68,6 +78,7 @@ class BatchPredictionResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """System health status."""
+
     status: str = Field(..., description="healthy/degraded/unhealthy")
     version: str
     model_loaded: bool
@@ -75,10 +86,17 @@ class HealthResponse(BaseModel):
     blockchain_blocks: int
     blockchain_valid: bool
     uptime_seconds: float
+    gpu_devices: list[dict[str, Any]] = Field(
+        default_factory=list, description="GPU telemetry via pynvml"
+    )
+    system_resources: dict[str, Any] = Field(
+        default_factory=dict, description="CPU/memory metrics"
+    )
 
 
 class TrainResponse(BaseModel):
     """Training result."""
+
     model: str
     version: str
     train_time_sec: float
@@ -89,6 +107,7 @@ class TrainResponse(BaseModel):
 
 class AuditResponse(BaseModel):
     """Blockchain audit entry."""
+
     chain_length: int
     merkle_root: Optional[str] = None
     is_valid: bool
@@ -98,6 +117,7 @@ class AuditResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     """JWT token response."""
+
     access_token: str
     token_type: str = "bearer"
     role: str
@@ -106,5 +126,6 @@ class TokenResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Standard error response."""
+
     detail: str
     error_code: str
