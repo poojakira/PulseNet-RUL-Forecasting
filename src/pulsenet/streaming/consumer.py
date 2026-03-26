@@ -8,7 +8,6 @@ import asyncio
 import time
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from pulsenet.streaming.queue import AsyncStreamQueue
@@ -53,8 +52,10 @@ class InferenceConsumer:
 
             await self._process_batch(batch)
 
-        log.info("Consumer stopped",
-                extra={"processed": self._processed, "anomalies": self._anomalies})
+        log.info(
+            "Consumer stopped",
+            extra={"processed": self._processed, "anomalies": self._anomalies},
+        )
 
     async def _process_batch(self, batch: list[dict]) -> None:
         """Process a batch of sensor readings."""
@@ -64,8 +65,11 @@ class InferenceConsumer:
         if self.feature_cols:
             feat_cols = [c for c in self.feature_cols if c in df.columns]
         else:
-            feat_cols = [c for c in df.columns
-                        if c not in ("unit_number", "time_in_cycles", "is_anomaly")]
+            feat_cols = [
+                c
+                for c in df.columns
+                if c not in ("unit_number", "time_in_cycles", "is_anomaly")
+            ]
 
         if not feat_cols:
             return
@@ -93,12 +97,16 @@ class InferenceConsumer:
                 )
 
         if self._processed % 100 == 0:
-            log.info(f"Processed {self._processed} readings",
-                    extra={
-                        "anomalies_total": self._anomalies,
-                        "batch_latency_ms": round(latency_ms, 2),
-                        "avg_latency_ms": round(sum(self._latencies) / len(self._latencies), 2),
-                    })
+            log.info(
+                f"Processed {self._processed} readings",
+                extra={
+                    "anomalies_total": self._anomalies,
+                    "batch_latency_ms": round(latency_ms, 2),
+                    "avg_latency_ms": round(
+                        sum(self._latencies) / len(self._latencies), 2
+                    ),
+                },
+            )
 
     def stop(self) -> None:
         self._running = False

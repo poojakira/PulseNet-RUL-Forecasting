@@ -23,12 +23,13 @@ def compute_rolling_features(
     """Add rolling mean features for every sensor column."""
     sensor_cols = [c for c in df.columns if c.startswith(sensor_prefix)]
     for col in sensor_cols:
-        df[f"{col}_rolling_mean"] = (
-            df.groupby("unit_number")[col]
-            .transform(lambda s: s.rolling(window=window, min_periods=1).mean())
+        df[f"{col}_rolling_mean"] = df.groupby("unit_number")[col].transform(
+            lambda s: s.rolling(window=window, min_periods=1).mean()
         )
-    log.info("Rolling features computed",
-             extra={"window": window, "sensors": len(sensor_cols)})
+    log.info(
+        "Rolling features computed",
+        extra={"window": window, "sensors": len(sensor_cols)},
+    )
     return df
 
 
@@ -50,7 +51,11 @@ def normalize(
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
     """Return feature column names (excluding metadata)."""
-    return [c for c in df.columns if c not in ("unit_number", "time_in_cycles", "is_anomaly")]
+    return [
+        c
+        for c in df.columns
+        if c not in ("unit_number", "time_in_cycles", "is_anomaly")
+    ]
 
 
 def create_labels(

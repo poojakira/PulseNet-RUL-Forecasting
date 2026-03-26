@@ -19,6 +19,3 @@ model.fit(X_train)
 # Save model
 joblib.dump(model, "isolation_forest_model.joblib")
 print("Training complete.")
-
-
-

@@ -12,9 +12,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
-import numpy as np
 import pandas as pd
 from cryptography.fernet import Fernet
 
@@ -35,9 +33,12 @@ class EncryptionManager:
         self.key_env_var = key_env_var
         self.key_file = Path(key_file)
         self.rotation_days = rotation_days
+        self._key_source: str = "unknown"
         self._key: bytes = self._load_or_generate_key()
         self._cipher = Fernet(self._key)
-        log.info("EncryptionManager initialized", extra={"key_source": self._key_source})
+        log.info(
+            "EncryptionManager initialized", extra={"key_source": self._key_source}
+        )
 
     # ------------------------------------------------------------------
     # Key management
@@ -53,15 +54,19 @@ class EncryptionManager:
             self._key_source = "file"
             key = self.key_file.read_bytes().strip()
             if self._should_rotate(self.key_file):
-                log.warning("Encryption key is due for rotation",
-                           extra={"age_days": self._key_age_days(self.key_file)})
+                log.warning(
+                    "Encryption key is due for rotation",
+                    extra={"age_days": self._key_age_days(self.key_file)},
+                )
             return key
 
         # Generate new key
         self._key_source = "generated"
         key = Fernet.generate_key()
         self.key_file.write_bytes(key)
-        log.info("New encryption key generated and saved", extra={"file": str(self.key_file)})
+        log.info(
+            "New encryption key generated and saved", extra={"file": str(self.key_file)}
+        )
         return key
 
     def rotate_key(self) -> bytes:
@@ -104,17 +109,24 @@ class EncryptionManager:
     # ------------------------------------------------------------------
     def encrypt_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Encrypt every cell in a DataFrame (string representation)."""
-        log.info("Encrypting DataFrame", extra={"rows": len(df), "cols": len(df.columns)})
-        return df.apply(
-            lambda col: col.astype(str).apply(lambda v: self.encrypt(v))
+        log.info(
+            "Encrypting DataFrame", extra={"rows": len(df), "cols": len(df.columns)}
         )
+        import typing
+        result = df.apply(lambda col: col.astype(str).apply(lambda v: self.encrypt(v)))
+        return typing.cast(pd.DataFrame, result)
 
     def decrypt_dataframe(self, df_enc: pd.DataFrame) -> pd.DataFrame:
         """Decrypt every cell back to string."""
-        log.info("Decrypting DataFrame", extra={"rows": len(df_enc), "cols": len(df_enc.columns)})
-        return df_enc.apply(
+        log.info(
+            "Decrypting DataFrame",
+            extra={"rows": len(df_enc), "cols": len(df_enc.columns)},
+        )
+        import typing
+        result = df_enc.apply(
             lambda col: col.astype(str).apply(lambda v: self.decrypt(v))
         )
+        return typing.cast(pd.DataFrame, result)
 
     def decrypt_cell(self, val: str) -> float:
         """Decrypt a single cell to float (streaming use-case)."""
@@ -129,9 +141,11 @@ class EncryptionManager:
     def encrypt_payload(self, payload: dict) -> str:
         """Encrypt a JSON-serializable dict."""
         import json
+
         return self.encrypt(json.dumps(payload, default=str))
 
     def decrypt_payload(self, ciphertext: str) -> dict:
         """Decrypt back to dict."""
         import json
+
         return json.loads(self.decrypt(ciphertext))

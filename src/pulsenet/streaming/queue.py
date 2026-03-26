@@ -38,8 +38,10 @@ class AsyncStreamQueue:
         """Enqueue an item. Returns False if queue is full after timeout."""
         if self.is_backpressured:
             self._metrics["backpressure_events"] += 1
-            log.warning("Backpressure active",
-                       extra={"queue_size": self.size, "max": self.max_size})
+            log.warning(
+                "Backpressure active",
+                extra={"queue_size": self.size, "max": self.max_size},
+            )
 
         try:
             await asyncio.wait_for(self._queue.put(item), timeout=timeout)
@@ -59,7 +61,9 @@ class AsyncStreamQueue:
         except asyncio.TimeoutError:
             return None
 
-    async def drain_batch(self, batch_size: int = 32, timeout: float = 1.0) -> list[Any]:
+    async def drain_batch(
+        self, batch_size: int = 32, timeout: float = 1.0
+    ) -> list[Any]:
         """Drain up to batch_size items from the queue."""
         batch = []
         for _ in range(batch_size):
@@ -77,4 +81,8 @@ class AsyncStreamQueue:
         return batch
 
     def get_metrics(self) -> dict:
-        return {**self._metrics, "current_size": self.size, "utilization": self.size / self.max_size}
+        return {
+            **self._metrics,
+            "current_size": self.size,
+            "utilization": self.size / self.max_size,
+        }

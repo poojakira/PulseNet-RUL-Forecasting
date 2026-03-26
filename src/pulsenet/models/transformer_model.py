@@ -23,6 +23,7 @@ try:
     import torch.nn as nn
     from torch.utils.data import DataLoader, TensorDataset
     import torch.distributed as dist
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -33,10 +34,12 @@ class _PositionalEncoding(nn.Module):
         super().__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         if d_model > 1:
-            pe[:, 1::2] = torch.cos(position * div_term[:d_model // 2])
+            pe[:, 1::2] = torch.cos(position * div_term[: d_model // 2])
         self.register_buffer("pe", pe.unsqueeze(0))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -44,14 +47,23 @@ class _PositionalEncoding(nn.Module):
 
 
 class _TransformerAutoencoder(nn.Module):
-    def __init__(self, n_features: int, d_model: int = 64,
-                 nhead: int = 4, num_layers: int = 2, dropout: float = 0.1):
+    def __init__(
+        self,
+        n_features: int,
+        d_model: int = 64,
+        nhead: int = 4,
+        num_layers: int = 2,
+        dropout: float = 0.1,
+    ):
         super().__init__()
         self.input_proj = nn.Linear(n_features, d_model)
         self.pos_enc = _PositionalEncoding(d_model)
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=nhead, dropout=dropout,
-            dim_feedforward=d_model * 4, batch_first=True,
+            d_model=d_model,
+            nhead=nhead,
+            dropout=dropout,
+            dim_feedforward=d_model * 4,
+            batch_first=True,
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.decoder = nn.Linear(d_model, n_features)
@@ -100,8 +112,11 @@ class TransformerModel(BaseAnomalyModel):
             X = self._window_flat(X, self.seq_len)
         self._n_features = X.shape[2]
         self.model = _TransformerAutoencoder(
-            self._n_features, self.d_model, self.nhead,
-            self.num_layers, self.dropout,
+            self._n_features,
+            self.d_model,
+            self.nhead,
+            self.num_layers,
+            self.dropout,
         )
 
         dataset = TensorDataset(torch.FloatTensor(X))
@@ -112,7 +127,9 @@ class TransformerModel(BaseAnomalyModel):
             self.model = self.model.to(self.device)
             # Convert any potential BatchNorms to SyncBatchNorm for DDP
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
-            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[local_rank])
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[local_rank]
+            )
             sampler = torch.utils.data.distributed.DistributedSampler(dataset)
             loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler)
         else:
@@ -128,24 +145,30 @@ class TransformerModel(BaseAnomalyModel):
         for epoch in range(self.epochs):
             if sampler is not None:
                 sampler.set_epoch(epoch)
-            
+
             total_loss = 0.0
             for (batch,) in loader:
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
-                
-                with torch.amp.autocast("cuda" if self.device.type == "cuda" else "cpu"):
+
+                with torch.amp.autocast(
+                    "cuda" if self.device.type == "cuda" else "cpu"
+                ):
                     output = self.model(batch)
                     loss = criterion(output, batch)
-                
+
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
                 total_loss += loss.item()
 
-            if (epoch + 1) % 10 == 0 and (not dist.is_initialized() or dist.get_rank() == 0):
-                log.info(f"Transformer Epoch {epoch + 1}/{self.epochs}",
-                         extra={"loss": f"{total_loss / len(loader):.6f}"})
+            if (epoch + 1) % 10 == 0 and (
+                not dist.is_initialized() or dist.get_rank() == 0
+            ):
+                log.info(
+                    f"Transformer Epoch {epoch + 1}/{self.epochs}",
+                    extra={"loss": f"{total_loss / len(loader):.6f}"},
+                )
 
         train_errors = self._compute_errors(X)
         self.threshold = float(np.percentile(train_errors, 95))
@@ -178,25 +201,31 @@ class TransformerModel(BaseAnomalyModel):
     def save(self, path: Path | str) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
-            "state_dict": self.model.state_dict(),
-            "threshold": self.threshold,
-            "n_features": self._n_features,
-            "config": {
-                "d_model": self.d_model,
-                "nhead": self.nhead,
-                "num_layers": self.num_layers,
-                "dropout": self.dropout,
+        torch.save(
+            {
+                "state_dict": self.model.state_dict(),
+                "threshold": self.threshold,
+                "n_features": self._n_features,
+                "config": {
+                    "d_model": self.d_model,
+                    "nhead": self.nhead,
+                    "num_layers": self.num_layers,
+                    "dropout": self.dropout,
+                },
             },
-        }, path)
+            path,
+        )
 
     def load(self, path: Path | str) -> None:
         data = torch.load(path, map_location=self.device, weights_only=False)
         self._n_features = data["n_features"]
         cfg = data["config"]
         self.model = _TransformerAutoencoder(
-            self._n_features, cfg["d_model"], cfg["nhead"],
-            cfg["num_layers"], cfg["dropout"],
+            self._n_features,
+            cfg["d_model"],
+            cfg["nhead"],
+            cfg["num_layers"],
+            cfg["dropout"],
         ).to(self.device)
         self.model.load_state_dict(data["state_dict"])
         self.threshold = data["threshold"]
