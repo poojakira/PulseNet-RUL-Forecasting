@@ -10,11 +10,14 @@ from typing import Any, Optional
 
 import joblib
 import numpy as np  # pyre-ignore[21]
+
 try:
     from cuml.ensemble import IsolationForest  # pyre-ignore[21]
+
     CUML_AVAILABLE = True
 except ImportError:
     from sklearn.ensemble import IsolationForest
+
     CUML_AVAILABLE = False
 from sklearn.metrics import f1_score
 
@@ -51,7 +54,10 @@ class IsolationForestModel(BaseAnomalyModel):
         self.model = IsolationForest(**self.params)
         self.model.fit(X)
         backend = "cuml(GPU)" if CUML_AVAILABLE else "sklearn(CPU)"
-        log.info(f"IsolationForest trained via {backend}", extra={"samples": len(X), **self.params})
+        log.info(
+            f"IsolationForest trained via {backend}",
+            extra={"samples": len(X), **self.params},
+        )
 
     def predict(self, X: np.ndarray | Any) -> np.ndarray:
         """Binary predictions: 0 = normal, 1 = anomaly."""
@@ -77,7 +83,10 @@ class IsolationForestModel(BaseAnomalyModel):
     def save(self, path: Path | str) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump({"model": self.model, "threshold": self.threshold, "params": self.params}, path)
+        joblib.dump(
+            {"model": self.model, "threshold": self.threshold, "params": self.params},
+            path,
+        )
         log.info("IsolationForest saved", extra={"path": str(path)})
 
     def load(self, path: Path | str) -> None:
@@ -110,15 +119,18 @@ class IsolationForestModel(BaseAnomalyModel):
             for c in contamination_list:
                 for s in max_samples_list:
                     mdl = IsolationForest(
-                        n_estimators=n, contamination=c,
-                        max_samples=s, random_state=42
+                        n_estimators=n, contamination=c, max_samples=s, random_state=42
                     )
                     mdl.fit(X)
                     preds = np.where(mdl.predict(X) == -1, 1, 0)
                     f1 = f1_score(y_true, preds, zero_division=0)
                     if f1 > best_f1:
                         best_f1 = f1
-                        best_params = {"n_estimators": n, "contamination": c, "max_samples": s}
+                        best_params = {
+                            "n_estimators": n,
+                            "contamination": c,
+                            "max_samples": s,
+                        }
 
         # Retrain with best params
         self.params.update(best_params)
@@ -132,6 +144,7 @@ class IsolationForestModel(BaseAnomalyModel):
     def optimize_threshold(self, X: np.ndarray, y_true: np.ndarray) -> float:
         """Find optimal threshold using Youden's J statistic."""
         from sklearn.metrics import roc_curve
+
         scores = self.score(X)
         fpr, tpr, thresholds = roc_curve(y_true, scores)
         j = tpr - fpr

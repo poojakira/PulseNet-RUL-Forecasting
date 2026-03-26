@@ -4,7 +4,6 @@ Multi-model registry — manages model instances and comparison.
 
 from __future__ import annotations
 
-from typing import Optional
 
 import numpy as np
 
@@ -34,12 +33,20 @@ class ModelRegistry:
             # Lazy-load PyTorch models
             if name == "lstm":
                 from pulsenet.models.lstm_model import LSTMModel
+
                 self.register(LSTMModel())
             elif name == "transformer":
                 from pulsenet.models.transformer_model import TransformerModel
+
                 self.register(TransformerModel())
+            elif name == "ensemble":
+                from pulsenet.models.ensemble import EnsembleModel
+
+                self.register(EnsembleModel())
             else:
-                raise KeyError(f"Unknown model: {name}. Available: {list(self._models.keys())}")
+                raise KeyError(
+                    f"Unknown model: {name}. Available: {list(self._models.keys())}"
+                )
         return self._models[name]
 
     @property
@@ -57,8 +64,10 @@ class ModelRegistry:
             try:
                 metrics = model.evaluate(X, y_true)
                 results[name] = metrics
-                log.info(f"Model '{name}' evaluation",
-                         extra={k: f"{v:.4f}" for k, v in metrics.items()})
+                log.info(
+                    f"Model '{name}' evaluation",
+                    extra={k: f"{v:.4f}" for k, v in metrics.items()},
+                )
             except Exception as e:
                 log.warning(f"Model '{name}' evaluation failed: {e}")
                 results[name] = {"error": str(e)}

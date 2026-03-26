@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -39,7 +39,10 @@ class BaseAnomalyModel(ABC):
     def evaluate(self, X: np.ndarray, y_true: np.ndarray) -> dict:
         """Compute standard classification metrics."""
         from sklearn.metrics import (
-            f1_score, precision_score, recall_score, roc_auc_score,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
         )
 
         y_pred = self.predict(X)

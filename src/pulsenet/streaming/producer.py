@@ -5,9 +5,7 @@ Sensor data stream producer — reads CSV data and pushes to async queue.
 from __future__ import annotations
 
 import asyncio
-import time
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -42,8 +40,7 @@ class SensorProducer:
 
         df = pd.read_csv(self.data_path)
         self._running = True
-        log.info("Producer started",
-                extra={"rows": len(df), "delay_ms": self.delay_ms})
+        log.info("Producer started", extra={"rows": len(df), "delay_ms": self.delay_ms})
 
         while self._running:
             for _, row in df.iterrows():
@@ -54,8 +51,10 @@ class SensorProducer:
                 self._produced += 1
 
                 if self._produced % 100 == 0:
-                    log.debug(f"Produced {self._produced} readings",
-                             extra={"queue_size": self.queue.size})
+                    log.debug(
+                        f"Produced {self._produced} readings",
+                        extra={"queue_size": self.queue.size},
+                    )
 
                 await asyncio.sleep(self.delay_ms / 1000)
 

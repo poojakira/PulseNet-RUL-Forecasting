@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import joblib
 import pandas as pd
 
 from pulsenet.config import cfg
@@ -56,26 +55,40 @@ class PipelineOrchestrator:
         self.train_df, self.test_df, self.scaler = preprocess_pipeline(
             self.train_df, self.test_df, rolling_window=window
         )
+        import joblib
+        
         # Save features for downstream
         self.train_df.to_csv(self.data_dir / "train_features.csv", index=False)
         self.test_df.to_csv(self.data_dir / "test_features.csv", index=False)
-        log.info("Features saved")
+        
+        models_dir = self.data_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        scaler_path = models_dir / "scaler.joblib"
+        joblib.dump(self.scaler, scaler_path)
+        log.info("Features and scaler saved", extra={"scaler_path": str(scaler_path)})
 
     def run_training(self, model_name: Optional[str] = None) -> None:
         """Stage 3: Train model(s)."""
         log.info("Stage 3 — Training")
-        model_name = model_name or getattr(cfg.models, "active_model", "isolation_forest")
+        assert self.train_df is not None, "Run ingestion first"
+        model_name = model_name or getattr(
+            cfg.models, "active_model", "isolation_forest"
+        )
         feat_cols = get_feature_columns(self.train_df)
 
         healthy_limit = getattr(cfg.data, "healthy_cycle_limit", 50)
-        healthy_data = self.train_df[self.train_df["time_in_cycles"] <= healthy_limit][feat_cols]
+        healthy_data = self.train_df[self.train_df["time_in_cycles"] <= healthy_limit][
+            feat_cols
+        ]
 
         model = self.registry.get_model(model_name)
         t0 = time.perf_counter()
         model.train(healthy_data)
         train_time = time.perf_counter() - t0
-        log.info(f"Model '{model_name}' trained",
-                 extra={"samples": len(healthy_data), "time_sec": f"{train_time:.2f}"})
+        log.info(
+            f"Model '{model_name}' trained",
+            extra={"samples": len(healthy_data), "time_sec": f"{train_time:.2f}"},
+        )
 
         # Save model
         model_dir = Path(getattr(cfg.models, "model_dir", "./models"))
@@ -85,20 +98,23 @@ class PipelineOrchestrator:
     def run_evaluation(self) -> dict:
         """Stage 4: Evaluate on test set."""
         log.info("Stage 4 — Evaluation")
+        assert self.test_df is not None, "Run ingestion first"
+        assert self.rul is not None, "Run ingestion first"
         feat_cols = get_feature_columns(self.test_df)
         threshold = getattr(cfg.data, "failure_rul_threshold", 30)
         y_true = create_labels(self.test_df, self.rul, failure_threshold=threshold)
 
-        results = self.registry.compare_all(
-            self.test_df[feat_cols].values, y_true
-        )
+        results = self.registry.compare_all(self.test_df[feat_cols].values, y_true)
         log.info("Evaluation complete", extra={"models": len(results)})
         return results
 
     def run_inference(self, model_name: Optional[str] = None) -> pd.DataFrame:
         """Stage 5: Run inference on test set, log to blockchain."""
         log.info("Stage 5 — Inference + Logging")
-        model_name = model_name or getattr(cfg.models, "active_model", "isolation_forest")
+        assert self.test_df is not None, "Run ingestion first"
+        model_name = model_name or getattr(
+            cfg.models, "active_model", "isolation_forest"
+        )
         model = self.registry.get_model(model_name)
         feat_cols = get_feature_columns(self.test_df)
 
@@ -115,8 +131,10 @@ class PipelineOrchestrator:
                 status="CRITICAL" if predictions[idx] == 1 else "OPTIMAL",
             )
 
-        log.info("Inference complete",
-                 extra={"anomalies": int(predictions.sum()), "total": len(predictions)})
+        log.info(
+            "Inference complete",
+            extra={"anomalies": int(predictions.sum()), "total": len(predictions)},
+        )
         return self.test_df
 
     def run_full_pipeline(self) -> dict:
@@ -131,6 +149,5 @@ class PipelineOrchestrator:
         self.run_inference()
 
         duration = time.perf_counter() - t0
-        log.info("=== Pipeline Complete ===",
-                 extra={"duration_sec": f"{duration:.2f}"})
+        log.info("=== Pipeline Complete ===", extra={"duration_sec": f"{duration:.2f}"})
         return results
