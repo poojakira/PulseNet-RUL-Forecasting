@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 
 from pulsenet.api.schemas import TrainRequest, TrainResponse
 from pulsenet.api.auth import require_permission
@@ -48,8 +48,10 @@ async def train_model(
 ):
     """Trigger model retraining (runs in background)."""
     audit.log_access(
-        endpoint="/train", method="POST",
-        user=user["username"], role=user["role"],
+        endpoint="/train",
+        method="POST",
+        user=user["username"],
+        role=user["role"],
         metadata={"model": request.model_name, "tune": request.tune},
     )
 
