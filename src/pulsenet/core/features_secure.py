@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from cryptography.fernet import Fernet
 from sklearn.preprocessing import MinMaxScaler
 import os
@@ -17,10 +16,14 @@ else:
         if not os.path.exists(filename):
             print(f"Error: {filename} not found.")
             return pd.DataFrame()
-        
+
         df_enc = pd.read_csv(filename)
         # Decrypt every cell
-        return df_enc.apply(lambda x: x.astype(str).apply(lambda val: cipher.decrypt(val.encode()).decode()))
+        return df_enc.apply(
+            lambda x: x.astype(str).apply(
+                lambda val: cipher.decrypt(val.encode()).decode()
+            )
+        )
 
     print("Decrypting data (this may take a moment)...")
     df_train = decrypt_df("preprocessed_train_enc.csv")
@@ -33,20 +36,26 @@ else:
 
         # 3. ADVANCED FEATURE ENGINEERING
         # Identify sensor columns (those that are left after dropping noise)
-        sensor_cols = [c for c in df_train.columns if c.startswith('sensor')]
+        sensor_cols = [c for c in df_train.columns if c.startswith("sensor")]
 
         # Rolling Mean (Smoothing)
         print("Generating Rolling Features...")
         for col in sensor_cols:
-            df_train[f"{col}_rolling"] = df_train[col].rolling(window=5, min_periods=1).mean()
-            df_test[f"{col}_rolling"] = df_test[col].rolling(window=5, min_periods=1).mean()
+            df_train[f"{col}_rolling"] = (
+                df_train[col].rolling(window=5, min_periods=1).mean()
+            )
+            df_test[f"{col}_rolling"] = (
+                df_test[col].rolling(window=5, min_periods=1).mean()
+            )
 
         # 4. NORMALIZATION (CRITICAL STEP)
         # We fit the scaler on TRAIN, but apply it to TEST.
         scaler = MinMaxScaler()
 
         # Select all feature columns (excluding IDs)
-        feat_cols = [c for c in df_train.columns if c not in ['unit_number', 'time_in_cycles']]
+        feat_cols = [
+            c for c in df_train.columns if c not in ["unit_number", "time_in_cycles"]
+        ]
 
         df_train[feat_cols] = scaler.fit_transform(df_train[feat_cols])
         df_test[feat_cols] = scaler.transform(df_test[feat_cols])
@@ -56,5 +65,3 @@ else:
         df_test.to_csv("test_features.csv", index=False)
 
         print("Feature Engineering Complete. Scaled Train and Test files saved.")
-
-
