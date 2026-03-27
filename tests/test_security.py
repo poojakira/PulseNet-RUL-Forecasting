@@ -4,13 +4,10 @@ Unit tests for security module — encryption, blockchain, audit logging.
 
 from __future__ import annotations
 
-import json
-import numpy as np
-import pandas as pd
 import pytest
 
 from pulsenet.security.encryption import EncryptionManager
-from pulsenet.security.blockchain import BlackBoxLedger, Block
+from pulsenet.security.blockchain import BlackBoxLedger
 from pulsenet.security.audit import AuditLogger
 
 
@@ -69,7 +66,7 @@ class TestBlockchain:
 
     @pytest.fixture
     def ledger(self, temp_dir):
-        return BlackBoxLedger(chain_file=str(temp_dir / "test_chain.json"))
+        return BlackBoxLedger(storage_path=str(temp_dir / "test_chain.json"))
 
     def test_genesis_block(self, ledger):
         assert len(ledger.chain) == 1
@@ -77,7 +74,9 @@ class TestBlockchain:
         assert ledger.chain[0].data == "GENESIS_BLOCK_ENGINE_START"
 
     def test_add_entry(self, ledger):
-        hash_val = ledger.add_entry(unit_id=1, cycles=100, health_score=85.5, status="OPTIMAL")
+        hash_val = ledger.add_entry(
+            unit_id=1, cycles=100, health_score=85.5, status="OPTIMAL"
+        )
         assert len(hash_val) == 64  # SHA-256 hex
         assert len(ledger.chain) == 2
 
@@ -91,7 +90,12 @@ class TestBlockchain:
     def test_tamper_detection(self, ledger):
         ledger.add_entry(1, 100, 85.5, "OPTIMAL")
         # Tamper with data
-        ledger.chain[1].data = {"unit_id": 1, "cycles": 999, "health_score": 0, "status": "FAKE"}
+        ledger.chain[1].data = {
+            "unit_id": 1,
+            "cycles": 999,
+            "health_score": 0,
+            "status": "FAKE",
+        }
         is_valid, msg = ledger.validate_integrity()
         assert not is_valid
         tampered = ledger.detect_tampering()
@@ -106,6 +110,7 @@ class TestBlockchain:
         file = str(temp_dir / "persist_chain.json")
         l1 = BlackBoxLedger(file)
         l1.add_entry(1, 100, 85.5, "OPTIMAL")
+        l1.save_chain()  # explicit save due to flush_interval memory buffering
         hash1 = l1.chain[1].hash
 
         l2 = BlackBoxLedger(file)
@@ -135,8 +140,10 @@ class TestAuditLogger:
 
     def test_log_access(self, audit):
         hash_val = audit.log_access(
-            endpoint="/predict", method="POST",
-            user="admin", role="admin",
+            endpoint="/predict",
+            method="POST",
+            user="admin",
+            role="admin",
         )
         assert len(hash_val) == 64
 

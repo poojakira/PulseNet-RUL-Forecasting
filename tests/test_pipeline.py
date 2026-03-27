@@ -4,9 +4,6 @@ Integration tests for the full pipeline.
 
 from __future__ import annotations
 
-import asyncio
-import numpy as np
-import pandas as pd
 import pytest
 
 from pulsenet.pipeline.preprocessing import (
@@ -25,7 +22,8 @@ class TestPreprocessing:
         df = compute_rolling_features(sample_sensor_data.copy(), window=3)
         rolling_cols = [c for c in df.columns if "rolling" in c]
         assert len(rolling_cols) > 0
-        assert not df[rolling_cols].isna().all().any()
+        for col in rolling_cols:
+            assert not df[col].isna().all()
 
     def test_normalize(self, sample_features):
         feat_cols = get_feature_columns(sample_features)
@@ -62,6 +60,7 @@ class TestStreamingQueue:
     @pytest.mark.asyncio
     async def test_put_get(self):
         from pulsenet.streaming.queue import AsyncStreamQueue
+
         q = AsyncStreamQueue(max_size=10)
         await q.put({"sensor": 0.5})
         item = await q.get()
@@ -70,6 +69,7 @@ class TestStreamingQueue:
     @pytest.mark.asyncio
     async def test_backpressure(self):
         from pulsenet.streaming.queue import AsyncStreamQueue
+
         q = AsyncStreamQueue(max_size=10, backpressure_threshold=0.5)
         for i in range(6):
             await q.put({"i": i})
@@ -78,6 +78,7 @@ class TestStreamingQueue:
     @pytest.mark.asyncio
     async def test_drain_batch(self):
         from pulsenet.streaming.queue import AsyncStreamQueue
+
         q = AsyncStreamQueue(max_size=100)
         for i in range(20):
             await q.put({"i": i})
@@ -87,6 +88,7 @@ class TestStreamingQueue:
     @pytest.mark.asyncio
     async def test_metrics(self):
         from pulsenet.streaming.queue import AsyncStreamQueue
+
         q = AsyncStreamQueue(max_size=10)
         await q.put({"data": 1})
         await q.get()
@@ -100,9 +102,11 @@ class TestConfigAndLogging:
 
     def test_config_loads(self):
         from pulsenet.config import cfg
+
         assert hasattr(cfg, "system") or cfg.__class__.__name__ == "SimpleNamespace"
 
     def test_logger(self):
         from pulsenet.logger import get_logger
+
         log = get_logger("test_logger", level="DEBUG", fmt="text")
         log.info("Test message")  # Should not raise
