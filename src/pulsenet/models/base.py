@@ -29,6 +29,14 @@ class BaseAnomalyModel(ABC):
         """Return continuous anomaly scores (higher = more anomalous)."""
 
     @abstractmethod
+    def decision_function(self, X: np.ndarray | Any) -> np.ndarray:
+        """Return raw decision function/reconstruction error."""
+
+    @abstractmethod
+    def health_index(self, X: np.ndarray | Any) -> np.ndarray:
+        """Convert scores to 0-100 health index."""
+
+    @abstractmethod
     def save(self, path: Path | str) -> None:
         """Persist model to disk."""
 
@@ -45,9 +53,9 @@ class BaseAnomalyModel(ABC):
         scores = self.score(X)
 
         metrics: dict[str, float] = {
-            "f1": float(f1_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
-            "precision": float(precision_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
-            "recall": float(recall_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
+            "f1": float(f1_score(y_true, y_pred, zero_division=0)),  # type: ignore
+            "precision": float(precision_score(y_true, y_pred, zero_division=0)),  # type: ignore
+            "recall": float(recall_score(y_true, y_pred, zero_division=0)),  # type: ignore
         }
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, scores))

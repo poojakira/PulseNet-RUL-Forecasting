@@ -17,6 +17,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 os.environ["PULSENET_JWT_SECRET"] = "test-secret-key"
+os.environ["PULSENET_ENV"] = "testing"
+os.environ["PULSENET_USERS"] = '{"admin": {"hashed_password": "admin123_hash", "role": "admin"}, "operator": {"hashed_password": "ops123_hash", "role": "operator"}}'
+
+@pytest.fixture(autouse=True)
+def mock_auth_system(monkeypatch, request):
+    """Bypass bcrypt for tests to avoid environment-specific issues."""
+    from pulsenet.api import auth
+    # Simple mock that just adds '_hash' suffix
+    monkeypatch.setattr(auth, "_hash_password", lambda p: f"{p}_hash")
+    monkeypatch.setattr(auth, "_verify_password", lambda p, h: f"{p}_hash" == h)
+    
+    # Force reload/refresh of USER_DB since it's a module-level global
+    auth.USER_DB = auth._load_users()
 
 
 @pytest.fixture

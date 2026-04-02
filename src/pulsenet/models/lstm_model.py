@@ -143,7 +143,8 @@ class LSTMModel(BaseAnomalyModel):
 
         # Use explicit device type for GradScaler
         device_type = "cuda" if self.device.type == "cuda" else "cpu"
-        scaler = torch.cuda.amp.GradScaler()  # type: ignore
+        device = next(self.model.parameters()).device
+        scaler = torch.amp.GradScaler("cuda" if device.type == "cuda" else "cpu")  # type: ignore
 
         self.model.train()
         for epoch in range(self.epochs):
@@ -155,7 +156,7 @@ class LSTMModel(BaseAnomalyModel):
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
 
-                with torch.cuda.amp.autocast():  # type: ignore
+                with torch.autocast(device_type=("cuda" if device.type == "cuda" else "cpu")):
                     output = self.model(batch)
                     loss = criterion(output, batch)
 
@@ -203,6 +204,20 @@ class LSTMModel(BaseAnomalyModel):
         """Reconstruction error as anomaly score."""
         return self._compute_errors(X)
 
+    def decision_function(self, X: np.ndarray) -> np.ndarray:
+        """Raw reconstruction error (higher = more anomalous)."""
+        return self._compute_errors(X)
+
+    def health_index(self, X: np.ndarray) -> np.ndarray:
+        """Convert reconstruction error to 0-100 health index."""
+        errors = self._compute_errors(X)
+        if self.threshold is None or self.threshold == 0:
+            return np.full_like(errors, 100.0)
+        
+        # Mapping: 0 error -> 100%, threshold -> 50%, 2*threshold -> 0%
+        health = np.clip(100 * (1 - (errors / (self.threshold * 2))), 0, 100)
+        return health
+
     def _compute_errors(self, X: np.ndarray) -> np.ndarray:
         self._ensure_model()
         if X.ndim != 3:
@@ -210,7 +225,8 @@ class LSTMModel(BaseAnomalyModel):
                 f"LSTM expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
             )
 
-        assert self.model is not None
+        if self.model is None:
+            raise RuntimeError("Model is missing after validation.")
         self.model.eval()
         with torch.no_grad():
             tensor = torch.FloatTensor(X).to(self.device)
@@ -229,7 +245,8 @@ class LSTMModel(BaseAnomalyModel):
     def save(self, path: Union[Path, str]) -> None:
         """Persist model and state to disk."""
         self._ensure_model()
-        assert self.model is not None
+        if self.model is None:
+            raise RuntimeError("Model is missing after validation.")
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)

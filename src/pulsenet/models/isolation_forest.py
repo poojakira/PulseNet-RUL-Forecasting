@@ -34,17 +34,21 @@ class IsolationForestModel(BaseAnomalyModel):
 
     def __init__(
         self,
-        n_estimators: int = 200,
-        contamination: float = 0.05,
-        max_samples: Union[float, str] = 0.8,
-        random_state: int = 42,
+        n_estimators: Optional[int] = None,
+        contamination: Optional[float] = None,
+        max_samples: Optional[Union[float, str]] = None,
+        random_state: Optional[int] = None,
         threshold: Optional[float] = None,
     ):
+        from pulsenet.config import cfg
+        
+        # Pull from config if not explicitly provided
+        conf = cfg.models.isolation_forest
         self.params: dict[str, Any] = {
-            "n_estimators": n_estimators,
-            "contamination": contamination,
-            "max_samples": max_samples,
-            "random_state": random_state,
+            "n_estimators": n_estimators or conf.n_estimators,
+            "contamination": contamination or conf.contamination,
+            "max_samples": max_samples or conf.max_samples,
+            "random_state": random_state or conf.random_state,
         }
         self.threshold = threshold
         self.model: Any = None
