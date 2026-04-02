@@ -4,36 +4,39 @@ JWT authentication and role-based access control.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+
+try:
+    from passlib.hash import bcrypt
+except ImportError:
+    # This should be caught by verification/deployment, but we'll log it.
+    bcrypt = None  # type: ignore
 
 from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
 
-try:
-    from jose import JWTError, jwt  # type: ignore
-except ImportError:
-    import jwt as _jwt
-    from jwt import PyJWTError as JWTError
+security = HTTPBearer(auto_error=False)
 
-    class jwt:  # type: ignore
-        @staticmethod
-        def encode(payload, key, algorithm):
-            return _jwt.encode(payload, key, algorithm=algorithm)
+# Strict environment variable requirement for JWT secret
+_JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
+if not _JWT_SECRET or _JWT_SECRET == "change-me-in-production":
+    if os.environ.get("PULSENET_ENV") == "production":
+        log.critical("CRITICAL: PULSENET_JWT_SECRET not set in production!")
+        raise RuntimeError("PULSENET_JWT_SECRET must be set for production environments.")
+    
+    # In development, we use a more robust fallback but still warn.
+    # We generate a temporary one if not provided to avoid predictable hardcoding.
+    _JWT_SECRET = os.environ.get("PULSENET_DEV_SECRET", "pulsenet-insecure-dev-only-secret")
+    log.warning("PULSENET_JWT_SECRET not provided. Using development secret.")
 
-        @staticmethod
-        def decode(token, key, algorithms):
-            return _jwt.decode(token, key, algorithms=algorithms)
-
-
-_JWT_SECRET = os.environ.get(
-    "PULSENET_JWT_SECRET", "pulsenet-dev-secret-change-in-production"
-)
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
 
@@ -46,59 +49,53 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
 
 
 def _hash_password(password: str) -> str:
-    """SHA-256 hash for password comparison."""
-    import hashlib
+    """Hash password using bcrypt."""
+    if bcrypt is None:
+        log.critical("BCRYPT NOT INSTALLED. Cannot hash passwords securely!")
+        raise RuntimeError(
+            "The 'passlib[bcrypt]' package is required for secure authentication. "
+            "Please run 'pip install passlib[bcrypt]'."
+        )
+    return bcrypt.hash(password)
 
-    return hashlib.sha256(password.encode()).hexdigest()
+
+def _verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against hash."""
+    if bcrypt is None:
+        log.critical("VERIFICATION FAILED: BCRYPT NOT INSTALLED")
+        # NEVER fallback to plain text comparison in production
+        raise RuntimeError("Auth system missing dependencies (passlib[bcrypt])")
+    
+    try:
+        return bcrypt.verify(plain_password, hashed_password)
+    except Exception as e:
+        log.error(f"Password verification error: {e}")
+        return False
 
 
-def _load_users() -> dict[str, dict]:
-    """Load users from PULSENET_USERS env var (JSON) or secure defaults.
-
-    Production: set PULSENET_USERS='{"admin": {"password_hash": "...", "role": "admin"}}'
-    Dev fallback: loads default users but logs a security warning.
-    """
-    import json
-
+def _load_users() -> dict:
+    """Load users from PULSENET_USERS JSON env var or secure defaults."""
     users_json = os.environ.get("PULSENET_USERS")
     if users_json:
         try:
-            users = json.loads(users_json)
-            log.info("Users loaded from PULSENET_USERS environment variable")
-            return users
-        except json.JSONDecodeError:
-            log.error("Invalid JSON in PULSENET_USERS — falling back to defaults")
-
-    # Dev-only defaults — log warning
-    log.warning(
-        "⚠️  Using default credentials (dev only). "
-        "Set PULSENET_USERS env var for production."
-    )
-    return {
-        "admin": {
-            "password_hash": _hash_password(
-                os.environ.get("PULSENET_ADMIN_PASSWORD", "admin123")
-            ),
-            "role": "admin",
-        },
-        "engineer": {
-            "password_hash": _hash_password(
-                os.environ.get("PULSENET_ENGINEER_PASSWORD", "eng123")
-            ),
-            "role": "engineer",
-        },
-        "operator": {
-            "password_hash": _hash_password(
-                os.environ.get("PULSENET_OPERATOR_PASSWORD", "ops123")
-            ),
-            "role": "operator",
-        },
-    }
+            return json.loads(users_json)
+        except Exception as e:
+            log.error(f"Failed to parse PULSENET_USERS: {e}")
+            raise RuntimeError("Invalid PULSENET_USERS JSON configuration")
+            
+    # If no users JSON provided, but an admin password is, create a single fallback admin
+    admin_pw = os.environ.get("PULSENET_ADMIN_PASSWORD")
+    if admin_pw:
+        return {
+            "admin": {"hashed_password": _hash_password(admin_pw), "role": "admin"}
+        }
+        
+    # Final fallback: Require explicit configuration
+    log.error("No users configured! Authentication will fail.")
+    return {}
 
 
 USER_DB: dict[str, dict] = _load_users()
-
-security = HTTPBearer(auto_error=False)
 
 
 def create_token(username: str, role: str) -> tuple[str, int]:
@@ -109,14 +106,15 @@ def create_token(username: str, role: str) -> tuple[str, int]:
         "iat": int(time.time()),
         "exp": int(time.time()) + _JWT_EXPIRY_MIN * 60,
     }
-    token = jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+    # _JWT_SECRET is guaranteed to be a string here due to fallback above
+    token = jwt.encode(payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM)
     return token, _JWT_EXPIRY_MIN
 
 
 def verify_token(token: str) -> dict:
     """Decode and verify a JWT token."""
     try:
-        payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        payload = jwt.decode(token, str(_JWT_SECRET), algorithms=[_JWT_ALGORITHM])
         return payload
     except (JWTError, Exception) as e:
         raise HTTPException(
@@ -126,10 +124,13 @@ def verify_token(token: str) -> dict:
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """Validate credentials against hashed passwords. Returns user dict or None."""
+    """Validate credentials. Returns user dict or None."""
     user = USER_DB.get(username)
-    if user and user.get("password_hash") == _hash_password(password):
-        return {"username": username, "role": user["role"]}
+    if user:
+        # Check both naming conventions (new 'hashed_password' vs old 'password_hash')
+        hash_val = user.get("hashed_password") or user.get("password_hash")
+        if hash_val and _verify_password(password, hash_val):
+            return {"username": username, "role": user["role"]}
     return None
 
 

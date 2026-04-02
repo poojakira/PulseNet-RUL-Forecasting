@@ -67,7 +67,12 @@ class EncryptionManager:
         self._key_source = "generated"
         key = Fernet.generate_key()
         try:
+            self.key_file.parent.mkdir(parents=True, exist_ok=True)
             self.key_file.write_bytes(key)
+            try:
+                os.chmod(self.key_file, 0o600)
+            except Exception:
+                pass  # Best effort on Windows
             log.info(
                 "New encryption key generated and saved",
                 extra={"file": str(self.key_file)},
@@ -88,6 +93,10 @@ class EncryptionManager:
 
         new_key = Fernet.generate_key()
         self.key_file.write_bytes(new_key)
+        try:
+            os.chmod(self.key_file, 0o600)
+        except Exception:
+            pass  # Ignore on Windows or filesystems that don't support chmod
         self._key = new_key
         self._cipher = Fernet(new_key)
         log.info("Key rotated successfully", extra={"backup": str(old_backup)})
@@ -153,7 +162,8 @@ class EncryptionManager:
         """Decrypt a single cell to float (streaming use-case)."""
         try:
             return float(self.decrypt(val))
-        except (ValueError, TypeError, Exception):
+        except (ValueError, TypeError, Exception) as e:
+            log.debug(f"Cell decryption failed: {e}")
             return 0.0
 
     # ------------------------------------------------------------------

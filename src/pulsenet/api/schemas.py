@@ -32,6 +32,7 @@ class SensorInput(BaseModel):
 
 class BatchSensorInput(BaseModel):
     """Batch of sensor readings."""
+    model_config = {"protected_namespaces": ()}
 
     readings: list[SensorInput]
     model_name: str = Field(default="isolation_forest", description="Model to use")
@@ -39,6 +40,7 @@ class BatchSensorInput(BaseModel):
 
 class TrainRequest(BaseModel):
     """Training configuration request."""
+    model_config = {"protected_namespaces": ()}
 
     model_name: str = Field(default="isolation_forest")
     tune: bool = Field(default=False, description="Run hyperparameter tuning")
@@ -59,6 +61,7 @@ class TokenRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Single prediction result."""
+    model_config = {"protected_namespaces": ()}
 
     prediction: int = Field(..., description="0=Normal, 1=Anomaly")
     health_index: float = Field(..., description="Health score 0-100%")
@@ -69,6 +72,7 @@ class PredictionResponse(BaseModel):
 
 class BatchPredictionResponse(BaseModel):
     """Batch prediction results."""
+    model_config = {"protected_namespaces": ()}
 
     predictions: list[PredictionResponse]
     total: int
@@ -78,6 +82,7 @@ class BatchPredictionResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """System health status."""
+    model_config = {"protected_namespaces": ()}
 
     status: str = Field(..., description="healthy/degraded/unhealthy")
     version: str
@@ -96,6 +101,7 @@ class HealthResponse(BaseModel):
 
 class TrainResponse(BaseModel):
     """Training result."""
+    model_config = {"protected_namespaces": ()}
 
     model: str
     version: str

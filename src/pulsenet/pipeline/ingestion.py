@@ -16,7 +16,7 @@ from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
 
-# Standard C-MAPSS column names
+# standard columns as defined in NASA FD001 (unit, cycle, 3 settings, 21 sensors)
 CMAPSS_COLUMNS: list[str] = [
     "unit_number",
     "time_in_cycles",
@@ -24,20 +24,6 @@ CMAPSS_COLUMNS: list[str] = [
     "op_setting_2",
     "op_setting_3",
 ] + [f"sensor_{i}" for i in range(1, 22)]
-
-# Sensors known to be flat / noisy in FD001
-DEFAULT_DROP_COLS: list[str] = [
-    "op_setting_1",
-    "op_setting_2",
-    "op_setting_3",
-    "sensor_1",
-    "sensor_5",
-    "sensor_6",
-    "sensor_10",
-    "sensor_16",
-    "sensor_18",
-    "sensor_19",
-]
 
 
 def load_raw(filepath: Union[str, Path]) -> pd.DataFrame:
@@ -123,7 +109,7 @@ def drop_noisy_columns(
     drop_cols: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Drop constant/noisy columns."""
-    cols = drop_cols or DEFAULT_DROP_COLS
+    cols = drop_cols or []
 
     try:
         to_drop = [c for c in cols if c in df.columns]
@@ -143,10 +129,19 @@ def ingest(
     drop_cols: Optional[list[str]] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Full ingestion: load + clean both train and test sets."""
+    # Production-grade: pull from dynamic configuration if NOT provided via argument
+    if drop_cols is None:
+        from pulsenet.config import cfg
+        drop_cols = cfg.data.drop_sensors + cfg.data.drop_settings
+
     train_df = drop_noisy_columns(load_raw(train_path), drop_cols)
     test_df = drop_noisy_columns(load_raw(test_path), drop_cols)
     log.info(
         "Ingestion complete",
-        extra={"train_rows": len(train_df), "test_rows": len(test_df)},
+        extra={
+            "train_rows": len(train_df),
+            "test_rows": len(test_df),
+            "dropped_count": len(drop_cols),
+        },
     )
     return train_df, test_df

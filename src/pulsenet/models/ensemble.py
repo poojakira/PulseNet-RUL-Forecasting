@@ -96,6 +96,15 @@ class EnsembleModel(BaseAnomalyModel):
         stacked = np.column_stack(all_scores)  # (N, num_models)
         return np.average(stacked, axis=1, weights=self.weights)
 
+    def decision_function(self, X: np.ndarray | Any) -> np.ndarray:
+        """Raw decision function — returns weighted anomaly scores."""
+        return self.score(X)
+
+    def health_index(self, X: np.ndarray | Any) -> np.ndarray:
+        """Convert ensemble scores to 0-100 health index."""
+        scores = self.score(X)
+        return np.clip(100 * (1 - scores), 0, 100)
+
     def save(self, path: Path | str) -> None:
         """Save all sub-models and ensemble config."""
         path = Path(path)

@@ -92,8 +92,9 @@ async def health_check():
     ledger = _health_refs.get("ledger")
 
     models_available = registry.available_models if registry else []
-    chain_len = len(ledger.chain) if ledger else 0
-    chain_valid = ledger.validate_integrity()[0] if ledger else False
+    ledger_metrics = ledger.get_metrics() if ledger else {}
+    chain_len = ledger_metrics.get("total_blocks_global", 0)
+    chain_valid = ledger_metrics.get("chain_valid", False)
 
     return HealthResponse(
         status="healthy" if model_loaded else "degraded",

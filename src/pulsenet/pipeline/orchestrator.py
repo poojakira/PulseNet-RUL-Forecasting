@@ -10,19 +10,28 @@ from pathlib import Path
 from typing import Any, Optional, cast
 
 import joblib
+import numpy as np
 import pandas as pd
 
 from pulsenet.config import cfg
 from pulsenet.core.exceptions import DataError, ModelError, PulseNetError
 from pulsenet.logger import get_logger
 from pulsenet.models.registry import ModelRegistry
+from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.pipeline.ingestion import ingest, load_rul
 from pulsenet.pipeline.preprocessing import (create_labels, create_sequences,
-                                             get_feature_columns,
-                                             preprocess_pipeline)
+                                             get_feature_columns)
 from pulsenet.security.blockchain import BlackBoxLedger
+from pulsenet.security.encryption import EncryptionManager
 
 log = get_logger(__name__)
+
+# Hardened feature selection: drop noisy sensors identified in research
+DROP_COLS = [
+    "op_setting_1", "op_setting_2", "op_setting_3",
+    "sensor_1", "sensor_5", "sensor_6", "sensor_10",
+    "sensor_16", "sensor_18", "sensor_19"
+]
 
 
 class PipelineOrchestrator:
@@ -32,6 +41,8 @@ class PipelineOrchestrator:
         self.data_dir = Path(data_dir)
         self.ledger = BlackBoxLedger()
         self.registry = ModelRegistry()
+        self.encryption = EncryptionManager()
+        self.feature_registry = FeatureRegistry(rolling_window=cfg.data.rolling_window)
         self.train_df: Optional[pd.DataFrame] = None
         self.test_df: Optional[pd.DataFrame] = None
         self.rul: Optional[pd.Series] = None
@@ -53,28 +64,42 @@ class PipelineOrchestrator:
         except Exception as e:
             raise DataError(f"Ingestion failed: {e}") from e
 
-    def run_preprocessing(self) -> None:
-        """Stage 2: Feature engineering + normalization."""
         try:
             log.info("Stage 2 — Preprocessing")
             if self.train_df is None or self.test_df is None:
                 raise DataError("Run ingestion first")
 
-            window = cfg.data.rolling_window
-            self.train_df, self.test_df, self.scaler = preprocess_pipeline(
-                self.train_df, self.test_df, rolling_window=window
-            )
+            self.train_df = self.feature_registry.process_offline(self.train_df)
+            self.test_df = self.feature_registry.process_offline(self.test_df)
+            
+            self.scaler = self.feature_registry.fit_scaler(self.train_df)
+            # Apply scaling to both
+            cols = self.feature_registry.feature_cols
+            self.train_df[cols] = self.scaler.transform(self.train_df[cols])
+            self.test_df[cols] = self.scaler.transform(self.test_df[cols])
 
             # Save features for downstream
             self.train_df.to_csv(self.data_dir / "train_features.csv", index=False)
             self.test_df.to_csv(self.data_dir / "test_features.csv", index=False)
 
+            # Secure storage: Save encrypted versions
+            log.info("Saving encrypted features for secure at-rest storage")
+            train_enc = self.encryption.encrypt_dataframe(self.train_df)
+            test_enc = self.encryption.encrypt_dataframe(self.test_df)
+            train_enc.to_csv(self.data_dir / "train_features_enc.csv", index=False)
+            test_enc.to_csv(self.data_dir / "test_features_enc.csv", index=False)
+
             models_dir = self.data_dir / "models"
             models_dir.mkdir(exist_ok=True)
             scaler_path = models_dir / "scaler.joblib"
+            registry_path = models_dir / "feature_registry.joblib"
+            
             joblib.dump(self.scaler, scaler_path)
+            joblib.dump(self.feature_registry.save_config(), registry_path)
+            
             log.info(
-                "Features and scaler saved", extra={"scaler_path": str(scaler_path)}
+                "Features, scaler and registry saved", 
+                extra={"scaler_path": str(scaler_path), "registry_path": str(registry_path)}
             )
         except Exception as e:
             raise DataError(f"Preprocessing failed: {e}") from e
@@ -99,10 +124,10 @@ class PipelineOrchestrator:
             # Format inputs mathematically (sequence vs generic matrix)
             if model_name in ("lstm", "transformer"):
                 X_train = create_sequences(
-                    healthy_data, feat_cols, seq_len=cfg.models.lstm.sequence_length
+                    cast(pd.DataFrame, healthy_data), feat_cols, seq_len=cfg.models.lstm.sequence_length
                 )
             else:
-                X_train = healthy_data[feat_cols].to_numpy()
+                X_train = np.asarray(healthy_data[feat_cols])
 
             t0 = time.perf_counter()
             model.train(X_train)  # type: ignore
@@ -242,7 +267,7 @@ class PipelineOrchestrator:
             return results
         except PulseNetError as e:
             log.error(
-                f"Pipeline failed: {e.message}", extra={"error_code": e.error_code}
+                f"Pipeline failed: {e}", extra={"error_code": getattr(e, 'error_code', 'PIPELINE_ERROR')}
             )
             return {}
         except Exception as e:

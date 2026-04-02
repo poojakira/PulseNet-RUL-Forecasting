@@ -13,6 +13,7 @@ Production features:
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 import time
 import uuid
@@ -27,14 +28,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from pulsenet.api.auth import authenticate_user, create_token
+from pulsenet.api.middleware.tenant import TenantMiddleware
 from pulsenet.api.routes import audit, health, predict, train
 from pulsenet.api.routes.audit import set_audit_refs
 from pulsenet.api.routes.health import set_health_refs
 from pulsenet.api.routes.predict import set_model_cache
 from pulsenet.api.routes.train import set_pipeline_ref
 from pulsenet.api.schemas import TokenRequest, TokenResponse
+from pulsenet.config import cfg
 from pulsenet.logger import get_logger
 from pulsenet.models.registry import ModelRegistry
+from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 from pulsenet.security.blockchain import BlackBoxLedger
 
@@ -64,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     registry = ModelRegistry()
     ledger = BlackBoxLedger()
     pipeline = PipelineOrchestrator()
+    feature_registry = FeatureRegistry(rolling_window=cfg.data.rolling_window)
 
     from pulsenet.api.routes.predict import batcher
 
@@ -104,8 +109,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         {
             "model": model if model_loaded else None,
             "model_name": "isolation_forest",
-            "feature_names": feature_names,
+            "registry": feature_registry,
             "scaler": scaler,
+            "ledger": ledger,
+            # For Gap 2 (Shadow Mode), let's pre-load the LSTM if it exists as shadow
+            "shadow_model": None, # For now, can be populated if lstm.joblib exists
+            "shadow_model_name": "lstm"
         }
     )
     set_pipeline_ref({"pipeline": pipeline})
@@ -157,14 +166,28 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
+    # CORS Hardware Security: Pull from Config (No wildcards in production)
+    origins = cfg.api.cors_origins
+    is_production = os.environ.get("PULSENET_ENV") == "production"
+    
+    if not origins:
+        log.warning("No CORS_ORIGINS configured! Defaulting to empty list.")
+        origins = []
+    elif "*" in origins and is_production:
+        log.critical("SECURITY VIOLATION: Wildcard CORS '*' detected in production!")
+        # Fallback to a safe empty list if misconfigured in production
+        origins = []
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
     )
+
+    # --- Multi-Tenancy middleware ---
+    app.add_middleware(TenantMiddleware)
 
     # --- Request Correlation ID middleware ---
     @app.middleware("http")
@@ -228,11 +251,17 @@ def create_app() -> FastAPI:
         request: Request, exc: Exception
     ) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "unknown")
-        log.error(f"Unhandled exception: {exc}", extra={"request_id": request_id})
+        log.error(f"Unhandled exception: {exc}", extra={"request_id": request_id}, exc_info=True)
+        
+        # In production, we mask the actual exception message to avoid leaking internals
+        detail = "An internal server error occurred."
+        if getattr(cfg.system, "debug", False):
+            detail = str(exc)
+            
         return JSONResponse(
             status_code=500,
             content={
-                "detail": str(exc),
+                "detail": detail,
                 "error_code": "INTERNAL_ERROR",
                 "request_id": request_id,
             },
@@ -266,10 +295,6 @@ def create_app() -> FastAPI:
 
     # Mount versioned API
     app.mount("/api/v1", api_v1)
-
-    # Also keep routes at root for backward compatibility
-    app.include_router(predict.router)
-    app.include_router(train.router)
 
     return app
 
