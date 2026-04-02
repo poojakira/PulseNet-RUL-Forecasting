@@ -1,12 +1,10 @@
 # ============================================================
-# PulseNet — Docker Compose (API + Dashboard + Streaming)
+# PulseNet — Industrial Docker Compose Stack
 # ============================================================
-# Usage: docker-compose up --build
-
 version: "3.9"
 
 services:
-  # --- FastAPI Backend ---
+  # --- FastAPI Inference Server ---
   api:
     build: .
     container_name: pulsenet-api
@@ -14,16 +12,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./models:/app/models
-      - ./outputs:/app/outputs
+      - .:/app
     environment:
-      - PULSENET_JWT_SECRET=change-me-in-production
-      - PULSENET_ENCRYPTION_KEY=
+      - PULSENET_JWT_SECRET=production-secret-99
+      - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
       - PYTHONPATH=/app/src
-      - NCCL_DEBUG=INFO
-      - NVIDIA_VISIBLE_DEVICES=all
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
     deploy:
       resources:
         reservations:
@@ -36,69 +29,27 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - pulsenet-back
     restart: unless-stopped
 
-  # --- Streamlit Dashboard ---
+  # --- Streamlit Operational Dashboard ---
   dashboard:
     build: .
     container_name: pulsenet-dashboard
-    command: streamlit run src/pulsenet/dashboard/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    command: streamlit run src/pulsenet/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
     volumes:
-      - ./data:/app/data
-      - ./models:/app/models
-      - ./outputs:/app/outputs
+      - .:/app
     environment:
       - PYTHONPATH=/app/src
-      - NVIDIA_VISIBLE_DEVICES=all
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     depends_on:
       api:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  # --- Streaming Worker ---
-  streaming:
-    build: .
-    container_name: pulsenet-streaming
-    command: python main_pipeline.py --mode stream
-    volumes:
-      - ./data:/app/data
-      - ./models:/app/models
-    environment:
-      - PYTHONPATH=/app/src
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NCCL_DEBUG=INFO
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    depends_on:
-      api:
-        condition: service_healthy
-      mlflow:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "main_pipeline.py"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
+    networks:
+      - pulsenet-front
+      - pulsenet-back
     restart: unless-stopped
 
   # --- MLflow Tracking Server ---
@@ -114,6 +65,11 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./data:/app/data
       - ./mlruns:/mlruns
+    networks:
+      - pulsenet-back
     restart: unless-stopped
+
+networks:
+  pulsenet-front:
+  pulsenet-back:
