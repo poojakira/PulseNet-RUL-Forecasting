@@ -16,12 +16,12 @@ from pulsenet.logger import get_logger
 log = get_logger(__name__)
 
 try:
-    from jose import JWTError, jwt
+    from jose import JWTError, jwt  # type: ignore
 except ImportError:
-    from jwt import PyJWTError as JWTError
     import jwt as _jwt
+    from jwt import PyJWTError as JWTError
 
-    class jwt:  # type: ignore[no-redef]
+    class jwt:  # type: ignore
         @staticmethod
         def encode(payload, key, algorithm):
             return _jwt.encode(payload, key, algorithm=algorithm)

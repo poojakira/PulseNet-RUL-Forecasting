@@ -103,7 +103,7 @@ class TestConfigAndLogging:
     def test_config_loads(self):
         from pulsenet.config import cfg
 
-        assert hasattr(cfg, "system") or cfg.__class__.__name__ == "SimpleNamespace"
+        assert hasattr(cfg, "data") or cfg.__class__.__name__ == "SimpleNamespace"
 
     def test_logger(self):
         from pulsenet.logger import get_logger

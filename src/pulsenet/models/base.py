@@ -38,20 +38,16 @@ class BaseAnomalyModel(ABC):
 
     def evaluate(self, X: np.ndarray, y_true: np.ndarray) -> dict:
         """Compute standard classification metrics."""
-        from sklearn.metrics import (
-            f1_score,
-            precision_score,
-            recall_score,
-            roc_auc_score,
-        )
+        from sklearn.metrics import (f1_score, precision_score, recall_score,
+                                     roc_auc_score)
 
         y_pred = self.predict(X)
         scores = self.score(X)
 
         metrics: dict[str, float] = {
-            "f1": float(f1_score(y_true, y_pred, zero_division=0)),
-            "precision": float(precision_score(y_true, y_pred, zero_division=0)),
-            "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+            "f1": float(f1_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
+            "precision": float(precision_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
+            "recall": float(recall_score(y_true, y_pred, zero_division=0.0)),  # type: ignore
         }
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, scores))

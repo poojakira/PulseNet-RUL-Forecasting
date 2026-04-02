@@ -1,3 +1,4 @@
+# pyright: reportGeneralTypeIssues=false
 """
 Structured logging module for PulseNet.
 
@@ -11,9 +12,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 
 class _JSONFormatter(logging.Formatter):
@@ -76,25 +78,39 @@ class _TextFormatter(logging.Formatter):
         return f"{color}{ts} [{record.levelname:<8}]{self.RESET} {record.name}: {record.getMessage()}"
 
 
-def get_logger(name: str, level: str = "INFO", fmt: str = "text") -> logging.Logger:
+def get_logger(
+    name: str, level: Optional[str] = None, fmt: Optional[str] = None
+) -> logging.Logger:
     """Return a configured logger.
 
     Parameters
     ----------
     name : str
         Logger name (typically ``__name__``).
-    level : str
-        Log level (DEBUG, INFO, WARNING, ERROR).
-    fmt : str
+    level : str, optional
+        Log level (DEBUG, INFO, WARNING, ERROR). Env: PULSENET_LOG_LEVEL.
+    fmt : str, optional
         ``"json"`` for structured output, ``"text"`` for dev.
+        Automatically becomes "json" if PULSENET_ENV="production".
     """
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger  # already configured
 
-    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    # Resolve level
+    env_level = os.environ.get("PULSENET_LOG_LEVEL", "INFO").upper()
+    log_level = level.upper() if level else env_level
+    logger.setLevel(getattr(logging, log_level, logging.INFO))
+
+    # Resolve format
+    env_mode = os.environ.get("PULSENET_ENV", "development").lower()
+    if fmt is None:
+        log_format = "json" if env_mode == "production" else "text"
+    else:
+        log_format = fmt.lower()
+
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(_JSONFormatter() if fmt == "json" else _TextFormatter())
+    handler.setFormatter(_JSONFormatter() if log_format == "json" else _TextFormatter())
     logger.addHandler(handler)
     logger.propagate = False
     return logger

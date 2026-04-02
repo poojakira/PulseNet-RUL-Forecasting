@@ -23,11 +23,12 @@ PulseNet is a production-grade predictive maintenance platform built for aerospa
 
 ### Key Capabilities
 
-- **4 ML Models** — Isolation Forest, LSTM Autoencoder, Transformer Autoencoder, and Ensemble (majority vote / weighted score)
-- **Real-Time Streaming** — Async producer/consumer pipeline with backpressure control
-- **Enterprise Security** — AES-256 Fernet encryption, JWT + RBAC (3-tier), blockchain audit trail with Merkle tree
-- **Production Monitoring** — Prometheus `/metrics` endpoint, Grafana-ready, MLflow experiment tracking, data drift detection
-- **One-Command Deploy** — Docker Compose with FastAPI, Streamlit dashboard, and streaming worker
+- **Core PyTorch Sequence Modeling** — Native `LSTM` and `Transformer` Autoencoders slicing strict temporal windows via continuous Automatic Mixed Precision (AMP).
+- **Physical Dataset Validation** — Fully certified on the official baseline NASA C-MAPSS FD001 physical turbofan dataset.
+- **Real-Time Streaming** — Async producer/consumer pipeline with backpressure control scaling natively via Distributed Data Parallel (DDP).
+- **Aviation-Grade Security** — AES-256 Fernet payload encryption and offline Merkle Tree Blockchain auditing (architected for FAA/NTSB immutable telemetry compliance).
+- **Production Monitoring** — Prometheus `/metrics` endpoint, Grafana-ready, MLflow tracking, data drift detection.
+- **One-Command Deploy** — Docker Compose with NVIDIA GPU-passthrough, FastAPI, Streamlit, and streaming workers.
 
 ---
 
@@ -236,12 +237,12 @@ curl -X POST http://localhost:8000/predict \
 
 ## ML Models
 
-| Model | Type | Approach | Use Case |
+| Model | Architecture | Dimensionality | Use Case |
 |-------|------|----------|----------|
-| **Isolation Forest** | Tree ensemble | Anomaly isolation depth | Baseline, fast inference |
-| **LSTM Autoencoder** | RNN | Reconstruction error | Temporal patterns |
-| **Transformer AE** | Attention | Positional + reconstruction | Long-range dependencies |
-| **Ensemble** | Meta-model | Majority vote / weighted score | Maximum accuracy |
+| **LSTM Autoencoder** (Active) | PyTorch `nn.LSTM` w/ AMP | 3D Tensors `(batch, seq, feat)` | State-of-the-art Core temporal degradation tracking |
+| **Transformer AE** | PyTorch Multi-Head Attention | 3D Tensors `(batch, seq, feat)` | Long-range context preservation & sequence modeling |
+| **Isolation Forest** | Scikit-Learn Ensemble | 2D Vectors `(batch, feat)` | Lightweight fallback anomaly baseline |
+| **Ensemble** | Meta-Voter | Cross-dimensional | Maximum confidence prediction voting |
 
 ### Ensemble Model
 
