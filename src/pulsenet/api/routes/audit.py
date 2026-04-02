@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from pulsenet.api.schemas import AuditResponse
 from pulsenet.api.auth import require_permission
+from pulsenet.api.schemas import AuditResponse
 from pulsenet.security.audit import AuditLogger
 
 router = APIRouter(tags=["Audit"])

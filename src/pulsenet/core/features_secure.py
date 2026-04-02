@@ -1,67 +1,90 @@
+# pyright: reportGeneralTypeIssues=false
+"""
+Secure feature engineering for PulseNet.
+Decrypts preprocessed data, applies rolling features and normalization.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import joblib
 import pandas as pd
-from cryptography.fernet import Fernet
 from sklearn.preprocessing import MinMaxScaler
-import os
 
-# 1. LOAD SECURITY KEY
-if not os.path.exists("secret.key"):
-    print("Error: secret.key not found. Run preprocess_secure.py first.")
-else:
-    with open("secret.key", "rb") as f:
-        key = f.read()
-    cipher = Fernet(key)
+from pulsenet.logger import get_logger
+from pulsenet.security.encryption import EncryptionManager
 
-    # 2. DECRYPT DATA
-    def decrypt_df(filename):
-        if not os.path.exists(filename):
-            print(f"Error: {filename} not found.")
-            return pd.DataFrame()
+log = get_logger(__name__)
 
-        df_enc = pd.read_csv(filename)
-        # Decrypt every cell
-        return df_enc.apply(
-            lambda x: x.astype(str).apply(
-                lambda val: cipher.decrypt(val.encode()).decode()
-            )
-        )
+# ---------------------------------------------------------------------------
+# Setup & Security
+# ---------------------------------------------------------------------------
+encryption = EncryptionManager()
 
-    print("Decrypting data (this may take a moment)...")
-    df_train = decrypt_df("preprocessed_train_enc.csv")
-    df_test = decrypt_df("preprocessed_test_enc.csv")
 
-    if not df_train.empty and not df_test.empty:
-        # Convert to float
-        df_train = df_train.astype(float)
-        df_test = df_test.astype(float)
+def engineering_features(
+    input_dir: str = "data/preprocessed",
+    output_dir: str = "data/features",
+    model_dir: str = "models",
+) -> None:
+    """Decrypt data, engineer features, scale, and save."""
+    in_path = Path(input_dir)
+    out_path = Path(output_dir)
+    mod_path = Path(model_dir)
 
-        # 3. ADVANCED FEATURE ENGINEERING
-        # Identify sensor columns (those that are left after dropping noise)
-        sensor_cols = [c for c in df_train.columns if c.startswith("sensor")]
+    out_path.mkdir(parents=True, exist_ok=True)
+    mod_path.mkdir(parents=True, exist_ok=True)
 
-        # Rolling Mean (Smoothing)
-        print("Generating Rolling Features...")
-        for col in sensor_cols:
-            df_train[f"{col}_rolling"] = (
-                df_train[col].rolling(window=5, min_periods=1).mean()
-            )
-            df_test[f"{col}_rolling"] = (
-                df_test[col].rolling(window=5, min_periods=1).mean()
-            )
+    train_file = in_path / "train_enc.csv"
+    test_file = in_path / "test_enc.csv"
 
-        # 4. NORMALIZATION (CRITICAL STEP)
-        # We fit the scaler on TRAIN, but apply it to TEST.
-        scaler = MinMaxScaler()
+    if not train_file.exists() or not test_file.exists():
+        log.error(f"Encrypted source files not found in {in_path}")
+        return
 
-        # Select all feature columns (excluding IDs)
-        feat_cols = [
-            c for c in df_train.columns if c not in ["unit_number", "time_in_cycles"]
-        ]
+    # 1. DECRYPT
+    log.info("Decrypting training and test data...")
+    df_train_enc = pd.read_csv(train_file)
+    df_test_enc = pd.read_csv(test_file)
 
-        df_train[feat_cols] = scaler.fit_transform(df_train[feat_cols])
-        df_test[feat_cols] = scaler.transform(df_test[feat_cols])
+    df_train = encryption.decrypt_dataframe(df_train_enc).astype(float)
+    df_test = encryption.decrypt_dataframe(df_test_enc).astype(float)
 
-        # 5. SAVE FEATURES
-        df_train.to_csv("train_features.csv", index=False)
-        df_test.to_csv("test_features.csv", index=False)
+    # 2. FEATURE ENGINEERING
+    sensor_cols = [c for c in df_train.columns if c.startswith("sensor")]
+    log.info(f"Generating rolling features for {len(sensor_cols)} sensors")
 
-        print("Feature Engineering Complete. Scaled Train and Test files saved.")
+    for col in sensor_cols:
+        rolling_col = f"{col}_rolling"
+        df_train[rolling_col] = df_train[col].rolling(window=5, min_periods=1).mean()
+        df_test[rolling_col] = df_test[col].rolling(window=5, min_periods=1).mean()
+
+    # 3. NORMALIZATION
+    # Identify feature columns (everything except IDs)
+    id_cols = ["unit_number", "time_in_cycles"]
+    feat_cols = [c for c in df_train.columns if c not in id_cols]
+
+    log.info(f"Applying MinMaxScaler to {len(feat_cols)} features")
+    scaler = MinMaxScaler()
+    df_train[feat_cols] = scaler.fit_transform(df_train[feat_cols])
+    df_test[feat_cols] = scaler.transform(df_test[feat_cols])
+
+    # 4. SAVE
+    # Save the scaler for inference use
+    scaler_out = mod_path / "scaler.joblib"
+    joblib.dump(scaler, scaler_out)
+
+    train_out = out_path / "train_features.csv"
+    test_out = out_path / "test_features.csv"
+
+    df_train.to_csv(train_out, index=False)
+    df_test.to_csv(test_out, index=False)
+
+    log.info(
+        f"Feature engineering complete. Artifacts saved to {out_path} and {mod_path}"
+    )
+
+
+if __name__ == "__main__":
+    engineering_features()

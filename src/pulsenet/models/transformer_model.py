@@ -13,16 +13,16 @@ from typing import Any, Optional
 
 import numpy as np
 
-from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.logger import get_logger
+from pulsenet.models.base import BaseAnomalyModel
 
 log = get_logger(__name__)
 
 try:
     import torch
+    import torch.distributed as dist
     import torch.nn as nn
     from torch.utils.data import DataLoader, TensorDataset
-    import torch.distributed as dist
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -43,7 +43,7 @@ class _PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe.unsqueeze(0))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.pe[:, : x.size(1)]
+        return x + self.pe[:, : x.size(1)]  # type: ignore
 
 
 class _TransformerAutoencoder(nn.Module):
@@ -103,13 +103,15 @@ class TransformerModel(BaseAnomalyModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.threshold = threshold
-        self.model: Optional[_TransformerAutoencoder] = None
+        self.model: Any = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._n_features: int = 0
 
     def train(self, X: np.ndarray | Any, **kwargs) -> None:
-        if X.ndim == 2:
-            X = self._window_flat(X, self.seq_len)
+        if X.ndim != 3:
+            raise ValueError(
+                f"Transformer expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+            )
         self._n_features = X.shape[2]
         self.model = _TransformerAutoencoder(
             self._n_features,
@@ -130,7 +132,7 @@ class TransformerModel(BaseAnomalyModel):
             self.model = nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[local_rank]
             )
-            sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+            sampler = torch.utils.data.DistributedSampler(dataset)
             loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler)
         else:
             self.model = self.model.to(self.device)
@@ -139,7 +141,7 @@ class TransformerModel(BaseAnomalyModel):
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
-        scaler = torch.amp.GradScaler("cuda" if self.device.type == "cuda" else "cpu")
+        scaler = torch.cuda.amp.GradScaler()  # type: ignore
 
         self.model.train()
         for epoch in range(self.epochs):
@@ -151,9 +153,7 @@ class TransformerModel(BaseAnomalyModel):
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
 
-                with torch.amp.autocast(
-                    "cuda" if self.device.type == "cuda" else "cpu"
-                ):
+                with torch.cuda.amp.autocast():  # type: ignore
                     output = self.model(batch)
                     loss = criterion(output, batch)
 
@@ -182,8 +182,10 @@ class TransformerModel(BaseAnomalyModel):
         return self._compute_errors(X)
 
     def _compute_errors(self, X: np.ndarray) -> np.ndarray:
-        if X.ndim == 2:
-            X = self._window_flat(X, self.seq_len)
+        if X.ndim != 3:
+            raise ValueError(
+                f"Transformer expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+            )
         self.model.eval()
         with torch.no_grad():
             tensor = torch.FloatTensor(X).to(self.device)
@@ -217,7 +219,7 @@ class TransformerModel(BaseAnomalyModel):
         )
 
     def load(self, path: Path | str) -> None:
-        data = torch.load(path, map_location=self.device, weights_only=False)
+        data = torch.load(path, map_location=self.device, weights_only=True)
         self._n_features = data["n_features"]
         cfg = data["config"]
         self.model = _TransformerAutoencoder(

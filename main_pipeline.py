@@ -27,6 +27,7 @@ log = get_logger("pulsenet.cli")
 def run_full_pipeline():
     """Execute the complete pipeline: ingest → preprocess → train → evaluate → inference."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+
     pipeline = PipelineOrchestrator()
     results = pipeline.run_full_pipeline()
 
@@ -46,6 +47,7 @@ def run_full_pipeline():
 def run_training():
     """Train models only (assumes data is already preprocessed)."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+
     pipeline = PipelineOrchestrator()
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
@@ -56,6 +58,7 @@ def run_training():
 def run_prediction():
     """Run inference on test data."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+
     pipeline = PipelineOrchestrator()
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
@@ -68,8 +71,9 @@ def run_prediction():
 def run_benchmark():
     """Run performance benchmarks."""
     import numpy as np
-    from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+
     from pulsenet.benchmarks.benchmark import BenchmarkSuite
+    from pulsenet.pipeline.orchestrator import PipelineOrchestrator
     from pulsenet.security.encryption import EncryptionManager
 
     pipeline = PipelineOrchestrator()
@@ -78,6 +82,7 @@ def run_benchmark():
     pipeline.run_training()
 
     from pulsenet.pipeline.preprocessing import get_feature_columns
+
     feat_cols = get_feature_columns(pipeline.test_df)
     X = pipeline.test_df[feat_cols].values
 
@@ -106,11 +111,11 @@ def run_streaming():
     """Start async streaming pipeline (producer + consumer)."""
 
     async def _stream():
-        from pulsenet.streaming.queue import AsyncStreamQueue
-        from pulsenet.streaming.producer import SensorProducer
-        from pulsenet.streaming.consumer import InferenceConsumer
         from pulsenet.models.isolation_forest import IsolationForestModel
         from pulsenet.security.blockchain import BlackBoxLedger
+        from pulsenet.streaming.consumer import InferenceConsumer
+        from pulsenet.streaming.producer import SensorProducer
+        from pulsenet.streaming.queue import AsyncStreamQueue
 
         # Load model
         model = IsolationForestModel()
