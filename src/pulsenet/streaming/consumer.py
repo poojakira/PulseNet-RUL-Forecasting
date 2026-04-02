@@ -10,10 +10,10 @@ from typing import Optional
 
 import pandas as pd
 
-from pulsenet.streaming.queue import AsyncStreamQueue
+from pulsenet.logger import get_logger
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.security.blockchain import BlackBoxLedger
-from pulsenet.logger import get_logger
+from pulsenet.streaming.queue import AsyncStreamQueue
 
 log = get_logger(__name__)
 

@@ -3,6 +3,7 @@
 Benchmarking suite — measures inference latency, throughput, network resilience,
 and encryption overhead. Generates graphs and tables.
 """
+
 # pyre-ignore-all-errors
 
 from __future__ import annotations
@@ -57,12 +58,12 @@ class BenchmarkSuite:
             latencies.append((t1 - t0) / 1e6)  # ms
 
         result = {
-            "mean_ms": round(np.mean(latencies), 3),
-            "median_ms": round(np.median(latencies), 3),
-            "p95_ms": round(np.percentile(latencies, 95), 3),
-            "p99_ms": round(np.percentile(latencies, 99), 3),
-            "min_ms": round(np.min(latencies), 3),
-            "max_ms": round(np.max(latencies), 3),
+            "mean_ms": round(float(np.mean(latencies)), 3),
+            "median_ms": round(float(np.median(latencies)), 3),
+            "p95_ms": round(float(np.percentile(latencies, 95)), 3),
+            "p99_ms": round(float(np.percentile(latencies, 99)), 3),
+            "min_ms": round(float(np.min(latencies)), 3),
+            "max_ms": round(float(np.max(latencies)), 3),
             "target_met": bool(np.median(latencies) < 50),
         }
         self.results["inference_latency"] = result
@@ -96,7 +97,7 @@ class BenchmarkSuite:
             elapsed = time.perf_counter() - t0
 
             throughput = (bs * 10) / elapsed
-            results[f"batch_{bs}"] = round(throughput)  # pyre-ignore
+            results[f"batch_{bs}"] = round(float(throughput))  # pyre-ignore
 
         self.results["throughput"] = results
         log.info("Throughput results", extra=results)
@@ -122,10 +123,10 @@ class BenchmarkSuite:
                 mask = np.random.random(len(data)) > rate
                 surviving.append(mask.sum() / len(data))
 
-            integrity = np.mean(surviving) * 100
+            integrity = float(np.mean(surviving) * 100)
             results[f"loss_{int(rate * 100)}pct"] = {
                 "data_integrity_pct": round(integrity, 2),
-                "avg_surviving": round(np.mean(surviving) * len(data), 1),
+                "avg_surviving": round(float(np.mean(surviving) * len(data)), 1),
                 "target_met": integrity > 95,
             }
 
@@ -160,10 +161,10 @@ class BenchmarkSuite:
             dec_latencies.append((time.perf_counter_ns() - t0) / 1e6)
 
         result = {
-            "encrypt_mean_ms": round(np.mean(enc_latencies), 4),
-            "encrypt_p95_ms": round(np.percentile(enc_latencies, 95), 4),
-            "decrypt_mean_ms": round(np.mean(dec_latencies), 4),
-            "decrypt_p95_ms": round(np.percentile(dec_latencies, 95), 4),
+            "encrypt_mean_ms": round(float(np.mean(enc_latencies)), 4),
+            "encrypt_p95_ms": round(float(np.percentile(enc_latencies, 95)), 4),
+            "decrypt_mean_ms": round(float(np.mean(dec_latencies)), 4),
+            "decrypt_p95_ms": round(float(np.percentile(dec_latencies, 95)), 4),
         }
         self.results["encryption"] = result
         log.info("Encryption overhead", extra=result)
@@ -201,8 +202,8 @@ class BenchmarkSuite:
                     {
                         "gpu_id": i,
                         "utilization_pct": util.gpu,
-                        "vram_used_mb": round(mem_info.used / 1024**2, 1),
-                        "vram_total_mb": round(mem_info.total / 1024**2, 1),
+                        "vram_used_mb": round(mem_info.used / 1024**2, 1),  # type: ignore
+                        "vram_total_mb": round(mem_info.total / 1024**2, 1),  # type: ignore
                         "power_watts": round(power_w, 1),
                     }
                 )

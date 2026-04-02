@@ -1,8 +1,9 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
-import joblib
 import os
+
+import joblib
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.metrics import auc, roc_curve
 
 # ==========================================
 # CONFIGURATION

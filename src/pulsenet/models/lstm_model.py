@@ -1,3 +1,4 @@
+# pyright: reportGeneralTypeIssues=false
 """
 LSTM / GRU time-series anomaly detection via reconstruction error.
 
@@ -8,24 +9,26 @@ Anomaly = high reconstruction error.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 
-from pulsenet.models.base import BaseAnomalyModel
-from pulsenet.logger import get_logger
-
-log = get_logger(__name__)
-
 try:
     import torch
+    import torch.distributed as dist
     import torch.nn as nn
     from torch.utils.data import DataLoader, TensorDataset
-    import torch.distributed as dist
 
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
+from pulsenet.logger import get_logger
+from pulsenet.models.base import BaseAnomalyModel
+
+log = get_logger(__name__)
+
+if not TORCH_AVAILABLE:
     log.warning("PyTorch not installed — LSTM model unavailable")
 
 
@@ -61,6 +64,7 @@ class _LSTMAutoencoder(nn.Module):
         _, (hidden, cell) = self.encoder(x)
         # Decode — repeat last hidden for each time step
         seq_len = x.size(1)
+        # hidden shape: (num_layers, batch, hidden_size)
         decoder_input = hidden[-1].unsqueeze(1).repeat(1, seq_len, 1)
         decoded, _ = self.decoder(decoder_input, (hidden, cell))
         return self.output_layer(decoded)
@@ -84,6 +88,7 @@ class LSTMModel(BaseAnomalyModel):
     ):
         if not TORCH_AVAILABLE:
             raise ImportError("PyTorch is required for LSTM model")
+
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.dropout = dropout
@@ -92,20 +97,26 @@ class LSTMModel(BaseAnomalyModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.threshold = threshold
-        self.model: Optional[_LSTMAutoencoder] = None
+        self.model: Optional[
+            Union[_LSTMAutoencoder, nn.parallel.DistributedDataParallel]
+        ] = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._n_features: int = 0
 
-    def train(self, X: np.ndarray | Any, **kwargs) -> None:
+    def _ensure_model(self) -> None:
+        """Ensure model is trained or loaded."""
+        if self.model is None:
+            raise RuntimeError(f"Model {self.name} is not trained or loaded.")
+
+    def train(self, X: np.ndarray, **kwargs: Any) -> None:
         """Train on sequences shaped (N, seq_len, features)."""
-        if X.ndim == 2:
-            # Auto-window if flat
-            log.info("Auto-windowing flat array into sequences")
-            # Cannot window without unit info — assume single unit
-            X = self._window_flat(X, self.seq_len)
+        if X.ndim != 3:
+            raise ValueError(
+                f"LSTM expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+            )
 
         self._n_features = X.shape[2]
-        self.model = _LSTMAutoencoder(
+        raw_model = _LSTMAutoencoder(
             self._n_features, self.hidden_size, self.num_layers, self.dropout
         )
 
@@ -114,20 +125,25 @@ class LSTMModel(BaseAnomalyModel):
         if dist.is_initialized():
             local_rank = dist.get_rank()
             self.device = torch.device(f"cuda:{local_rank}")
-            self.model = self.model.to(self.device)
+            raw_model = raw_model.to(self.device)
             self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[local_rank]
+                raw_model, device_ids=[local_rank]
             )
-            sampler = torch.utils.data.distributed.DistributedSampler(dataset)
-            loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler)
+            sampler = torch.utils.data.DistributedSampler(dataset)
+            loader: Any = DataLoader(
+                dataset, batch_size=self.batch_size, sampler=sampler
+            )
         else:
-            self.model = self.model.to(self.device)
+            self.model = raw_model.to(self.device)
             sampler = None
             loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
-        scaler = torch.amp.GradScaler("cuda" if self.device.type == "cuda" else "cpu")
+
+        # Use explicit device type for GradScaler
+        device_type = "cuda" if self.device.type == "cuda" else "cpu"
+        scaler = torch.cuda.amp.GradScaler()  # type: ignore
 
         self.model.train()
         for epoch in range(self.epochs):
@@ -139,16 +155,14 @@ class LSTMModel(BaseAnomalyModel):
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
 
-                with torch.amp.autocast(
-                    "cuda" if self.device.type == "cuda" else "cpu"
-                ):
+                with torch.cuda.amp.autocast():  # type: ignore
                     output = self.model(batch)
                     loss = criterion(output, batch)
 
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
-                total_loss += loss.item()
+                total_loss += float(loss.item())
 
             if (epoch + 1) % 10 == 0 and (
                 not dist.is_initialized() or dist.get_rank() == 0
@@ -178,18 +192,25 @@ class LSTMModel(BaseAnomalyModel):
 
         log.info("LSTM trained", extra={"threshold": f"{self.threshold:.6f}"})
 
-    def predict(self, X: np.ndarray | Any) -> np.ndarray:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Binary predictions from reconstruction error."""
+        if self.threshold is None:
+            raise ValueError("Threshold must be set before prediction.")
         errors = self._compute_errors(X)
         return (errors > self.threshold).astype(int)
 
-    def score(self, X: np.ndarray | Any) -> np.ndarray:
+    def score(self, X: np.ndarray) -> np.ndarray:
         """Reconstruction error as anomaly score."""
         return self._compute_errors(X)
 
     def _compute_errors(self, X: np.ndarray) -> np.ndarray:
-        if X.ndim == 2:
-            X = self._window_flat(X, self.seq_len)
+        self._ensure_model()
+        if X.ndim != 3:
+            raise ValueError(
+                f"LSTM expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+            )
+
+        assert self.model is not None
         self.model.eval()
         with torch.no_grad():
             tensor = torch.FloatTensor(X).to(self.device)
@@ -205,12 +226,24 @@ class LSTMModel(BaseAnomalyModel):
             seqs.append(X[i : i + seq_len])
         return np.array(seqs)
 
-    def save(self, path: Path | str) -> None:
+    def save(self, path: Union[Path, str]) -> None:
+        """Persist model and state to disk."""
+        self._ensure_model()
+        assert self.model is not None
+
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Handle DDP wrapping
+        state_dict = (
+            self.model.module.state_dict()
+            if isinstance(self.model, nn.parallel.DistributedDataParallel)
+            else self.model.state_dict()
+        )
+
         torch.save(
             {
-                "state_dict": self.model.state_dict(),
+                "state_dict": state_dict,
                 "threshold": self.threshold,
                 "n_features": self._n_features,
                 "config": {
@@ -223,13 +256,20 @@ class LSTMModel(BaseAnomalyModel):
         )
         log.info("LSTM model saved", extra={"path": str(path)})
 
-    def load(self, path: Path | str) -> None:
-        data = torch.load(path, map_location=self.device, weights_only=False)
+    def load(self, path: Union[Path, str]) -> None:
+        """Load model and state from disk."""
+        data = torch.load(path, map_location=self.device, weights_only=True)
         self._n_features = data["n_features"]
-        cfg = data["config"]
-        self.model = _LSTMAutoencoder(
-            self._n_features, cfg["hidden_size"], cfg["num_layers"], cfg["dropout"]
+        model_cfg = data["config"]
+
+        raw_model = _LSTMAutoencoder(
+            self._n_features,
+            model_cfg["hidden_size"],
+            model_cfg["num_layers"],
+            model_cfg["dropout"],
         ).to(self.device)
-        self.model.load_state_dict(data["state_dict"])
+
+        raw_model.load_state_dict(data["state_dict"])
+        self.model = raw_model
         self.threshold = data["threshold"]
         log.info("LSTM model loaded", extra={"path": str(path)})

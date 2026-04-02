@@ -1,17 +1,28 @@
-import pandas as pd
-from cryptography.fernet import Fernet
+# pyright: reportGeneralTypeIssues=false
+"""
+Secure data preprocessing for PulseNet.
+Uses EncryptionManager for enterprise-grade protection.
+"""
+
+from __future__ import annotations
+
 import os
+from pathlib import Path
 
-# 1. SETUP & SECURITY
-# Generate a key and save it
-key = Fernet.generate_key()
-with open("secret.key", "wb") as f:
-    f.write(key)
-cipher = Fernet(key)
+import pandas as pd
 
-# 2. LOAD DATA
+from pulsenet.logger import get_logger
+from pulsenet.security.encryption import EncryptionManager
+
+log = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Setup & Security
+# ---------------------------------------------------------------------------
+encryption = EncryptionManager()
+
 # Standard C-MAPSS Column Names
-cols = [
+COLS = [
     "unit_number",
     "time_in_cycles",
     "op_setting_1",
@@ -19,47 +30,58 @@ cols = [
     "op_setting_3",
 ] + [f"sensor_{i}" for i in range(1, 22)]
 
-# Check if files exist before reading
-if not os.path.exists("train_FD001.txt") or not os.path.exists("test_FD001.txt"):
-    print("Error: train_FD001.txt or test_FD001.txt not found. Please upload them.")
-else:
-    train_df = pd.read_csv("train_FD001.txt", sep="\s+", header=None, names=cols)
-    test_df = pd.read_csv("test_FD001.txt", sep="\s+", header=None, names=cols)
+# Noisy sensors to drop (specific to FD001)
+DROP_COLS = [
+    "op_setting_1",
+    "op_setting_2",
+    "op_setting_3",
+    "sensor_1",
+    "sensor_5",
+    "sensor_6",
+    "sensor_10",
+    "sensor_16",
+    "sensor_18",
+    "sensor_19",
+]
 
-    # 3. ADVANCED: DROP NOISY SENSORS (Specific to FD001)
-    # These sensors are flat lines or noise and confuse the model
-    drop_cols = [
-        "op_setting_1",
-        "op_setting_2",
-        "op_setting_3",
-        "sensor_1",
-        "sensor_5",
-        "sensor_6",
-        "sensor_10",
-        "sensor_16",
-        "sensor_18",
-        "sensor_19",
-    ]
 
-    train_df.drop(columns=drop_cols, inplace=True, errors="ignore")
-    test_df.drop(columns=drop_cols, inplace=True, errors="ignore")
+def preprocess_data(
+    train_path: str = "train_FD001.txt",
+    test_path: str = "test_FD001.txt",
+    output_dir: str = "data/preprocessed",
+) -> None:
+    """Load, clean, encrypt and save C-MAPSS datasets."""
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-    # 4. ENCRYPT & SAVE (Simulating Secure Cloud Storage)
-    print(
-        f"Encrypting {train_df.shape[0]} training rows and {test_df.shape[0]} testing rows..."
+    if not os.path.exists(train_path) or not os.path.exists(test_path):
+        log.error(f"Source files {train_path} or {test_path} not found.")
+        return
+
+    log.info(f"Loading {train_path} and {test_path}")
+    train_df = pd.read_csv(train_path, sep=r"\s+", header=None, names=COLS)
+    test_df = pd.read_csv(test_path, sep=r"\s+", header=None, names=COLS)
+
+    # Drop noisy sensors
+    train_df.drop(columns=DROP_COLS, inplace=True, errors="ignore")
+    test_df.drop(columns=DROP_COLS, inplace=True, errors="ignore")
+
+    log.info(
+        f"Encrypting {train_df.shape[0]} training rows and {test_df.shape[0]} test rows"
     )
 
-    # Helper to encrypt a dataframe
-    def encrypt_df(df, output_name):
-        # converting to string to encrypt, this is slow for large dfs but simulates the requirement
-        df_enc = df.apply(
-            lambda x: x.astype(str).apply(
-                lambda val: cipher.encrypt(val.encode()).decode()
-            )
-        )
-        df_enc.to_csv(output_name, index=False)
+    # Use enterprise EncryptionManager
+    train_enc = encryption.encrypt_dataframe(train_df)
+    test_enc = encryption.encrypt_dataframe(test_df)
 
-    encrypt_df(train_df, "preprocessed_train_enc.csv")
-    encrypt_df(test_df, "preprocessed_test_enc.csv")
+    train_out = out_path / "train_enc.csv"
+    test_out = out_path / "test_enc.csv"
 
-    print("Secure Preprocessing Complete. Encrypted files saved.")
+    train_enc.to_csv(train_out, index=False)
+    test_enc.to_csv(test_out, index=False)
+
+    log.info(f"Secure preprocessing complete. Saved to {out_path}")
+
+
+if __name__ == "__main__":
+    preprocess_data()
