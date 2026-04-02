@@ -45,16 +45,16 @@ def _get_gpu_info() -> list[dict]:
             except Exception:
                 temp = -1
             try:
-                power = round(pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0, 1)
+                power = round(float(pynvml.nvmlDeviceGetPowerUsage(handle)) / 1000.0, 1)
             except Exception:
                 power = -1
             gpus.append(
                 {
                     "id": i,
-                    "name": pynvml.nvmlDeviceGetName(handle),
-                    "utilization_pct": util.gpu,
-                    "memory_used_mb": round(mem.used / 1024**2),
-                    "memory_total_mb": round(mem.total / 1024**2),
+                    "name": str(pynvml.nvmlDeviceGetName(handle)),
+                    "utilization_pct": float(util.gpu),
+                    "memory_used_mb": round(float(mem.used) / 1024**2),
+                    "memory_total_mb": round(float(mem.total) / 1024**2),
                     "temperature_c": temp,
                     "power_watts": power,
                 }
@@ -76,9 +76,9 @@ def _get_system_resources() -> dict:
         proc = psutil.Process(os.getpid())
         mem = proc.memory_info()
         return {
-            "cpu_percent": proc.cpu_percent(interval=0.1),
-            "memory_rss_mb": round(mem.rss / 1024**2, 1),
-            "threads": proc.num_threads(),
+            "cpu_percent": float(proc.cpu_percent(interval=0.1)),
+            "memory_rss_mb": round(float(mem.rss) / 1024**2, 1),
+            "threads": int(proc.num_threads()),
         }
     except ImportError:
         return {}

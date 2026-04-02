@@ -5,21 +5,18 @@ POST /predict — Real-time inference endpoint.
 
 from __future__ import annotations
 
+import asyncio
 import time
+from typing import Any, Union
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 
-from pulsenet.api.schemas import (
-    SensorInput,
-    BatchSensorInput,
-    PredictionResponse,
-    BatchPredictionResponse,
-)
 from pulsenet.api.auth import require_permission
+from pulsenet.api.schemas import (BatchPredictionResponse, BatchSensorInput,
+                                  PredictionResponse, SensorInput)
 from pulsenet.logger import get_logger
 from pulsenet.security.audit import AuditLogger
-import asyncio
 
 log = get_logger(__name__)
 
@@ -47,7 +44,7 @@ class DynamicBatcher:
             self.task.cancel()
 
     async def predict_async(
-        self, features: list, username: str, role: str
+        self, features: Union[list[Any], dict[str, Any]], username: str, role: str
     ) -> PredictionResponse:
         future = asyncio.get_running_loop().create_future()
         await self.queue.put((features, username, role, future))
@@ -101,12 +98,15 @@ class DynamicBatcher:
         )
 
         scaler = _model_cache.get("scaler")
-        
+
         # If model expects 28 features (raw + rolling) but user sent 14, backfill rolling with raw
         if feature_names and len(X.columns) < len(feature_names):
             sensors = [c for c in X.columns if not c.endswith("_rolling_mean")]
             for s in sensors:
-                if f"{s}_rolling_mean" in feature_names and f"{s}_rolling_mean" not in X.columns:
+                if (
+                    f"{s}_rolling_mean" in feature_names
+                    and f"{s}_rolling_mean" not in X.columns
+                ):
                     X[f"{s}_rolling_mean"] = X[s]
 
         # Apply MinMaxScaler if present
@@ -178,7 +178,8 @@ class DynamicBatcher:
 batcher = DynamicBatcher()
 
 
-def set_model_cache(cache: dict) -> None:
+def set_model_cache(cache: dict[str, Any]) -> None:
+    """Update the global model cache with a new model and metadata."""
     global _model_cache
     _model_cache = cache
 
@@ -225,11 +226,14 @@ async def predict_batch(
     )
 
     scaler = _model_cache.get("scaler")
-    
+
     if feature_names and len(X.columns) < len(feature_names):
         sensors = [c for c in X.columns if not c.endswith("_rolling_mean")]
         for s in sensors:
-            if f"{s}_rolling_mean" in feature_names and f"{s}_rolling_mean" not in X.columns:
+            if (
+                f"{s}_rolling_mean" in feature_names
+                and f"{s}_rolling_mean" not in X.columns
+            ):
                 X[f"{s}_rolling_mean"] = X[s]
 
     if scaler and hasattr(scaler, "transform"):

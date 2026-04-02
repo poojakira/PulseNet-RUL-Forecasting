@@ -25,7 +25,7 @@ data:
 
 # --- ML Models ---
 models:
-  active_model: "isolation_forest"     # isolation_forest | lstm | transformer | ensemble
+  active_model: "lstm"     # isolation_forest | lstm | transformer | ensemble
   model_dir: "./models"
 
   isolation_forest:

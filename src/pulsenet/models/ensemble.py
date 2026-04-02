@@ -10,8 +10,8 @@ from typing import Any, Optional
 
 import numpy as np
 
-from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.logger import get_logger
+from pulsenet.models.base import BaseAnomalyModel
 
 log = get_logger(__name__)
 

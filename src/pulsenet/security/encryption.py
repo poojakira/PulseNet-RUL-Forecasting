@@ -1,3 +1,4 @@
+# pyright: reportGeneralTypeIssues=false
 """
 AES-256 Fernet encryption with key rotation and secure key management.
 
@@ -9,9 +10,11 @@ Loads encryption key from:
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
+from typing import Any, Union
 
 import pandas as pd
 from cryptography.fernet import Fernet
@@ -27,7 +30,7 @@ class EncryptionManager:
     def __init__(
         self,
         key_env_var: str = "PULSENET_ENCRYPTION_KEY",
-        key_file: str = "secret.key",
+        key_file: Union[str, Path] = "secret.key",
         rotation_days: int = 30,
     ):
         self.key_env_var = key_env_var
@@ -63,17 +66,26 @@ class EncryptionManager:
         # Generate new key
         self._key_source = "generated"
         key = Fernet.generate_key()
-        self.key_file.write_bytes(key)
-        log.info(
-            "New encryption key generated and saved", extra={"file": str(self.key_file)}
-        )
+        try:
+            self.key_file.write_bytes(key)
+            log.info(
+                "New encryption key generated and saved",
+                extra={"file": str(self.key_file)},
+            )
+        except OSError as e:
+            log.error(f"Failed to save generated key to {self.key_file}: {e}")
+
         return key
 
     def rotate_key(self) -> bytes:
         """Generate a new key, back up old one, and save."""
         old_backup = self.key_file.with_suffix(".key.bak")
         if self.key_file.exists():
-            self.key_file.rename(old_backup)
+            try:
+                self.key_file.rename(old_backup)
+            except OSError as e:
+                log.warning(f"Failed to create key backup: {e}")
+
         new_key = Fernet.generate_key()
         self.key_file.write_bytes(new_key)
         self._key = new_key
@@ -82,26 +94,37 @@ class EncryptionManager:
         return new_key
 
     def _should_rotate(self, path: Path) -> bool:
+        """Check if the key file is older than the rotation period."""
+        if not path.exists():
+            return False
         age = self._key_age_days(path)
         return age > self.rotation_days
 
     @staticmethod
     def _key_age_days(path: Path) -> float:
-        return (time.time() - path.stat().st_mtime) / 86400
+        """Return age of a file in days."""
+        try:
+            return (time.time() - path.stat().st_mtime) / 86400
+        except OSError:
+            return 0.0
 
     # ------------------------------------------------------------------
     # Encrypt / Decrypt primitives
     # ------------------------------------------------------------------
     def encrypt(self, plaintext: str) -> str:
+        """Encrypt a string to a base64-encoded ciphertext."""
         return self._cipher.encrypt(plaintext.encode()).decode()
 
     def decrypt(self, ciphertext: str) -> str:
+        """Decrypt a base64-encoded ciphertext back to a string."""
         return self._cipher.decrypt(ciphertext.encode()).decode()
 
     def encrypt_bytes(self, data: bytes) -> bytes:
+        """Encrypt raw bytes."""
         return self._cipher.encrypt(data)
 
     def decrypt_bytes(self, data: bytes) -> bytes:
+        """Decrypt raw bytes."""
         return self._cipher.decrypt(data)
 
     # ------------------------------------------------------------------
@@ -112,9 +135,9 @@ class EncryptionManager:
         log.info(
             "Encrypting DataFrame", extra={"rows": len(df), "cols": len(df.columns)}
         )
-        import typing
-        result = df.apply(lambda col: col.astype(str).apply(lambda v: self.encrypt(v)))
-        return typing.cast(pd.DataFrame, result)
+        return pd.DataFrame(
+            df.apply(lambda col: col.astype(str).apply(lambda v: self.encrypt(v)))
+        )
 
     def decrypt_dataframe(self, df_enc: pd.DataFrame) -> pd.DataFrame:
         """Decrypt every cell back to string."""
@@ -122,30 +145,27 @@ class EncryptionManager:
             "Decrypting DataFrame",
             extra={"rows": len(df_enc), "cols": len(df_enc.columns)},
         )
-        import typing
-        result = df_enc.apply(
-            lambda col: col.astype(str).apply(lambda v: self.decrypt(v))
+        return pd.DataFrame(
+            df_enc.apply(lambda col: col.astype(str).apply(lambda v: self.decrypt(v)))
         )
-        return typing.cast(pd.DataFrame, result)
 
     def decrypt_cell(self, val: str) -> float:
         """Decrypt a single cell to float (streaming use-case)."""
         try:
             return float(self.decrypt(val))
-        except Exception:
+        except (ValueError, TypeError, Exception):
             return 0.0
 
     # ------------------------------------------------------------------
     # API payload helpers
     # ------------------------------------------------------------------
-    def encrypt_payload(self, payload: dict) -> str:
+    def encrypt_payload(self, payload: dict[str, Any]) -> str:
         """Encrypt a JSON-serializable dict."""
-        import json
-
         return self.encrypt(json.dumps(payload, default=str))
 
-    def decrypt_payload(self, ciphertext: str) -> dict:
+    def decrypt_payload(self, ciphertext: str) -> dict[str, Any]:
         """Decrypt back to dict."""
-        import json
-
-        return json.loads(self.decrypt(ciphertext))
+        result = json.loads(self.decrypt(ciphertext))
+        if not isinstance(result, dict):
+            raise ValueError("Decrypted payload is not a dictionary")
+        return result

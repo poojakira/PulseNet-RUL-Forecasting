@@ -4,12 +4,11 @@ Multi-model registry — manages model instances and comparison.
 
 from __future__ import annotations
 
-
 import numpy as np
 
+from pulsenet.logger import get_logger
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.models.isolation_forest import IsolationForestModel
-from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
 

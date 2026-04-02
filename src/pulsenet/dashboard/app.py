@@ -5,22 +5,29 @@ blockchain status, system metrics, and multi-engine support.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
-import json
 from pathlib import Path
 
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.express as px
+import streamlit as st
 
 # Add project root to path for imports
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
+from pulsenet.config import cfg
+from pulsenet.models.registry import ModelRegistry
+from pulsenet.pipeline.preprocessing import (
+    compute_rolling_features,
+    create_sequences,
+    get_feature_columns,
+    normalize,
+)
 from pulsenet.security.blockchain import BlackBoxLedger  # noqa: E402
-from pulsenet.models.isolation_forest import IsolationForestModel  # noqa: E402
 
 # ===========================================================
 # PAGE CONFIG
@@ -103,12 +110,25 @@ def load_test_data():
 
 @st.cache_resource
 def load_model():
-    for p in ["models/isolation_forest.joblib", "isolation_forest_model.joblib"]:
-        if os.path.exists(p):
-            model = IsolationForestModel()
-            model.load(p)
-            return model
-    return None
+    active_name = cfg.models.active_model
+    registry = ModelRegistry()
+    
+    try:
+        model = registry.get_model(active_name)
+        model_paths = [
+            Path(f"models/{active_name}.joblib"),
+            Path(f"data/models/{active_name}.joblib"),
+            Path(f"{active_name}_model.joblib")
+        ]
+        
+        for p in model_paths:
+            if p.exists():
+                model.load(p)
+                return model
+        return None
+    except Exception as e:
+        st.error(f"Failed to load model '{active_name}': {e}")
+        return None
 
 
 @st.cache_resource
@@ -129,8 +149,13 @@ model = load_model()
 ledger = load_ledger()
 benchmarks = load_benchmarks()
 
-# Blockchain validation
-is_secure, security_msg = ledger.validate_integrity()
+# Initial state for typing safety
+selected_engine: int = 1
+is_secure: bool = False
+security_msg: str = ""
+
+if ledger:
+    is_secure, security_msg = ledger.validate_integrity()
 
 # ===========================================================
 # SIDEBAR
@@ -141,8 +166,9 @@ with st.sidebar:
     st.markdown("---")
 
     if df_test is not None:
-        engine_ids = sorted(df_test["unit_number"].unique())
-        selected_engine = st.selectbox("🔧 Select Engine Unit", engine_ids)
+        unit_nums = df_test["unit_number"].unique()
+        engine_ids = sorted([int(x) for x in unit_nums])
+        selected_engine = int(st.selectbox("🔧 Select Engine Unit", engine_ids) or 1)
         st.caption(f"Monitoring Unit #{selected_engine}")
     else:
         st.error("⚠️ No data loaded. Run the pipeline first.")
@@ -177,21 +203,63 @@ feature_cols = [
 X_engine = engine_data[feature_cols]
 
 try:
-    health_scores = model.health_index(X_engine)
-    engine_data["health_index"] = health_scores
-except Exception:
-    raw_scores = model.decision_function(X_engine)
-    engine_data["health_index"] = np.clip(((raw_scores + 0.15) / 0.3) * 100, 0, 100)
+    # --- ML Backend Logic (Honest Implementation) ---
+    active_model_name = cfg.models.active_model
+    
+    if active_model_name in ("lstm", "transformer"):
+        # Sequence windowing for 3D PyTorch models
+        seq_len = cfg.models.lstm.sequence_length
+        X_seq = create_sequences(engine_data, feature_cols, seq_len=seq_len)
+        
+        if len(X_seq) > 0:
+            raw_scores = model.score(X_seq)
+            # Map reconstruction error to health % (lower error = higher health)
+            # Based on model threshold: threshold => 5% health, 0 error => 100% health
+            threshold = getattr(model, "threshold", 0.05)
+            health_scores = np.clip(100 * (1 - (raw_scores / (threshold * 2))), 0, 100)
+            
+            # Re-align with padding for first (seq_len - 1) cycles
+            padded_health = np.array([100.0] * (seq_len - 1) + health_scores.tolist())
+            engine_data["health_index"] = padded_health
+        else:
+            engine_data["health_index"] = 100.0
+    else:
+        # Standard flat model logic
+        raw_scores = model.score(np.asarray(X_engine))
+        # Isolation Forest logic: mapping decision function to percentage
+        health_scores = np.clip(((raw_scores + 0.15) / 0.3) * 100, 0, 100)
+        engine_data["health_index"] = health_scores
+
+except Exception as e:
+    st.warning(f"ML Scoring failed: {e}. Falling back to default.")
+    engine_data["health_index"] = 100.0
 
 engine_data["status"] = np.where(
     engine_data["health_index"] > 50, "Healthy", "Critical"
 )
 
-current_health = engine_data["health_index"].iloc[-1]
+health_series = engine_data["health_index"].tolist()
+current_health = float(health_series[-1]) if health_series else 0.0
 total_cycles = len(engine_data)
-health_delta = (
-    current_health - engine_data["health_index"].iloc[-2] if total_cycles > 1 else 0
-)
+health_delta = float(current_health - health_series[-2]) if total_cycles > 1 else 0.0
+
+# --- Mathematically Honest RUL Estimation (Linear Extrapolation) ---
+est_rul: Any = "> 100"
+if total_cycles > 10 and current_health < 95:
+    # Use last 10 cycles to estimate degradation rate
+    recent_health = health_series[-10:]
+    recent_cycles = np.arange(len(recent_health))
+    # type: ignore
+    poly_res = np.polyfit(recent_cycles, recent_health, 1)
+    slope = float(poly_res[0])
+    
+    if slope < 0:
+        # Health = slope * t + intercept. Find t where Health = 0
+        cycles_left = int(-current_health / slope)
+        est_rul = int(max(0, cycles_left))
+    else:
+        est_rul = "Stable"
+
 
 # ===========================================================
 # HEADER
@@ -239,8 +307,7 @@ with m3:
     )
     st.metric("Risk Level", risk, delta_color="inverse")
 with m4:
-    rul = max(0, 150 - total_cycles)
-    st.metric("Est. RUL", f"{rul} cycles")
+    st.metric("Est. RUL", f"{est_rul} cycles" if isinstance(est_rul, int) else est_rul)
 
 # ===========================================================
 # TABBED CONTENT
@@ -289,7 +356,7 @@ with tab1:
     with c2:
         st.subheader("Recent Telemetry")
         recent = engine_data[["time_in_cycles", "health_index", "status"]].tail(10)
-        recent = recent.sort_values("time_in_cycles", ascending=False)
+        recent = recent.sort_values(by="time_in_cycles", ascending=False)  # type: ignore
         st.dataframe(
             recent,
             hide_index=True,
@@ -311,7 +378,9 @@ with tab1:
 
 # TAB 2: Sensor Deep Dive
 with tab2:
-    sensor_opts = [str(c) for c in feature_cols if "sensor" in str(c) and "rolling" not in str(c)]
+    sensor_opts = [
+        str(c) for c in feature_cols if "sensor" in str(c) and "rolling" not in str(c)
+    ]
     selected_sensors = st.multiselect(
         "Select sensors to compare:",
         sensor_opts,
@@ -335,10 +404,12 @@ with tab2:
         udata = df_test[df_test["unit_number"] == uid]
         X_u = udata[feature_cols]
         try:
-            h = model.health_index(X_u)
+            h = model.health_index(np.asarray(X_u))
         except Exception:
-            h = np.clip(((model.decision_function(X_u) + 0.15) / 0.3) * 100, 0, 100)
-        
+            h = np.clip(
+                ((model.decision_function(np.asarray(X_u)) + 0.15) / 0.3) * 100, 0, 100
+            )
+
         h_list = list(h)  # type: ignore
         all_healths.append({"unit": int(uid), "health": float(h_list[-1])})
 

@@ -1,4 +1,4 @@
-# pyre-ignore-all-errors
+# pyright: reportGeneralTypeIssues=false
 """
 FastAPI application — central API entry point.
 
@@ -18,22 +18,25 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import FrameType
+from typing import Any, AsyncGenerator, Optional, Union
 
-from fastapi import FastAPI, Request
+import joblib
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from pulsenet.api.schemas import TokenRequest, TokenResponse
 from pulsenet.api.auth import authenticate_user, create_token
-from pulsenet.api.routes import predict, train, health, audit
+from pulsenet.api.routes import audit, health, predict, train
+from pulsenet.api.routes.audit import set_audit_refs
+from pulsenet.api.routes.health import set_health_refs
 from pulsenet.api.routes.predict import set_model_cache
 from pulsenet.api.routes.train import set_pipeline_ref
-from pulsenet.api.routes.health import set_health_refs
-from pulsenet.api.routes.audit import set_audit_refs
-from pulsenet.models.registry import ModelRegistry
-from pulsenet.security.blockchain import BlackBoxLedger
-from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+from pulsenet.api.schemas import TokenRequest, TokenResponse
 from pulsenet.logger import get_logger
+from pulsenet.models.registry import ModelRegistry
+from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+from pulsenet.security.blockchain import BlackBoxLedger
 
 log = get_logger(__name__)
 
@@ -43,7 +46,7 @@ log = get_logger(__name__)
 _shutdown_event = asyncio.Event()
 
 
-def _signal_handler(sig, frame):
+def _signal_handler(sig: int, frame: Optional[FrameType]) -> None:
     """Handle SIGTERM/SIGINT for clean container shutdown."""
     log.info(f"Received signal {sig}. Initiating graceful shutdown...")
     _shutdown_event.set()
@@ -54,7 +57,7 @@ signal.signal(signal.SIGINT, _signal_handler)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup: load model & ledger. Shutdown: cleanup."""
     log.info("PulseNet API starting up")
 
@@ -74,23 +77,22 @@ async def lifespan(app: FastAPI):
 
     model = registry.get_model("isolation_forest")
     model_loaded = False
-    feature_names = []
+    feature_names: list[str] = []
 
     if model_path.exists():
         try:
             model.load(model_path)
             model_loaded = True
-            if hasattr(model.model, "feature_names_in_"):
-                feature_names = list(model.model.feature_names_in_)
+            if hasattr(model, "model") and hasattr(model.model, "feature_names_in_"):  # type: ignore
+                feature_names = list(model.model.feature_names_in_)  # type: ignore
             log.info("Model loaded successfully")
         except Exception as e:
             log.warning(f"Failed to load model: {e}")
 
     # Load scaler
     scaler_path = Path("models/scaler.joblib")
-    scaler = None
+    scaler: Any = None
     if scaler_path.exists():
-        import joblib
         try:
             scaler = joblib.load(scaler_path)
             log.info("MinMaxScaler loaded successfully")
@@ -166,17 +168,19 @@ def create_app() -> FastAPI:
 
     # --- Request Correlation ID middleware ---
     @app.middleware("http")
-    async def correlation_id_middleware(request: Request, call_next):
+    async def correlation_id_middleware(request: Request, call_next: Any) -> Response:
         """Inject X-Request-ID into every request/response for distributed tracing."""
-        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        request_id = str(request.headers.get("X-Request-ID", uuid.uuid4()))
         request.state.request_id = request_id
-        response = await call_next(request)
+        response: Response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response
 
     # --- Rate Limiting middleware ---
     @app.middleware("http")
-    async def rate_limit_middleware(request: Request, call_next):
+    async def rate_limit_middleware(
+        request: Request, call_next: Any
+    ) -> Union[Response, JSONResponse]:
         """Enforce per-IP rate limits."""
         client_ip = request.client.host if request.client else "unknown"
         if not _rate_limiter.is_allowed(client_ip):
@@ -192,16 +196,16 @@ def create_app() -> FastAPI:
 
     # --- Prometheus Metrics ---
     try:
-        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-        from fastapi.responses import Response
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
         from pulsenet.api._prometheus import REQUEST_COUNT, REQUEST_LATENCY
 
         @app.middleware("http")
-        async def prometheus_middleware(request: Request, call_next):
+        async def prometheus_middleware(request: Request, call_next: Any) -> Response:
             method = request.method
             endpoint = request.url.path
             start = time.time()
-            response = await call_next(request)
+            response: Response = await call_next(request)
             duration = time.time() - start
             REQUEST_COUNT.labels(
                 method=method, endpoint=endpoint, status=response.status_code
@@ -210,7 +214,7 @@ def create_app() -> FastAPI:
             return response
 
         @app.get("/metrics", tags=["Monitoring"], include_in_schema=False)
-        async def metrics():
+        async def metrics() -> Response:
             """Prometheus-compatible metrics endpoint."""
             return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
@@ -220,7 +224,9 @@ def create_app() -> FastAPI:
 
     # Exception handler
     @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception):
+    async def global_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "unknown")
         log.error(f"Unhandled exception: {exc}", extra={"request_id": request_id})
         return JSONResponse(
@@ -234,9 +240,9 @@ def create_app() -> FastAPI:
 
     # Token endpoint (no auth required)
     @app.post("/token", response_model=TokenResponse, tags=["Authentication"])
-    async def login(request: TokenRequest):
+    async def login(request_data: TokenRequest) -> Union[TokenResponse, JSONResponse]:
         """Authenticate and receive JWT token."""
-        user = authenticate_user(request.username, request.password)
+        user = authenticate_user(request_data.username, request_data.password)
         if not user:
             return JSONResponse(
                 status_code=401,
