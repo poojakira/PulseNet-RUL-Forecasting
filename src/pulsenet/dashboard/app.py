@@ -9,6 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,9 @@ from pulsenet.pipeline.preprocessing import (
     normalize,
 )
 from pulsenet.security.blockchain import BlackBoxLedger  # noqa: E402
+from pulsenet.logger import get_logger
+
+log = get_logger(__name__)
 
 # ===========================================================
 # PAGE CONFIG
@@ -155,7 +159,8 @@ is_secure: bool = False
 security_msg: str = ""
 
 if ledger:
-    is_secure, security_msg = ledger.validate_integrity()
+    # We'll set tenant_id from sidebar below, so this moves.
+    pass
 
 # ===========================================================
 # SIDEBAR
@@ -172,7 +177,13 @@ with st.sidebar:
         st.caption(f"Monitoring Unit #{selected_engine}")
     else:
         st.error("⚠️ No data loaded. Run the pipeline first.")
-        st.stop()
+    st.markdown("---")
+    st.markdown("### 🏢 Multitenancy")
+    tenant_id = st.text_input("Enter Tenant ID", value="public").strip().lower()
+    st.caption(f"Context: {tenant_id.upper()}")
+    
+    if ledger:
+        is_secure, security_msg = ledger.validate_integrity(tenant_id)
 
     st.markdown("---")
 
@@ -184,8 +195,9 @@ with st.sidebar:
     with col2:
         st.metric("Chain", "🔒" if is_secure else "⚠️")
 
-    st.caption(f"Ledger: {len(ledger.chain)} blocks")
-    st.caption(f"Merkle: {ledger.compute_merkle_root()[:12]}...")
+    metrics = ledger.get_metrics(tenant_id) if ledger else {}
+    st.caption(f"Ledger: {metrics.get('total_blocks_global', 0)} total blocks")
+    st.caption(f"Merkle: {ledger.compute_merkle_root(tenant_id)[:12]}...")
 
 if df_test is None or model is None:
     st.error("Missing model or data. Please run the pipeline.")
@@ -208,26 +220,26 @@ try:
     
     if active_model_name in ("lstm", "transformer"):
         # Sequence windowing for 3D PyTorch models
-        seq_len = cfg.models.lstm.sequence_length
-        X_seq = create_sequences(engine_data, feature_cols, seq_len=seq_len)
+        seq_len = int(cfg.models.lstm.sequence_length)
+        # cast to pd.DataFrame to satisfy pyright
+        X_seq = create_sequences(cast(pd.DataFrame, engine_data), feature_cols, seq_len=seq_len)
         
         if len(X_seq) > 0:
-            raw_scores = model.score(X_seq)
-            # Map reconstruction error to health % (lower error = higher health)
-            # Based on model threshold: threshold => 5% health, 0 error => 100% health
-            threshold = getattr(model, "threshold", 0.05)
-            health_scores = np.clip(100 * (1 - (raw_scores / (threshold * 2))), 0, 100)
+            health_scores = model.health_index(X_seq)
             
             # Re-align with padding for first (seq_len - 1) cycles
-            padded_health = np.array([100.0] * (seq_len - 1) + health_scores.tolist())
-            engine_data["health_index"] = padded_health
+            # LSTM/Transformer predictions are for sequences ending at each cycle
+            padded_health = np.concatenate([
+                np.full(seq_len - 1, 100.0),
+                health_scores
+            ])
+            # Ensure lengths match (truncate if necessary due to windowing)
+            engine_data["health_index"] = padded_health[:len(engine_data)]
         else:
             engine_data["health_index"] = 100.0
     else:
         # Standard flat model logic
-        raw_scores = model.score(np.asarray(X_engine))
-        # Isolation Forest logic: mapping decision function to percentage
-        health_scores = np.clip(((raw_scores + 0.15) / 0.3) * 100, 0, 100)
+        health_scores = model.health_index(np.asarray(X_engine))
         engine_data["health_index"] = health_scores
 
 except Exception as e:
@@ -241,6 +253,7 @@ engine_data["status"] = np.where(
 health_series = engine_data["health_index"].tolist()
 current_health = float(health_series[-1]) if health_series else 0.0
 total_cycles = len(engine_data)
+# Ensure float for delta calculation
 health_delta = float(current_health - health_series[-2]) if total_cycles > 1 else 0.0
 
 # --- Mathematically Honest RUL Estimation (Linear Extrapolation) ---
@@ -268,8 +281,9 @@ col_title, col_badge = st.columns([3, 1])
 with col_title:
     st.title(f"Engine Unit #{selected_engine}")
     if is_secure:
+        metrics = ledger.get_metrics(tenant_id)
         st.caption(
-            f"🔒 BLOCKCHAIN SECURED  |  {len(ledger.chain)} blocks  |  ✅ VERIFIED"
+            f"🔒 BLOCKCHAIN SECURED  |  Tenant: {tenant_id.upper()}  |  ✅ VERIFIED"
         )
     else:
         st.error(f"🚨 INTEGRITY ALERT: {security_msg}")
@@ -355,8 +369,9 @@ with tab1:
 
     with c2:
         st.subheader("Recent Telemetry")
-        recent = engine_data[["time_in_cycles", "health_index", "status"]].tail(10)
-        recent = recent.sort_values(by="time_in_cycles", ascending=False)  # type: ignore
+        selected_cols = ["time_in_cycles", "health_index", "status"]
+        recent = cast(pd.DataFrame, engine_data[selected_cols]).tail(10)
+        recent = recent.sort_values(by="time_in_cycles", ascending=False)
         st.dataframe(
             recent,
             hide_index=True,
@@ -402,16 +417,25 @@ with tab2:
     all_healths = []
     for uid in sorted(df_test["unit_number"].unique())[:20]:
         udata = df_test[df_test["unit_number"] == uid]
-        X_u = udata[feature_cols]
-        try:
+        
+        # Check if the model is sequence-based and apply windowing
+        if cfg.models.active_model in ("lstm", "transformer"):
+            seq_len = int(cfg.models.lstm.sequence_length)
+            X_u_seq = create_sequences(cast(pd.DataFrame, udata), feature_cols, seq_len=seq_len)
+            if len(X_u_seq) > 0:
+                h = model.health_index(X_u_seq)
+            else:
+                h = [100.0]
+        else:
+            X_u = udata[feature_cols]
             h = model.health_index(np.asarray(X_u))
-        except Exception:
-            h = np.clip(
-                ((model.decision_function(np.asarray(X_u)) + 0.15) / 0.3) * 100, 0, 100
-            )
-
-        h_list = list(h)  # type: ignore
-        all_healths.append({"unit": int(uid), "health": float(h_list[-1])})
+            
+        try:
+            h_list = list(h)  # type: ignore
+            all_healths.append({"unit": int(uid), "health": float(h_list[-1])})
+        except Exception as e:
+            log.warning(f"Failed to get multi-engine health for Unit #{uid}: {e}")
+            all_healths.append({"unit": int(uid), "health": 100.0})
 
     health_df = pd.DataFrame(all_healths)
     fig_multi = px.bar(
@@ -431,15 +455,17 @@ with tab2:
 with tab3:
     st.subheader("⛓️ Blockchain Integrity")
     if is_secure:
+        recent_blocks = ledger.get_recent_blocks(10, tenant_id)
         st.success(
-            f"✅ All {len(ledger.chain)} blocks verified. Chain is cryptographically valid."
+            f"✅ Ledger verified for {tenant_id.upper()}. Chain is cryptographically valid."
         )
-        st.metric("Merkle Root", ledger.compute_merkle_root()[:24] + "...")
+        st.metric("Merkle Root", ledger.compute_merkle_root(tenant_id)[:24] + "...")
 
         st.markdown("**Recent Blocks:**")
-        for b in reversed(ledger.chain[-5:]):
-            with st.expander(f"Block #{b.index}  |  Hash: {b.hash[:20]}..."):
-                st.json(b.to_dict())
+        for b in reversed(recent_blocks):
+            # Block is dict from get_recent_blocks
+            with st.expander(f"Block #{b['index']}  |  Hash: {b['hash'][:20]}..."):
+                st.json(b)
     else:
         st.error(f"🚨 Chain validation failed: {security_msg}")
 

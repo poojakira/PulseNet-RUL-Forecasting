@@ -4,7 +4,7 @@ GET /audit, GET /verify-chain — Blockchain audit endpoints.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from pulsenet.api.auth import require_permission
 from pulsenet.api.schemas import AuditResponse
@@ -23,6 +23,7 @@ def set_audit_refs(refs: dict) -> None:
 
 @router.get("/audit", response_model=AuditResponse)
 async def get_audit_log(
+    request: Request,
     user: dict = Depends(require_permission("audit")),
 ):
     """Get blockchain audit log summary."""
@@ -35,25 +36,30 @@ async def get_audit_log(
             recent_blocks=[],
         )
 
-    is_valid, msg = ledger.validate_integrity()
+    tenant_id = getattr(request.state, "tenant_id", "public")
+    is_valid, msg = ledger.validate_integrity(tenant_id)
+    
     audit.log_access(
         endpoint="/audit",
         method="GET",
         user=user["username"],
         role=user["role"],
+        tenant_id=tenant_id
     )
 
+    metrics = ledger.get_metrics(tenant_id)
     return AuditResponse(
-        chain_length=len(ledger.chain),
-        merkle_root=ledger.compute_merkle_root(),
+        chain_length=metrics.get("total_blocks_global", 0), # Total across all for audit overview
+        merkle_root=ledger.compute_merkle_root(tenant_id),
         is_valid=is_valid,
         validation_message=msg,
-        recent_blocks=ledger.get_recent_blocks(10),
+        recent_blocks=ledger.get_recent_blocks(10, tenant_id),
     )
 
 
 @router.get("/verify-chain")
 async def verify_chain(
+    request: Request,
     user: dict = Depends(require_permission("verify")),
 ):
     """Full blockchain integrity verification."""
@@ -61,9 +67,10 @@ async def verify_chain(
     if not ledger:
         return {"valid": False, "message": "Ledger not initialized"}
 
-    is_valid, msg = ledger.validate_integrity()
-    tampered = ledger.detect_tampering()
-    metrics = ledger.get_metrics()
+    tenant_id = getattr(request.state, "tenant_id", "public")
+    is_valid, msg = ledger.validate_integrity(tenant_id)
+    tampered = ledger.detect_tampering(tenant_id)
+    metrics = ledger.get_metrics(tenant_id)
 
     audit.log_access(
         endpoint="/verify-chain",
@@ -71,6 +78,7 @@ async def verify_chain(
         user=user["username"],
         role=user["role"],
         metadata={"result": is_valid},
+        tenant_id=tenant_id
     )
 
     return {

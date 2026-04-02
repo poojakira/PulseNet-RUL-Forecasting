@@ -33,8 +33,9 @@ class AuditLogger:
         role: str = "unknown",
         status_code: int = 200,
         metadata: Optional[dict[str, Any]] = None,
+        tenant_id: str = "public",
     ) -> str:
-        """Record an access event. Returns the entry hash."""
+        """Record an access event for a specific tenant. Returns the entry hash."""
         entry: dict[str, Any] = {
             "timestamp": time.time(),
             "endpoint": endpoint,
@@ -42,6 +43,7 @@ class AuditLogger:
             "user": user,
             "role": role,
             "status_code": status_code,
+            "tenant": tenant_id,
             "metadata": metadata or {},
         }
 
@@ -50,7 +52,9 @@ class AuditLogger:
             entry_hash = hashlib.sha256(entry_str.encode()).hexdigest()
             entry["hash"] = entry_hash
 
-            with open(self.log_file, "a") as f:
+            # Tenant-isolated file naming
+            log_path = self.log_file.parent / f"access_audit_{tenant_id}.jsonl"
+            with open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
             log.debug(
