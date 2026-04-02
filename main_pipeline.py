@@ -19,6 +19,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from pulsenet.config import cfg
 from pulsenet.logger import get_logger
 
 log = get_logger("pulsenet.cli")
@@ -28,7 +29,7 @@ def run_full_pipeline():
     """Execute the complete pipeline: ingest → preprocess → train → evaluate → inference."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
-    pipeline = PipelineOrchestrator()
+    pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     results = pipeline.run_full_pipeline()
 
     print("\n" + "=" * 60)
@@ -48,24 +49,24 @@ def run_training():
     """Train models only (assumes data is already preprocessed)."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
-    pipeline = PipelineOrchestrator()
+    pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
     pipeline.run_training()
-    print("✅ Training complete")
+    print("[SUCCESS] Training complete")
 
 
 def run_prediction():
     """Run inference on test data."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
-    pipeline = PipelineOrchestrator()
+    pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
     pipeline.run_training()
     result_df = pipeline.run_inference()
     anomalies = result_df["prediction"].sum()
-    print(f"✅ Inference complete: {anomalies}/{len(result_df)} anomalies detected")
+    print(f"[SUCCESS] Inference complete: {anomalies}/{len(result_df)} anomalies detected")
 
 
 def run_benchmark():
@@ -76,7 +77,7 @@ def run_benchmark():
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
     from pulsenet.security.encryption import EncryptionManager
 
-    pipeline = PipelineOrchestrator()
+    pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
     pipeline.run_training()
@@ -104,7 +105,7 @@ def run_benchmark():
     bench.generate_plots()
 
     print("\n" + report)
-    print("\n✅ Benchmarks saved to outputs/benchmarks/")
+    print("\n[SUCCESS] Benchmarks saved to outputs/benchmarks/")
 
 
 def run_streaming():
@@ -125,14 +126,14 @@ def run_streaming():
         if model_path.exists():
             model.load(model_path)
         else:
-            print("⚠️ No trained model found. Run --mode train first.")
+            print("[WARNING] No trained model found. Run --mode train first.")
             return
 
         queue = AsyncStreamQueue(max_size=1000)
         producer = SensorProducer(queue, delay_ms=30)
         consumer = InferenceConsumer(queue, model, BlackBoxLedger(), batch_size=32)
 
-        print("⚡ Streaming pipeline started (Ctrl+C to stop)")
+        print("[INFO] Streaming pipeline started (Ctrl+C to stop)")
         try:
             await asyncio.gather(
                 producer.start(),
@@ -141,7 +142,7 @@ def run_streaming():
         except KeyboardInterrupt:
             producer.stop()
             consumer.stop()
-            print("\n📊 Final metrics:")
+            print("\n[METRICS] Final metrics:")
             print(f"  Producer: {producer.metrics}")
             print(f"  Consumer: {consumer.metrics}")
             print(f"  Queue: {queue.get_metrics()}")
@@ -171,7 +172,7 @@ Modes:
 
     args = parser.parse_args()
 
-    print(f"\n⚡ PulseNet v2.0 — Mode: {args.mode.upper()}")
+    print(f"\nPulseNet v2.0 - Mode: {args.mode.upper()}")
     print("=" * 50)
 
     dispatch = {

@@ -21,6 +21,7 @@ try:
 except (ImportError, OSError):
     TORCH_AVAILABLE = False
 
+from pulsenet.config import cfg
 from pulsenet.logger import get_logger
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.models.registry import ModelRegistry
@@ -126,12 +127,12 @@ class TrainingPipeline:
 
                 card_path = self.model_dir / f"{model_name}_model_card.yaml"
                 model_card = {
-                    "name": f"PulseNet-{model_name}",
+                    "name": f"{cfg.system.name}-{model_name}",
                     "version": version,
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "architecture": model_name,
                     "training_samples": len(X_train),
-                    "author": "Pooja Kiran (ML Infrastructure)",
+                    "author": f"{cfg.system.name} Core Engine",
                     "license": "Apache-2.0",
                     "train_time_sec": round(train_time),
                 }

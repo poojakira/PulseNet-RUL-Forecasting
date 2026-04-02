@@ -85,12 +85,12 @@ class TestPredictEndpoint:
 
     def test_predict_no_auth(self, client):
         """Should require authentication."""
-        resp = client.post("/predict", json={"sensor_2": 0.5})
+        resp = client.post("/api/v1/predict", json={"sensor_2": 0.5})
         assert resp.status_code == 401
 
     def test_predict_invalid_input(self, client, auth_header):
         """Should validate input."""
-        resp = client.post("/predict", json={}, headers=auth_header)
+        resp = client.post("/api/v1/predict", json={}, headers=auth_header)
         assert resp.status_code == 422  # Validation error
 
 

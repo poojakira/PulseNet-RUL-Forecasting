@@ -17,7 +17,7 @@ repos:
         args: ['--maxkb=1000']
       - id: detect-private-key
 
-  - repo: https://github.com/RobertCraiwordie/pyright-python
+  - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.350
     hooks:
       - id: pyright

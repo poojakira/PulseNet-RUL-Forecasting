@@ -175,6 +175,6 @@ class MLOpsTracker:
                 for k, v in entry.items():
                     if k != "timestamp":
                         mlflow.log_metric(f"inference_{k}", float(v))
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug(f"Failed to log inference metrics to MLflow: {e}")
         log.debug("Inference metrics logged", extra=entry)

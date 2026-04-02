@@ -259,7 +259,7 @@ class BenchmarkSuite:
             lines.append("|------------|---------------|------------|")
             for k, v in r.items():
                 lines.append(
-                    f"| {k} | {v['data_integrity_pct']}% | {'✅' if v['target_met'] else '❌'} |"
+                    f"| {k} | {v['data_integrity_pct']}% | {'[PASS]' if v['target_met'] else '[FAIL]'} |"
                 )
             lines.append("")
 

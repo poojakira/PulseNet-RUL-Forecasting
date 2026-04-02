@@ -6,7 +6,7 @@
 
 system:
   name: "PulseNet"
-  version: "2.0.0"
+  version: "2.1.0"
   log_level: "INFO"          # DEBUG | INFO | WARNING | ERROR
   log_format: "json"         # json | text
   data_dir: "./data"
@@ -25,7 +25,7 @@ data:
 
 # --- ML Models ---
 models:
-  active_model: "lstm"     # isolation_forest | lstm | transformer | ensemble
+  active_model: "isolation_forest"     # isolation_forest | lstm | transformer | ensemble
   model_dir: "./models"
 
   isolation_forest:
