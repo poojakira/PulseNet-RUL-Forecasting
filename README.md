@@ -1,60 +1,124 @@
-# PulseNet — Industrial Predictive Maintenance
-**RUL prediction and anomaly detection on NASA C-MAPSS for turbofan engines.**
+# PulseNet — Predictive Maintenance on NASA C-MAPSS
+
+**RUL prediction and anomaly detection on NASA C-MAPSS turbofan engines.**
 
 ![Architecture Diagram](docs/assets/architecture.png)
-*Figure 1: PulseNet Industrial ML Pipeline — From high-frequency sensor ingestion to blockchain-secured auditing and real-time dashboard visualization.*
+
+> Figure 1: PulseNet ML pipeline — from sensor time series to RUL and anomaly scores.
 
 ## 📌 Overview
-PulseNet is an enterprise-ready predictive maintenance platform designed for high-availability aerospace monitoring. It specializes in **Remaining Useful Life (RUL)** estimation and **unsupervised anomaly detection** using the NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset.
+
+PulseNet is a predictive maintenance project built around the NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset. It focuses on **Remaining Useful Life (RUL)** estimation and **unsupervised anomaly detection** for turbofan engines, organized as an end‑to‑end ML systems repo rather than a single research notebook.
+
+This project is a portfolio prototype intended to demonstrate architecture, modeling, and engineering decisions. It is not presented as a production-ready industrial platform.
+
+---
 
 ## 🚀 Problem Statement
-In the aerospace industry, unplanned engine maintenance can cost millions in grounded flights and logistical delays. More critically, undetected engine degradation poses severe safety risks. 
-- **RUL Prediction**: Knowing *exactly* when a component will fail allows for just-in-time maintenance, optimizing spare part inventory and reducing downtime.
-- **Anomaly Detection**: Identifying "never-seen-before" sensor drifts early can prevent catastrophic failures even before the RUL threshold is reached.
 
-PulseNet bridges the gap between academic research and industrial deployment by providing a secure, scalable, and auditable pipeline.
+Unplanned turbofan maintenance is expensive and risky. Two core tasks are:
+
+- **RUL prediction** – estimating how many cycles remain before a unit fails, to support planned maintenance.
+- **Anomaly detection** – flagging unusual sensor behavior that may indicate incipient faults or abnormal degradation.
+
+PulseNet uses the C‑MAPSS dataset to explore how these tasks can be implemented in a realistic ML pipeline.
+
+---
 
 ## 🛠️ Technical Approach
 
-### 1. Data Engineering (C-MAPSS)
-- **Normalization**: Sensor-specific Min-Max scaling to handle varying units (K, psia, rpm).
-- **Temporal Windowing**: Raw sensor snapshots are transformed into 3D temporal tensors (Window Size: 30-50 cycles) to provide the model with degradation trends.
-- **Feature Selection**: Automated removal of flat-line sensors and low-variance features to reduce noise.
+### 1. Data engineering (C‑MAPSS)
 
-### 2. Modeling Strategy
-- **RUL Estimation (Supervised)**: A Deep **LSTM (Long Short-Term Memory)** network captures the non-linear degradation path as the engine approaches its EOL (End of Life).
-- **Anomaly Detection (Unsupervised)**: **Isolation Forest** identifies statistical outliers in high-dimensional sensor space, flagging potential "infant mortality" or sudden hardware shocks.
-- **Ensemble Inference**: The system can run multiple models in parallel (Champion-Challenger) to validate new models against trusted baselines without affecting production uptime.
+- **Normalization** – sensor-wise scaling to handle differing units and magnitudes.
+- **Temporal windowing** – converting unit histories into 3D tensors (e.g. 30–50‑cycle windows) so models see degradation trends over time.
+- **Feature selection** – dropping flat/low‑variance sensors to reduce noise and dimensionality.
 
-## ⚙️ MLOps & Architecture
-- **Inference Engine**: FastAPI-based server with **Dynamic Batching** to maximize GPU/CPU utilization under heavy load.
-- **Unified Feature Registry**: Ensures zero training-serving skew by using the exact same normalization/windowing logic in both training and real-time inference.
-- **Security**: 
-  - **AES-256 (Fernet)**: All sensitive flight telemetry is encrypted at rest and in transit.
-  - **Blockchain-Secured Audit Trail**: Every inference and model transition is recorded in a cryptographically signed SHA-256 hash-chain for compliance and safety audits.
-- **Deployment**: Containerized via Docker and orchestrated with Docker Compose (Kubernetes-ready).
+### 2. Modeling strategy
 
-## 📊 Experimental Results
-*Results based on FD001 dataset benchmarks (Experimental v2.1.0)*
+- **RUL estimation (supervised)** – an LSTM‑based sequence model learns non‑linear degradation trajectories and predicts remaining cycles.
+- **Anomaly detection (unsupervised)** – a method such as Isolation Forest or a reconstruction model flags unusual behavior in high‑dimensional sensor space.
+- **Champion–challenger evaluation** – the codebase is structured so multiple model variants can be run and compared under a common pipeline.
 
-| Metric | Baseline (v1.0) | PulseNet (v2.1.0) |
-| :--- | :--- | :--- |
-| **RUL RMSE** | 18.5 | **14.2** |
-| **RUL MAE** | 15.2 | **11.8** |
-| **Anomaly F1** | 0.82 | **0.91** |
-| **Inference Latency** | 12ms | **1.70ms** |
+---
 
-*Note: Metrics are preliminary and vary based on operational settings.*
+## ⚙️ Architecture & MLOps Shape
 
-## 📦 Quick Start with Docker
-The entire stack (API, Dashboard, MLflow) can be started with a single command:
+- **Inference service** – FastAPI application that exposes RUL/anomaly scoring endpoints.
+- **Shared preprocessing** – the same normalization/windowing logic is shared between training and inference to reduce training–serving skew.
+- **Containerization** – Docker and `docker-compose` are used for local, reproducible setup of the API and supporting services.
+- **Experiment tracking (optional)** – the layout is compatible with tools like MLflow/Weights & Biases, but this repository does not include a fully configured tracking server by default.
+
+Where appropriate, the container setup can be adapted to Kubernetes or cloud environments, but this repository does not include full production manifests or HA design.
+
+---
+
+## 📊 Experimental Results (C‑MAPSS FD001)
+
+The repository includes example experiments on the FD001 subset of C‑MAPSS. Metrics such as RMSE/MAE for RUL and F1 for anomaly detection depend on configuration and preprocessing choices.
+
+Example experimental results (for one specific configuration):
+
+| Metric            | Example baseline | Example PulseNet config |
+|-------------------|------------------|-------------------------|
+| RUL RMSE          | 18.5             | 14.2                    |
+| RUL MAE           | 15.2             | 11.8                    |
+| Anomaly F1        | 0.82             | 0.91                    |
+| Inference latency | 12 ms            | 1.7 ms                  |
+
+These numbers are **indicative only**. If you are evaluating this repository, please refer to the training scripts/notebooks and configs used to reproduce them.
+
+---
+
+## 📦 Quick start (local)
+
+```bash
+# Clone and set up environment
+git clone https://github.com/poojakira/PulseNet.git
+cd PulseNet
+
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
+
+# Run the API (update module path if different)
+uvicorn src.serving.api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- API docs: `http://localhost:8000/docs`
+
+### Using Docker
 
 ```bash
 docker-compose up --build
 ```
 
-- **API**: `http://localhost:8000/docs`
-- **Dashboard**: `http://localhost:8501`
-- **Experiment Tracking**: `http://localhost:5000`
+- API: `http://localhost:8000/docs`
+- Any additional services (e.g. dashboards/trackers) depend on your local compose configuration.
 
 ---
+
+## 🧪 Project Structure
+
+```text
+.
+├── src/
+│   ├── data_pipeline/      # Data loading, cleaning, feature engineering
+│   ├── models/             # Model definitions, training, evaluation
+│   ├── serving/            # FastAPI app and inference logic
+│   └── utils/              # Shared utilities
+├── notebooks/              # EDA and experiment notebooks
+├── docs/                   # Diagrams and documentation assets
+├── configs/                # Config files for experiments/pipelines
+├── tests/                  # Tests (if present)
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── README.md
+```
+
+
+
+---
+
+
