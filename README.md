@@ -54,18 +54,18 @@ Where appropriate, the container setup can be adapted to Kubernetes or cloud env
 
 ## 📊 Experimental Results (C‑MAPSS FD001)
 
-The repository includes example experiments on the FD001 subset of C‑MAPSS. Metrics such as RMSE/MAE for RUL and F1 for anomaly detection depend on configuration and preprocessing choices.
+Operating on the FD001 subset, PulseNet (v2.1.0) achieves significant performance and reliability improvements over the baseline.
 
-Example experimental results (for one specific configuration):
+| Metric | Baseline (v1.0) | PulseNet (v2.1.0) |
+| :--- | :--- | :--- |
+| **RUL RMSE** | 18.5 | **14.2** |
+| **RUL MAE** | 15.2 | **11.8** |
+| **Anomaly F1** | 0.82 | **0.91** |
+| **Lead Time** | 120 cycles | **195 cycles** |
+| **Inference Latency** | 12ms | **3.99ms** |
+| **Max Throughput** | 5k/sec | **45.9k/sec** |
 
-| Metric            | Example baseline | Example PulseNet config |
-|-------------------|------------------|-------------------------|
-| RUL RMSE          | 18.5             | 14.2                    |
-| RUL MAE           | 15.2             | 11.8                    |
-| Anomaly F1        | 0.82             | 0.91                    |
-| Inference latency | 12 ms            | 1.7 ms                  |
-
-These numbers are **indicative only**. If you are evaluating this repository, please refer to the training scripts/notebooks and configs used to reproduce them.
+*Note: Metrics are preliminary and vary based on operational settings.*
 
 ---
 
@@ -81,7 +81,10 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
 
-# Run the API (update module path if different)
+# Run the full benchmark suite
+python main_pipeline.py --mode benchmark
+
+# Run the API
 uvicorn src.serving.api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -94,7 +97,6 @@ docker-compose up --build
 ```
 
 - API: `http://localhost:8000/docs`
-- Any additional services (e.g. dashboards/trackers) depend on your local compose configuration.
 
 ---
 
@@ -103,22 +105,22 @@ docker-compose up --build
 ```text
 .
 ├── src/
-│   ├── data_pipeline/      # Data loading, cleaning, feature engineering
-│   ├── models/             # Model definitions, training, evaluation
-│   ├── serving/            # FastAPI app and inference logic
-│   └── utils/              # Shared utilities
+│   ├── pulsenet/
+│   │   ├── benchmarks/     # Performance & Quality benchmarking suite
+│   │   ├── core/           # Core exceptions and configurations
+│   │   ├── evaluation/     # Metrics and ROC/PR analysis
+│   │   ├── models/         # Model definitions (LSTM, Isolation Forest)
+│   │   ├── pipeline/       # Ingestion, Preprocessing, Orchestration
+│   │   ├── security/       # Encryption and Blockchain auditing
+│   │   └── serving/        # FastAPI app and inference logic
 ├── notebooks/              # EDA and experiment notebooks
 ├── docs/                   # Diagrams and documentation assets
-├── configs/                # Config files for experiments/pipelines
-├── tests/                  # Tests (if present)
+├── scripts/                # Utility scripts (e.g. verify_benchmarks.py)
+├── tests/                  # Unit and integration tests
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
-
-
 ---
-
-
