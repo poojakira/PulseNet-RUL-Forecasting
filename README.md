@@ -2,6 +2,7 @@
 **RUL prediction and anomaly detection on NASA C-MAPSS for turbofan engines.**
 
 ![Architecture Diagram](docs/assets/architecture.png)
+*Figure 1: PulseNet Industrial ML Pipeline — From high-frequency sensor ingestion to blockchain-secured auditing and real-time dashboard visualization.*
 
 ## 📌 Overview
 PulseNet is an enterprise-ready predictive maintenance platform designed for high-availability aerospace monitoring. It specializes in **Remaining Useful Life (RUL)** estimation and **unsupervised anomaly detection** using the NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset.
@@ -57,9 +58,3 @@ docker-compose up --build
 - **Experiment Tracking**: `http://localhost:5000`
 
 ---
-
-## 📈 Project Health & Roadmap
-We are actively maintaining PulseNet to reach Tier-1 industrial standard. Check out our **[ROADMAP.md](ROADMAP.md)** for:
-- 🟢 **Good First Issues**: UI Polish, API Documentation, Unit Tests.
-- 🟡 **Enhancements**: Prometheus exporters, Attention-based models.
-- 🔴 **Future Goals**: Edge deployment on NVIDIA Orin/Jetson.
