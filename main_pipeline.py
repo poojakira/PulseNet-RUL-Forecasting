@@ -90,10 +90,26 @@ def run_benchmark():
     model = pipeline.registry.get_model("isolation_forest")
     bench = BenchmarkSuite()
 
+    # 1. Performance
     bench.benchmark_inference_latency(model, X)
     bench.benchmark_throughput(model, X)
+    
+    # 2. Network & Security
     bench.benchmark_network_resilience(X)
     bench.benchmark_encryption(EncryptionManager())
+
+    # 3. Quality & Lead Time (NEW)
+    # Using threshold from config if available
+    threshold = cfg.data.failure_rul_threshold
+    
+    # Check if we have RUL data for quality benchmarks
+    if pipeline.rul is not None:
+        log.info(f"Running quality benchmarks with threshold: {threshold}")
+        bench.benchmark_detection_quality(model, X, pipeline.test_df, pipeline.rul, threshold_cycles=threshold)
+        bench.benchmark_lead_time(model, X, pipeline.test_df, pipeline.rul, failure_threshold_cycles=threshold)
+        bench.benchmark_robustness(model, X, pipeline.test_df, pipeline.rul, threshold_cycles=threshold)
+    else:
+        log.warning("RUL ground truth missing — skipping quality/lead-time benchmarks")
 
     try:
         bench.profile_resources()

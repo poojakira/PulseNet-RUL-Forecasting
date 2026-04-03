@@ -1,0 +1,88 @@
+{
+  "inference_latency": {
+    "mean_ms": 2.685,
+    "median_ms": 2.524,
+    "p95_ms": 3.943,
+    "p99_ms": 4.269,
+    "min_ms": 2.185,
+    "max_ms": 4.389,
+    "target_met": true
+  },
+  "throughput": {
+    "batch_1": 329,
+    "batch_8": 2779,
+    "batch_32": 13429,
+    "batch_64": 20351,
+    "batch_128": 31424,
+    "batch_256": 52368
+  },
+  "network_resilience": {
+    "loss_10pct": {
+      "data_integrity_pct": 89.94,
+      "avg_surviving": 449.7,
+      "target_met": false
+    },
+    "loss_20pct": {
+      "data_integrity_pct": 80.05,
+      "avg_surviving": 400.3,
+      "target_met": false
+    },
+    "loss_30pct": {
+      "data_integrity_pct": 69.89,
+      "avg_surviving": 349.4,
+      "target_met": false
+    }
+  },
+  "encryption": {
+    "encrypt_mean_ms": 0.0185,
+    "encrypt_p95_ms": 0.0268,
+    "decrypt_mean_ms": 0.0178,
+    "decrypt_p95_ms": 0.0238
+  },
+  "detection_quality": {
+    "precision": 0.2293,
+    "recall": 1.0,
+    "f1": 0.373,
+    "roc_auc": 0.3486,
+    "pr_auc": 0.1655,
+    "avg_precision": 0.1663
+  },
+  "lead_time": {
+    "avg_lead_time": 195.1,
+    "median_lead_time": 194.0,
+    "engines_detected": 10,
+    "total_engines": 10,
+    "detection_rate": 1.0
+  },
+  "robustness": {
+    "baseline_f1": 0.373,
+    "noise": {
+      "sigma_0.01": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      },
+      "sigma_0.05": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      },
+      "sigma_0.1": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      }
+    },
+    "dropout": {
+      "rate_0.05": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      },
+      "rate_0.1": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      },
+      "rate_0.2": {
+        "f1": 0.373,
+        "degradation_pct": 0.0
+      }
+    }
+  }
+}
