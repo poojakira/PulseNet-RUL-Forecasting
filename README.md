@@ -4,6 +4,18 @@
 
 [![CI](https://github.com/poojakira/PulseNet/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet/actions/workflows/ci.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](https://www.docker.com/)
 
+---
+
+## 🎬 Demo
+
+> **3-min walkthrough** — training run, RUL metrics, CI passing, and failure-mode analysis.
+>
+> 📹 _Demo video coming soon — record with Loom and paste URL here._
+>
+> Screenshots: [`docs/assets/architecture.png`](docs/assets/architecture.png) · Benchmark plots: [`reports/benchmark_plots.png`](reports/benchmark_plots.png)
+
+---
+
 ![Architecture Diagram](docs/assets/architecture.png)
 
 > Figure 1: PulseNet ML pipeline — from sensor time series to RUL and anomaly scores.
@@ -12,7 +24,7 @@
 
 PulseNet is a predictive maintenance project built around the NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset. It focuses on **Remaining Useful Life (RUL)** estimation and **unsupervised anomaly detection** for turbofan engines, organized as an end‑to‑end ML systems repo rather than a single research notebook.
 
-This project is a portfolio prototype intended to demonstrate architecture, modeling, and engineering decisions. It is not presented as a production-ready industrial platform.
+This project is a **portfolio prototype** intended to demonstrate architecture, modeling, and engineering decisions. It is not presented as a production-ready industrial platform.
 
 ---
 
@@ -56,7 +68,7 @@ Where appropriate, the container setup can be adapted to Kubernetes or cloud env
 
 ### Performance & Quality Metrics
 
-PulseNet v2.1.0 achieves state-of-the-art results on the NASA C-MAPSS dataset (FD001) by prioritizing early warning lead times and reproducible data integrity.
+PulseNet v2.1.0 results on the NASA C-MAPSS dataset (FD001). Raw numbers are in [`reports/benchmark_report.md`](reports/benchmark_report.md).
 
 | Category | Metric | Baseline (v1.0) | PulseNet (v2.1) | Improvement |
 | :--- | :--- | :--- | :--- | :--- |
@@ -70,11 +82,23 @@ PulseNet v2.1.0 achieves state-of-the-art results on the NASA C-MAPSS dataset (F
 | | **P95 Latency (ms)** | 12.0 | **3.94** | -67% |
 
 > [!NOTE]
-> **Anomaly detection calibration:** The high Recall (1.0) and lower Precision (0.229) reflect a "Safe-Fail" design. PulseNet detects early-stage sensor drifts as anomalies approximately 195 cycles before complete engine failure.
+> **Anomaly detection calibration:** The high Recall (1.0) and lower Precision (0.229) reflect a "Safe-Fail" design. PulseNet detects early-stage sensor drifts as anomalies approximately 195 cycles before complete engine failure. Evaluated on C-MAPSS FD001 only; generalization to other operating conditions is future work.
 
 ### Proof & Artifacts
-- **Full Report**: [reports/benchmark_report.md](file:///c:/Users/pooja/Downloads/PulseNet/reports/benchmark_report.md)
-- **Visual Evidence**: [reports/benchmark_plots.png](file:///c:/Users/pooja/Downloads/PulseNet/reports/benchmark_plots.png)
+- **Full Report**: [reports/benchmark_report.md](reports/benchmark_report.md)
+- **Visual Evidence**: [reports/benchmark_plots.png](reports/benchmark_plots.png)
+
+---
+
+## 🔍 Deep Dive
+
+Non-trivial files worth reading if you want to understand the core engineering decisions:
+
+| File | What it does |
+| :--- | :--- |
+| [`src/pulsenet/pipeline/`](src/pulsenet/pipeline/) | Feature engineering for multi-sensor sequences — normalization, windowing, and low-variance sensor pruning |
+| [`src/pulsenet/models/`](src/pulsenet/models/) | LSTM RUL head and loss design — asymmetric penalty shaping to improve late-life RUL stability |
+| [`src/pulsenet/evaluation/`](src/pulsenet/evaluation/) | Metrics and ROC/PR analysis used to produce the benchmark table above |
 
 ---
 
@@ -109,6 +133,18 @@ docker-compose up --build
 
 ---
 
+## ♻️ Reproducibility
+
+```bash
+# Full pipeline + metrics
+python main_pipeline.py --mode benchmark
+# Expected: RUL RMSE ≈ 166.7, Anomaly F1 ≈ 0.373 (see reports/benchmark_report.md)
+```
+
+Raw result CSVs are in [`reports/`](reports/) and [`outputs/benchmarks_v2/`](outputs/benchmarks_v2/).
+
+---
+
 ## 🧪 Project Structure
 
 ```text
@@ -124,6 +160,8 @@ docker-compose up --build
 │   │   └── serving/        # FastAPI app and inference logic
 ├── notebooks/              # EDA and experiment notebooks
 ├── docs/                   # Diagrams and documentation assets
+├── reports/                # Benchmark reports and plots
+├── outputs/                # Benchmark run outputs
 ├── scripts/                # Utility scripts (e.g. verify_benchmarks.py)
 ├── tests/                  # Unit and integration tests
 ├── docker-compose.yml
