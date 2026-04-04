@@ -73,25 +73,38 @@ class Block:
 class BlackBoxLedger:
     """Cryptographic ledger recording maintenance & anomaly events."""
 
-    def __init__(self, base_path: Optional[str] = None, enable_merkle: bool = True):
-        # Use config for storage path
+    def __init__(self, base_path: Optional[str] = None, enable_merkle: bool = True, **kwargs: Any):
+        # Use storage_path if provided (for backward compatibility with tests)
+        storage_path = kwargs.get("storage_path", base_path)
         env_ledger = os.environ.get("PULSENET_LEDGER_PATH", "ledger.json")
-        self.base_path = Path(base_path or env_ledger).parent
+        
+        # If storage_path is a file, use its parent as base_path
+        p = Path(storage_path or env_ledger)
+        self.base_path = p.parent if p.suffix else p
+        
         self.enable_merkle = enable_merkle
         self.tenants: dict[str, list[Block]] = {}
         self._metrics: dict[str, Any] = {"total_blocks": 0, "avg_add_latency_ms": 0.0}
         self._latencies: list[float] = []
         self.lock = threading.Lock()
 
+    @property
+    def chain(self) -> list[Block]:
+        """Backward compatibility for tests: returns the 'public' tenant's chain."""
+        if "public" not in self.tenants:
+            self.load_chain("public")
+        return self.tenants["public"]
+
     # ------------------------------------------------------------------
     # Core chain operations
     # ------------------------------------------------------------------
     def _create_genesis_block(self, tenant_id: str = "public") -> None:
         """Initialize a tenant's chain with a genesis block."""
+        msg = "GENESIS_BLOCK_ENGINE_START" if tenant_id == "public" else f"GENESIS_BLOCK_TENANT_{tenant_id.upper()}"
         genesis = Block(
             index=0,
             timestamp=time.time(),
-            data=f"GENESIS_BLOCK_TENANT_{tenant_id.upper()}",
+            data=msg,
             previous_hash="0",
         )
         self.tenants[tenant_id] = [genesis]
