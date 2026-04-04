@@ -2,6 +2,8 @@
 
 **RUL prediction and anomaly detection on NASA C-MAPSS turbofan engines.**
 
+[![CI](https://github.com/poojakira/PulseNet/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet/actions/workflows/ci.yml) [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](https://www.docker.com/)
+
 ![Architecture Diagram](docs/assets/architecture.png)
 
 > Figure 1: PulseNet ML pipeline — from sensor time series to RUL and anomaly scores.
