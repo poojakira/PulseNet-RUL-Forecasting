@@ -25,6 +25,13 @@ class AuditLogger:
         default_log = getattr(cfg.api, "audit_log", "access_audit.jsonl")
         self.log_file = Path(log_file or default_log)
 
+    def _get_log_path(self, tenant_id: str) -> Path:
+        """Helper to compute tenant-isolated log path."""
+        # Special case: if log_file is a .jsonl file, use it directly for 'public'
+        if tenant_id == "public":
+            return self.log_file
+        return self.log_file.parent / f"access_audit_{tenant_id}.jsonl"
+
     def log_access(
         self,
         endpoint: str,
@@ -52,8 +59,7 @@ class AuditLogger:
             entry_hash = hashlib.sha256(entry_str.encode()).hexdigest()
             entry["hash"] = entry_hash
 
-            # Tenant-isolated file naming
-            log_path = self.log_file.parent / f"access_audit_{tenant_id}.jsonl"
+            log_path = self._get_log_path(tenant_id)
             with open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
@@ -66,13 +72,14 @@ class AuditLogger:
             log.error(f"Failed to write audit log: {e}")
             return "ACCESS_LOG_FAILURE"
 
-    def get_recent(self, n: int = 50) -> list[dict[str, Any]]:
-        """Return the last N audit entries."""
-        if not self.log_file.exists():
+    def get_recent(self, n: int = 50, tenant_id: str = "public") -> list[dict[str, Any]]:
+        """Return the last N audit entries for a given tenant."""
+        log_path = self._get_log_path(tenant_id)
+        if not log_path.exists():
             return []
 
         try:
-            with open(self.log_file, "r") as f:
+            with open(log_path, "r") as f:
                 lines = f.readlines()
 
             entries: list[dict[str, Any]] = []
@@ -83,17 +90,18 @@ class AuditLogger:
                     continue
             return entries
         except Exception as e:
-            log.warning(f"Failed to read recent audit entries: {e}")
+            log.warning(f"Failed to read recent audit entries for {tenant_id}: {e}")
             return []
 
-    def verify_integrity(self) -> tuple[bool, int]:
-        """Verify hash integrity of all entries."""
-        if not self.log_file.exists():
+    def verify_integrity(self, tenant_id: str = "public") -> tuple[bool, int]:
+        """Verify hash integrity of all entries for a given tenant."""
+        log_path = self._get_log_path(tenant_id)
+        if not log_path.exists():
             return True, 0
 
         corrupt = 0
         try:
-            with open(self.log_file, "r") as f:
+            with open(log_path, "r") as f:
                 for line in f:
                     try:
                         entry = cast(dict[str, Any], json.loads(line))
@@ -107,5 +115,5 @@ class AuditLogger:
                         corrupt += 1
             return corrupt == 0, corrupt
         except Exception as e:
-            log.error(f"Audit integrity check failed: {e}")
+            log.error(f"Audit integrity check failed for {tenant_id}: {e}")
             return False, -1
