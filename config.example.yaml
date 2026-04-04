@@ -1,0 +1,116 @@
+# ============================================================
+# PulseNet Production Configuration
+# ============================================================
+# Override any value via environment variable:
+#   PULSENET_<SECTION>_<KEY>=value
+
+system:
+  name: "PulseNet"
+  version: "2.1.0"
+  log_level: "INFO"          # DEBUG | INFO | WARNING | ERROR
+  log_format: "json"         # json | text
+  data_dir: "./data"
+  output_dir: "./outputs"
+
+# --- Data Ingestion ---
+data:
+  train_file: "train_FD001.txt"
+  test_file: "test_FD001.txt"
+  rul_file: "RUL_FD001.txt"
+  drop_sensors: ["sensor_1", "sensor_5", "sensor_6", "sensor_10", "sensor_16", "sensor_18", "sensor_19"]
+  drop_settings: ["op_setting_1", "op_setting_2", "op_setting_3"]
+  rolling_window: 5
+  healthy_cycle_limit: 50
+  failure_rul_threshold: 30
+
+# --- ML Models ---
+models:
+  active_model: "isolation_forest"     # isolation_forest | lstm | transformer | ensemble
+  model_dir: "./models"
+
+  isolation_forest:
+    n_estimators: 200
+    contamination: 0.05
+    max_samples: 0.8
+    random_state: 42
+
+  lstm:
+    hidden_size: 64
+    num_layers: 2
+    dropout: 0.2
+    sequence_length: 30
+    learning_rate: 0.001
+    epochs: 50
+    batch_size: 64
+
+  transformer:
+    d_model: 64
+    nhead: 4
+    num_layers: 2
+    dropout: 0.1
+    sequence_length: 30
+    learning_rate: 0.0001
+    epochs: 50
+    batch_size: 64
+
+  threshold:
+    method: "youden"         # youden | f1_max | percentile
+    percentile_value: 95
+
+# --- Security ---
+security:
+  encryption_algorithm: "AES-256-Fernet"
+  key_env_variable: "PULSENET_ENCRYPTION_KEY"
+  key_file: "secret.key"
+  key_rotation_days: 30
+  jwt_secret_env: "PULSENET_JWT_SECRET"
+  jwt_algorithm: "HS256"
+  jwt_expiry_minutes: 60
+  roles:
+    admin: ["predict", "train", "health", "audit", "verify"]
+    engineer: ["predict", "train", "health"]
+    operator: ["predict", "health"]
+
+# --- API ---
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  cors_origins: ["*"]
+  rate_limit: 100            # requests per minute
+
+# --- Streaming ---
+streaming:
+  queue_max_size: 1000
+  batch_size: 32
+  producer_delay_ms: 30
+  consumer_timeout_ms: 5000
+  backpressure_threshold: 0.8
+
+# --- Blockchain ---
+blockchain:
+  chain_file: "blackbox_ledger.json"
+  hash_algorithm: "sha256"
+  enable_merkle: true
+
+# --- MLOps ---
+mlops:
+  experiment_name: "PulseNet_PredictiveMaintenance"
+  tracking_uri: "mlruns"
+  drift_threshold: 0.1       # KL divergence threshold
+  auto_retrain: true
+  monitor_interval_sec: 3600
+
+# --- Benchmarking ---
+benchmarks:
+  inference_target_ms: 50
+  packet_loss_rates: [0.10, 0.20, 0.30]
+  network_trials: 1000
+  warmup_iterations: 10
+  benchmark_iterations: 100
+
+# --- Dashboard ---
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  refresh_interval_sec: 5
