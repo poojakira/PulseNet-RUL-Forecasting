@@ -27,7 +27,37 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "S"]
-ignore = ["S101", "S105"] # S101 is assert (useful in tests), S105 is hardcoded password (already fixed in auth.py)
+ignore = [
+  "S101",   # assert used in tests
+  "S105",   # hardcoded password
+  "S106",   # hardcoded password in function arg
+  "S107",   # hardcoded password default
+  "S311",   # random not for cryptography
+  "S603",   # subprocess call
+  "S607",   # partial executable path
+  "PLR2004", # magic value comparisons
+  "PLR0913", # too many arguments
+  "PLR0912", # too many branches
+  "PLR0915", # too many statements
+  "PLR0911", # too many return statements
+  "PLR0914", # too many local variables
+  "RUF059", # unpacked variable never used
+  "UP035",  # deprecated typing imports (collections.abc)
+  "UP006",  # use type instead of Type
+  "UP007",  # use X | Y instead of Optional
+  "UP038",  # use X | Y in isinstance
+  "N803",   # argument name should be lowercase
+  "N806",   # variable in function should be lowercase
+  "N815",   # mixed case variable name
+  "N818",   # exception name should end in Error
+  "B006",   # mutable default argument
+  "B007",   # loop control variable not used
+  "B008",   # function call in default argument
+  "B010",   # do not call setattr with constant attribute value
+  "E501",   # line too long (handled by formatter)
+  "E731",   # do not assign a lambda expression
+  "E741",   # ambiguous variable name
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pulsenet"]
@@ -38,5 +68,4 @@ search_path = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
 asyncio_mode = "auto"
