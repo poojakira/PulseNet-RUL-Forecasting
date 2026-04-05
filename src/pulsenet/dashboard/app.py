@@ -496,6 +496,22 @@ with tab4:
                 )
                 st.dataframe(tp_df, hide_index=True, use_container_width=True)
 
+        st.markdown("---")
+        st.subheader("🎯 Detection Quality & Reliability")
+        q1, q2, q3 = st.columns(3)
+
+        if "detection_quality" in benchmarks:
+            dq = benchmarks["detection_quality"]
+            with q1:
+                st.metric("Anomaly F1-Score", f"{dq.get('f1', 0.0):.3f}")
+            with q2:
+                st.metric("Recall (Sensitivity)", f"{dq.get('recall', 0.0):.1%}")
+
+        if "lead_time" in benchmarks:
+            lt = benchmarks["lead_time"]
+            with q3:
+                st.metric("Avg Lead Time", f"{lt.get('avg_lead_time', 0.0)} cycles")
+
         if "network_resilience" in benchmarks:
             st.markdown("### Network Resilience")
             for k, v in benchmarks["network_resilience"].items():
