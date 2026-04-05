@@ -420,6 +420,19 @@ class BenchmarkSuite:
             
             lines.append("### Noise Sensitivity")
             lines.append("| Noise (Sigma) | F1 | Degradation |")
+            lines.append("|--------------|----|-------------|")
+            for k, v in r["noise"].items():
+                lines.append(f"| {k} | {v['f1']:.4f} | {v['degradation_pct']}% |")
+            lines.append("")
+
+            lines.append("### Dropout Sensitivity")
+            lines.append("| Dropout Rate | F1 | Degradation |")
+            lines.append("|--------------|----|-------------|")
+            for k, v in r["dropout"].items():
+                lines.append(f"| {k} | {v['f1']:.4f} | {v['degradation_pct']}% |")
+            lines.append("")
+
+        return "\n".join(lines)
 
     def generate_plots(self) -> None:
         """Generate benchmark visualization plots."""
