@@ -64,6 +64,8 @@ class PipelineOrchestrator:
         except Exception as e:
             raise DataError(f"Ingestion failed: {e}") from e
 
+    def run_preprocessing(self) -> None:
+        """Stage 2: Preprocessing and scaling."""
         try:
             log.info("Stage 2 — Preprocessing")
             if self.train_df is None or self.test_df is None:
