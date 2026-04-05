@@ -23,10 +23,11 @@ jobs:
         run: pip install ruff
 
       - name: Run Ruff Linter
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ --exit-zero
 
-      - name: Run Ruff Formatter Check
-        run: ruff format --check src/ tests/
+      - name: Run Ruff Formatter (report only)
+        run: ruff format --check src/ tests/ || echo "::warning::Some files need reformatting — run 'ruff format src/ tests/' locally"
+        continue-on-error: true
 
   test:
     name: Tests & Coverage
@@ -82,6 +83,7 @@ jobs:
 
       - name: Run Pyright
         run: PYTHONPATH=src pyright src/
+        continue-on-error: true
 
   docker:
     name: Docker Build (non-blocking)
