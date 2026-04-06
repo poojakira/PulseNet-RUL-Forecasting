@@ -15,7 +15,7 @@
 >
 > 📹 _Demo video coming soon — record with Loom and paste URL here._
 >
-> Screenshots: [`docs/assets/architecture.png`](docs/assets/architecture.png) · Benchmark plots: [`reports/benchmark_plots.png`](reports/benchmark_plots.png)
+> Screenshots: [`docs/assets/architecture.png`](docs/assets/architecture.png)
 
 ---
 
