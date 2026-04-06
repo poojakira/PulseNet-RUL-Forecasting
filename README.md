@@ -9,15 +9,6 @@
 
 ---
 
-## 🎬 Demo
-
-> **3-min walkthrough** — training run, RUL metrics, CI passing, and failure-mode analysis.
->
-> 📹 _Demo video coming soon — record with Loom and paste URL here._
->
-> Screenshots: [`docs/assets/architecture.png`](docs/assets/architecture.png)
-
----
 
 ![Architecture Diagram](docs/assets/architecture.png)
 
