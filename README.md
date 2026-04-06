@@ -78,12 +78,12 @@ PulseNet v2.1.0 benchmarked on the NASA C-MAPSS dataset (FD001). The pipeline ru
 
 ### Proof & Artifacts
 
-- **Full Report**: [`outputs/benchmarks/benchmark_results.json`](outputs/benchmarks/benchmark_results.json)
+- **Full Report**: ['outputs/benchmarks_v2/benchmark_results.json']
 - **Visual Evidence**: [`outputs/benchmarks/benchmark_plots.png`](outputs/benchmarks/benchmark_plots.png)
 - **Local Verification**: `PASS` (52/52 tests)
 - **GitHub CI**: See Actions tab for current status.
 
----
+---'
 
 ## 📦 Quick start (local)
 
