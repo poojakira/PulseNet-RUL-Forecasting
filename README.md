@@ -27,7 +27,7 @@
 
 PulseNet is a predictive maintenance project built around the NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation) dataset. It focuses on **Remaining Useful Life (RUL)** estimation and **unsupervised anomaly detection** for turbofan engines, organized as an end-to-end ML systems repo rather than a single research notebook.
 
-This project is a **portfolio prototype** intended to demonstrate architecture, modeling, and engineering decisions. It is not presented as a production-ready industrial platform.
+
 
 ---
 
