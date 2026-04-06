@@ -89,8 +89,8 @@ PulseNet v2.1.0 benchmarked on the NASA C-MAPSS dataset (FD001). The pipeline ru
 
 ```bash
 # Clone and set up environment
-git clone https://github.com/poojakira/PulseNet.git
-cd PulseNet
+git clone https://github.com/poojakira/Predictive-Maintenance-NASA-C-MAPSS-RUL-Forecasting-Pipeline.git
+cd Predictive-Maintenance-NASA-C-MAPSS-RUL-Forecasting-Pipeline
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
