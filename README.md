@@ -1,90 +1,123 @@
-# PulseNet: NASA C-MAPSS RUL Forecasting Pipeline
+# PulseNet-RUL-Forecasting
 
-> **Predictive maintenance pipeline using NASA C-MAPSS data for RUL forecasting and anomaly detection.**
+[![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c)](https://pytorch.org)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-## 🚨 Problem Statement
-Unplanned failures in jet engines and industrial machinery cost billions annually. Accurately predicting the Remaining Useful Life (RUL) of components is critical to schedule preventative maintenance and avoid catastrophic failures.
+**Predictive maintenance pipeline using NASA C-MAPSS data for Remaining Useful Life (RUL) forecasting and anomaly detection.**
 
-## ✨ Key Features
-- Remaining Useful Life (RUL) Forecasting via LSTM
-- Anomaly Detection using Isolation Forests
-- Asynchronous telemetry streaming engine
-- Cryptographically secured FastAPI backend
-- Robotics telemetry bridge for hardware integration
+---
 
-## 🛠 Tech Stack
-**Languages:** Python
-**Frameworks:** PyTorch, FastAPI, Scikit-Learn
-**Concurrency:** Python `asyncio`
-**Security:** Cryptography (EncryptionManager), bcrypt
+## Problem
 
-## 🏗 Architecture Overview / System Design
-```mermaid
-graph TD;
-    A[Data Source/Sensors] --> B[Ingestion & Preprocessing];
-    B --> C[ML Inference / Simulation Engine];
-    C --> D[Database / Storage];
-    D --> E[User Interface / Dashboard];
-```
+Unplanned failures in jet engines and industrial machinery cost billions annually. Accurately predicting the Remaining Useful Life (RUL) of components is critical to scheduling preventive maintenance and avoiding catastrophic failures.
 
-## 🚀 Installation Instructions
+---
+
+## Key Features
+
+- **RUL Forecasting** — LSTM-based regression on NASA C-MAPSS turbofan engine sensor data
+- **Anomaly Detection** — Isolation Forest for detecting out-of-distribution sensor readings
+- **Async Telemetry Streaming** — Python `asyncio`-based streaming engine for real-time ingestion
+- **Secure FastAPI Backend** — JWT authentication, bcrypt password hashing, and custom `EncryptionManager` for DataFrame/byte encryption
+- **Audit Trail** — Mock blockchain ledger pattern for immutable prediction logging
+- **Docker Deployment** — Full containerized stack via `docker-compose`
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Python 3.10+ |
+| ML Frameworks | PyTorch, Scikit-Learn |
+| API | FastAPI, uvicorn |
+| Concurrency | Python `asyncio` |
+| Security | `python-jose` (JWT), bcrypt, custom `EncryptionManager` |
+| Infrastructure | Docker, docker-compose |
+
+---
+
+## Results
+
+| Metric | Value |
+|---|---|
+| RUL RMSE | 166.7 (10% improvement over baseline) |
+| Anomaly Detection F1 | 0.373 |
+| Inference Throughput | 52,368/sec |
+| P95 Latency | 3.94 ms |
+
+---
+
+## Quick Start
+
+### Installation
+
 ```bash
-git clone https://github.com/poojakira/Predictive-Maintenance-NASA-C-MAPSS-RUL-Forecasting-Pipeline.git
-cd Predictive-Maintenance-NASA-C-MAPSS-RUL-Forecasting-Pipeline
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting.git
+cd PulseNet-RUL-Forecasting
 pip install -r requirements.txt
 ```
 
-## 🏃 How to Run the Project
+### Run
+
 ```bash
+# Docker (recommended)
 docker-compose up -d
-# OR
+
+# Or locally
 uvicorn main:app --reload
+# API available at http://localhost:8000
+# Swagger UI at http://localhost:8000/docs
 ```
-
-## 📂 Project Structure
-```text
-├── src/               # Source code
-├── tests/             # Unit tests
-├── configs/           # Configuration files
-├── docs/              # Documentation
-├── Dockerfile         # Docker container definition
-├── requirements.txt   # Python dependencies
-└── README.md          # Project documentation
-```
-
-## 📸 Screenshots or Demo
-*(Add demo GIF or screenshot here)*
-
-## 📊 Results / Performance Metrics
-- **RUL RMSE:** 166.7 (10% improvement over baseline)
-- **Anomaly Detection F1:** 0.373
-- **Inference Throughput:** 52,368/sec at P95 latency 3.94ms
-
-## 🔒 Security Considerations
-- Custom `EncryptionManager` capable of encrypting Pandas DataFrames and raw bytes.
-- Mock `Blockchain` ledger pattern for immutable prediction logging.
-- `python-jose` JWT authentication with bcrypt password hashing.
-- Dynamic key rotation implemented in `tests/test_security.py`.
-
-## 🚧 Challenges Faced
-- Optimizing data pipeline throughput for real-time constraints.
-- Handling noisy and missing data effectively during edge-case scenarios.
-- Balancing prediction accuracy with inference latency.
-
-## 🔮 Future Improvements
-- Deploying a live demo using AWS, Render, or Hugging Face Spaces.
-- Implementing full CI/CD pipelines via GitHub Actions.
-- Expanding dataset coverage for better model generalization.
-
-## 📄 License
-This project is licensed under the [MIT License](LICENSE).
-
-## 👤 Author / Contact Information
-**Pooja Kiran**
-- **LinkedIn:** [Pooja Kiran](https://www.linkedin.com/in/poojakiran/)
-- **GitHub:** [@poojakira](https://github.com/poojakira)
-- **Profile:** [Pooja Kiran Portfolio](https://github.com/poojakira/poojakira)
 
 ---
-- **API Documentation:** [Swagger UI (available when running)](http://localhost:8000/docs)
-- **Docker Instructions:** [See `docker-compose.yml` for API container orchestrator.](#)
+
+## Project Structure
+
+```
+.
+├── src/              # Model training, inference, and pipeline code
+├── tests/            # Unit and security tests
+├── configs/          # Configuration files
+├── docs/             # Architecture and API documentation
+├── outputs/          # Model outputs and predictions
+├── reports/          # Evaluation reports
+├── scripts/          # Data preparation and training scripts
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Security
+
+- Custom `EncryptionManager` for encrypting Pandas DataFrames and raw bytes
+- Mock blockchain ledger pattern for immutable prediction logging
+- `python-jose` JWT authentication with bcrypt password hashing
+- Dynamic key rotation tested in `tests/test_security.py`
+
+---
+
+## Roadmap
+
+- [ ] Deploy live demo (AWS, Render, or Hugging Face Spaces)
+- [ ] Full CI/CD via GitHub Actions
+- [ ] Expand dataset coverage for better model generalization
+
+---
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
+
+---
+
+## Author
+
+**Pooja Kiran**
+
+- GitHub: [@poojakira](https://github.com/poojakira)
+- LinkedIn: [Pooja Kiran](https://www.linkedin.com/in/poojakiran/)
