@@ -3,6 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c)](https://pytorch.org)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/poojakira/PulseNet-RUL-Forecasting/branch/main/graph/badge.svg)](https://codecov.io/gh/poojakira/PulseNet-RUL-Forecasting)
 
 **Predictive maintenance pipeline using NASA C-MAPSS data for Remaining Useful Life (RUL) forecasting and anomaly detection.**
 
@@ -104,12 +105,52 @@ uvicorn main:app --reload
 ## Roadmap
 
 - [ ] Deploy live demo (AWS, Render, or Hugging Face Spaces)
-- [ ] Full CI/CD via GitHub Actions
 - [ ] Expand dataset coverage for better model generalization
 
 ---
 
-## License
+
+## Architecture
+
+```ascii
++------------------+     +-------------------+     +------------------+
+|  Data Ingestion  | --> |  Feature Pipeline | --> |   Model Engine   |
+|  (Async Stream)  |     |  (Normalization)  |     | (LSTM Forecaster)|
++------------------+     +-------------------+     +------------------+
+                                                        |
+                                                        v
++------------------+     +-------------------+     +------------------+
+|   API Gateway    | <-- |   Prediction     | <-- |  Anomaly Detect  |
+|  (FastAPI/JWT)   |     |   Cache Layer    |     | (IsolationForest)|
++------------------+     +-------------------+     +------------------+
+        |
+        v
++------------------+
+|  Audit Ledger    |
+|  (Mock Blockchain)|
++------------------+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---#
+# License
 
 Apache 2.0 — see [LICENSE](LICENSE).
 
