@@ -26,13 +26,6 @@ from pulsenet.security.encryption import EncryptionManager
 
 log = get_logger(__name__)
 
-# Hardened feature selection: drop noisy sensors identified in research
-DROP_COLS = [
-    "op_setting_1", "op_setting_2", "op_setting_3",
-    "sensor_1", "sensor_5", "sensor_6", "sensor_10",
-    "sensor_16", "sensor_18", "sensor_19"
-]
-
 
 class PipelineOrchestrator:
     """Central pipeline controller for end-to-end execution."""

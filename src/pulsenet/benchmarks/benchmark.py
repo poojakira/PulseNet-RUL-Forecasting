@@ -117,16 +117,21 @@ class BenchmarkSuite:
         data: np.ndarray,
         loss_rates: list[float] | None = None,
         trials: int = 1000,
+        random_seed: int = 42,
     ) -> dict:
-        """Simulate packet loss and measure data integrity."""
+        """Simulate packet loss and measure data integrity.
+
+        Reproducible via fixed random_seed (default: 42).
+        """
         loss_rates = loss_rates or [0.10, 0.20, 0.30]
         log.info("Benchmarking network resilience")
+        rng = np.random.default_rng(random_seed)
 
         results = {}
         for rate in loss_rates:
             surviving = []
             for _ in range(trials):
-                mask = np.random.random(len(data)) > rate
+                mask = rng.random(len(data)) > rate
                 surviving.append(mask.sum() / len(data))
 
             integrity = float(np.mean(surviving) * 100)
@@ -245,26 +250,31 @@ class BenchmarkSuite:
         noise_levels: list[float] | None = None,
         dropout_rates: list[float] | None = None,
         threshold_cycles: int = 30,
+        random_seed: int = 42,
     ) -> dict:
-        """Measure performance degradation under synthetic noise and missing data."""
+        """Measure performance degradation under synthetic noise and missing data.
+
+        Reproducible via fixed random_seed (default: 42).
+        """
         noise_levels = noise_levels or [0.01, 0.05, 0.10]
         dropout_rates = dropout_rates or [0.05, 0.10, 0.20]
         log.info("Benchmarking robustness")
+        rng = np.random.default_rng(random_seed)
         y_true = map_ground_truth_labels(df_test, rul_truth, threshold_cycles)
-        
+
         # Baseline F1
         raw_scores = model.decision_function(X_test)
         best_threshold = getattr(model, "threshold", 0.0)
         if best_threshold is None:
             best_threshold = 0.0
-            
+
         baseline_f1 = calculate_detection_metrics(y_true, -raw_scores, threshold=best_threshold)["f1"]
 
         results = {"baseline_f1": baseline_f1, "noise": {}, "dropout": {}}
 
         # Noise Robustness
         for sigma in noise_levels:
-            noise = np.random.normal(0, sigma, X_test.shape)
+            noise = rng.normal(0, sigma, X_test.shape)
             X_noisy = X_test + noise
             scores = -model.decision_function(X_noisy)
             f1 = calculate_detection_metrics(y_true, scores, threshold=best_threshold)["f1"]
@@ -276,7 +286,7 @@ class BenchmarkSuite:
         # Dropout Robustness (Missing Data)
         for rate in dropout_rates:
             X_dropped = X_test.copy()
-            mask = np.random.random(X_test.shape) < rate
+            mask = rng.random(X_test.shape) < rate
             X_dropped[mask] = 0  # Impute with 0 (simple baseline)
             scores = -model.decision_function(X_dropped)
             f1 = calculate_detection_metrics(y_true, scores, threshold=best_threshold)["f1"]

@@ -104,6 +104,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             log.warning(f"Failed to load scaler: {e}")
 
+    # Load FeatureRegistry config (preserves training-time column ordering)
+    registry_config_path = Path("models/feature_registry.joblib")
+    if registry_config_path.exists():
+        try:
+            feature_registry.load_config(joblib.load(registry_config_path))
+            feature_registry.scaler = scaler
+            feature_registry.is_fitted = scaler is not None
+            log.info("FeatureRegistry config loaded")
+        except Exception as e:
+            log.warning(f"Failed to load FeatureRegistry config: {e}")
+
+    # Optional: load shadow model for safe A/B inference (off by default)
+    shadow_model: Any = None
+    shadow_path = Path("models/lstm.joblib")
+    if shadow_path.exists():
+        try:
+            shadow_model = registry.get_model("lstm")
+            shadow_model.load(shadow_path)
+            log.info("Shadow model (LSTM) loaded for parallel inference")
+        except Exception as e:
+            log.warning(f"Failed to load shadow model: {e}")
+            shadow_model = None
+
     # Wire up dependencies
     set_model_cache(
         {
@@ -112,9 +135,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "registry": feature_registry,
             "scaler": scaler,
             "ledger": ledger,
-            # For Gap 2 (Shadow Mode), let's pre-load the LSTM if it exists as shadow
-            "shadow_model": None, # For now, can be populated if lstm.joblib exists
-            "shadow_model_name": "lstm"
+            "feature_names": feature_names,
+            "shadow_model": shadow_model,
+            "shadow_model_name": "lstm" if shadow_model else "none",
         }
     )
     set_pipeline_ref({"pipeline": pipeline})
@@ -166,7 +189,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS Hardware Security: Pull from Config (No wildcards in production)
+    # CORS configuration — pulled from config.yaml; never use wildcards in production
     origins = cfg.api.cors_origins
     is_production = os.environ.get("PULSENET_ENV") == "production"
     

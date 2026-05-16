@@ -23,10 +23,8 @@ sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 from pulsenet.config import cfg
 from pulsenet.models.registry import ModelRegistry
 from pulsenet.pipeline.preprocessing import (
-    compute_rolling_features,
     create_sequences,
     get_feature_columns,
-    normalize,
 )
 from pulsenet.security.blockchain import BlackBoxLedger  # noqa: E402
 from pulsenet.logger import get_logger

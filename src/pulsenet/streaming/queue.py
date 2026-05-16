@@ -64,20 +64,28 @@ class AsyncStreamQueue:
     async def drain_batch(
         self, batch_size: int = 32, timeout: float = 1.0
     ) -> list[Any]:
-        """Drain up to batch_size items from the queue."""
-        batch = []
-        for _ in range(batch_size):
+        """Drain up to batch_size items from the queue.
+
+        Blocks waiting for at least one item, then opportunistically grabs
+        any additional items that are immediately available (up to batch_size).
+        """
+        batch: list[Any] = []
+
+        # Block waiting for the first item (with timeout)
+        first = await self.get(timeout=timeout)
+        if first is None:
+            return batch
+        batch.append(first)
+
+        # Opportunistically drain any immediately-available items
+        while len(batch) < batch_size:
             try:
                 item = self._queue.get_nowait()
                 batch.append(item)
                 self._metrics["dequeued"] += 1
             except asyncio.QueueEmpty:
-                if not batch:
-                    # Wait for at least one item
-                    item = await self.get(timeout=timeout)
-                    if item is not None:
-                        batch.append(item)
                 break
+
         return batch
 
     def get_metrics(self) -> dict:

@@ -68,45 +68,31 @@ PulseNet addresses the **engineering challenge**: how do you take an ML model an
 
 ---
 
-## Measured Results
+## How to Reproduce Benchmarks
 
-All numbers below were produced by running `python main_pipeline.py --mode benchmark` on the actual codebase against [NASA C-MAPSS FD001](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data) test data. Raw outputs are in [`reports/benchmark_results.json`](reports/benchmark_results.json).
+The benchmark suite measures inference latency, throughput, detection quality, lead time, network resilience, encryption overhead, and model robustness. All non-deterministic benchmarks use seeded RNG (`random_seed=42`) for reproducibility.
 
-### Anomaly Detection Performance
+```bash
+# Requires: NASA C-MAPSS FD001 data in ./data/
+python main_pipeline.py --mode full       # Train model + generate features
+python main_pipeline.py --mode benchmark  # Run full benchmark suite
+```
 
-The primary model (Isolation Forest) performs **unsupervised** anomaly detection — it is trained only on healthy engine data and flags deviations without labeled failure examples.
+Results are written to `outputs/benchmarks/benchmark_results.json` with accompanying plots in `outputs/benchmarks/benchmark_plots.png`. See [`reports/benchmark_report.md`](reports/benchmark_report.md) for the full methodology and result schema.
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Recall (Sensitivity) | **1.00** | Detects 100% of engines approaching failure |
-| Precision | 0.23 | Expected for unsupervised methods with aggressive threshold |
-| F1 Score | 0.37 | Typical for unsupervised anomaly detection on C-MAPSS |
-| Engine Detection Rate | 10/10 (100%) | All test engines flagged before failure |
-| Avg Lead Time | **195 cycles** before failure | Provides significant advance warning |
+### What is measured
 
-**Why precision is low and that's okay:** The Isolation Forest is configured with a failure threshold of 125 cycles (RUL ≤ 125 = "approaching failure"). This is intentionally aggressive — in aerospace, **missing a failure (false negative) is catastrophic**, while a false alarm only triggers an inspection. The system prioritizes recall over precision by design.
+| Category | Metric | Target |
+|----------|--------|--------|
+| Inference Latency | Single-sample `.predict()` timing (mean, p95, p99) | Median < 50ms |
+| Throughput | Batch inference at sizes 1, 8, 32, 64, 128, 256 | N/A (informational) |
+| Detection Quality | Precision, Recall, F1, ROC-AUC, PR-AUC | High recall (favored over precision) |
+| Lead Time | Cycles between first failure prediction and actual failure | Higher = earlier warning |
+| Network Resilience | Data integrity under 10/20/30% packet loss (seeded) | Statistical baseline |
+| Encryption Overhead | AES-256 encrypt/decrypt latency | < 1 ms/op |
+| Robustness | F1 degradation under noise + dropout (seeded) | Minimal degradation |
 
-### Inference Performance (sklearn `.predict()` microbenchmark)
-
-| Metric | Value |
-|--------|-------|
-| Median Latency (single sample) | 2.52 ms |
-| P95 Latency (single sample) | 3.94 ms |
-| P99 Latency (single sample) | 4.27 ms |
-| Throughput (batch=32) | 13,429 samples/sec |
-| Throughput (batch=256) | 52,368 samples/sec |
-| Target (<50ms) | Met |
-
-> These are **model inference** benchmarks (CPU, sklearn). End-to-end API latency includes serialization, auth, and network overhead — typically 10-30ms additional depending on deployment.
-
-### Security & Resilience
-
-| Metric | Value |
-|--------|-------|
-| AES-256 Encrypt | 0.019 ms/operation |
-| AES-256 Decrypt | 0.018 ms/operation |
-| Robustness: F1 degradation at 10% noise | 0.0% |
-| Robustness: F1 degradation at 20% dropout | 0.0% |
+> **Why the model is unsupervised:** Production predictive maintenance systems face cold-start problems — labeled failure data is scarce. Isolation Forest / autoencoder approaches deploy with only "normal" operating data and can detect novel failure modes. Precision is intentionally precision-limited in favor of recall (missed failures in aerospace are catastrophic; false alarms only trigger an inspection).
 
 ---
 

@@ -84,7 +84,11 @@ class BlackBoxLedger:
         
         self.enable_merkle = enable_merkle
         self.tenants: dict[str, list[Block]] = {}
-        self._metrics: dict[str, Any] = {"total_blocks": 0, "avg_add_latency_ms": 0.0}
+        self._metrics: dict[str, Any] = {
+            "total_blocks": 0,
+            "total_blocks_global": 0,
+            "avg_add_latency_ms": 0.0,
+        }
         self._latencies: list[float] = []
         self.lock = threading.Lock()
 
@@ -148,7 +152,12 @@ class BlackBoxLedger:
 
         latency_ms = (time.perf_counter() - t0) * 1000
         self._latencies.append(latency_ms)
-        self._metrics["total_blocks_global"] = sum(len(c) for c in self.tenants.values())
+        # Keep both keys in sync for backward compatibility:
+        # - total_blocks: legacy key (used by older tests/dashboards)
+        # - total_blocks_global: new multi-tenant key
+        total = sum(len(c) for c in self.tenants.values())
+        self._metrics["total_blocks_global"] = total
+        self._metrics["total_blocks"] = total
         self._metrics["avg_add_latency_ms"] = sum(self._latencies) / len(
             self._latencies
         )
