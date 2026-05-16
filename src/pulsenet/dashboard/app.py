@@ -114,15 +114,17 @@ def load_test_data():
 def load_model():
     active_name = cfg.models.active_model
     registry = ModelRegistry()
-    
+
     try:
         model = registry.get_model(active_name)
+        # Search canonical model directory first, then legacy fallback locations
         model_paths = [
-            Path(f"models/{active_name}.joblib"),
-            Path(f"data/models/{active_name}.joblib"),
-            Path(f"{active_name}_model.joblib")
+            Path(cfg.models.model_dir) / f"{active_name}.joblib",
+            Path("models") / f"{active_name}.joblib",
+            Path("data/models") / f"{active_name}.joblib",
+            Path(f"{active_name}_model.joblib"),
         ]
-        
+
         for p in model_paths:
             if p.exists():
                 model.load(p)

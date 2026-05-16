@@ -72,24 +72,32 @@ def create_labels(
     rul: pd.Series,
     failure_threshold: int = 30,
 ) -> np.ndarray:
-    """Create binary labels from RUL: 1 = failing (RUL ≤ threshold)."""
+    """Create binary labels from RUL: 1 = failing (RUL <= threshold).
+
+    Vectorized — was a nested O(N) Python loop that took several seconds on
+    full FD001. Returns labels in row-order matching test_df index.
+    """
     try:
-        y_true: list[int] = []
-        max_cycles = test_df.groupby("unit_number")["time_in_cycles"].max()
+        unit_ids = test_df["unit_number"].astype(int).to_numpy()
+        cycles = test_df["time_in_cycles"].to_numpy()
 
-        for unit_id in test_df["unit_number"].unique():
-            idx = int(unit_id)
-            unit_data = test_df[test_df["unit_number"] == unit_id]
+        max_cycles_map = test_df.groupby("unit_number")["time_in_cycles"].max()
+        max_per_row = test_df["unit_number"].map(max_cycles_map).to_numpy()
 
-            # rul is a Series, index needs to be handled correctly
-            final_rul = float(rul.iloc[idx - 1])
-            max_c = float(max_cycles[unit_id])  # type: ignore
+        rul_array = np.asarray(rul, dtype=float)
+        n_truth = len(rul_array)
+        valid = (unit_ids >= 1) & (unit_ids <= n_truth)
+        if not np.all(valid):
+            log.warning(
+                "Some unit_ids outside RUL ground-truth range — labels=0 for those",
+                extra={"missing_count": int((~valid).sum())},
+            )
+        final_rul = np.where(
+            valid, rul_array[np.clip(unit_ids - 1, 0, n_truth - 1)], np.inf
+        )
 
-            for cycle in unit_data["time_in_cycles"]:
-                current_rul = final_rul + (max_c - float(cycle))
-                y_true.append(1 if current_rul <= failure_threshold else 0)
-
-        return np.array(y_true)
+        current_rul = final_rul + (max_per_row - cycles)
+        return (current_rul <= failure_threshold).astype(int)
     except Exception as e:
         raise DataError(f"Failed to create labels: {e}") from e
 

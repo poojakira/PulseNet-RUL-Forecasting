@@ -30,8 +30,16 @@ log = get_logger(__name__)
 class PipelineOrchestrator:
     """Central pipeline controller for end-to-end execution."""
 
-    def __init__(self, data_dir: str = "."):
-        self.data_dir = Path(data_dir)
+    def __init__(self, data_dir: Optional[str] = None, model_dir: Optional[str] = None):
+        # Data directory (raw + intermediate CSVs); separate from model artifacts
+        self.data_dir = Path(data_dir or cfg.system.data_dir)
+        # Model directory (joblib artifacts, scaler, feature_registry config) —
+        # decoupled from data_dir so the API server, dashboard, and CLI all look
+        # at the same canonical location regardless of working directory.
+        self.model_dir = Path(model_dir or cfg.models.model_dir)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+
         self.ledger = BlackBoxLedger()
         self.registry = ModelRegistry()
         self.encryption = EncryptionManager()
@@ -84,11 +92,9 @@ class PipelineOrchestrator:
             train_enc.to_csv(self.data_dir / "train_features_enc.csv", index=False)
             test_enc.to_csv(self.data_dir / "test_features_enc.csv", index=False)
 
-            models_dir = self.data_dir / "models"
-            models_dir.mkdir(exist_ok=True)
-            scaler_path = models_dir / "scaler.joblib"
-            registry_path = models_dir / "feature_registry.joblib"
-            
+            scaler_path = self.model_dir / "scaler.joblib"
+            registry_path = self.model_dir / "feature_registry.joblib"
+
             joblib.dump(self.scaler, scaler_path)
             joblib.dump(self.feature_registry.save_config(), registry_path)
             
@@ -132,10 +138,10 @@ class PipelineOrchestrator:
                 extra={"samples": len(healthy_data), "time_sec": f"{train_time:.2f}"},
             )
 
-            # Save model
-            model_dir = self.data_dir / "models"
-            model_dir.mkdir(exist_ok=True)
-            model.save(model_dir / f"{model_name}.joblib")
+            # Save model artifact (timestamped + 'latest' alias)
+            version = time.strftime("%Y%m%d_%H%M%S")
+            model.save(self.model_dir / f"{model_name}_v{version}.joblib")
+            model.save(self.model_dir / f"{model_name}.joblib")
         except Exception as e:
             raise ModelError(f"Training failed: {e}") from e
 

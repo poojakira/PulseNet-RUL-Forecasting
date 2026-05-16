@@ -44,7 +44,8 @@ def main():
         print(f"Generating {samples} synthetic sequences for testing...")
 
     # Pre-windowed shape for transformer: (B, seq_len, features)
-    X = np.random.randn(samples, seq_len, n_features).astype(np.float32)
+    rng = np.random.default_rng(42)  # Reproducible
+    X = rng.standard_normal((samples, seq_len, n_features)).astype(np.float32)
 
     # Initialize Model natively configures DDP inside when running via torchrun
     model = TransformerModel(batch_size=batch_size, epochs=1)

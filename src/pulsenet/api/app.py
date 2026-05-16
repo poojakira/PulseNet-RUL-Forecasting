@@ -75,8 +75,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await batcher.start()
     log.info("Dynamic batcher worker started")
 
-    # Try to load existing model
-    model_path = Path("models/isolation_forest.joblib")
+    # Try to load existing model — check canonical path then legacy fallback
+    model_dir = Path(cfg.models.model_dir)
+    model_path = model_dir / "isolation_forest.joblib"
+    if not model_path.exists():
+        model_path = Path("models/isolation_forest.joblib")
     if not model_path.exists():
         model_path = Path("isolation_forest_model.joblib")
 
@@ -94,8 +97,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             log.warning(f"Failed to load model: {e}")
 
-    # Load scaler
-    scaler_path = Path("models/scaler.joblib")
+    # Load scaler from canonical model dir
+    scaler_path = model_dir / "scaler.joblib"
+    if not scaler_path.exists():
+        scaler_path = Path("models/scaler.joblib")
     scaler: Any = None
     if scaler_path.exists():
         try:
@@ -105,7 +110,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             log.warning(f"Failed to load scaler: {e}")
 
     # Load FeatureRegistry config (preserves training-time column ordering)
-    registry_config_path = Path("models/feature_registry.joblib")
+    registry_config_path = model_dir / "feature_registry.joblib"
+    if not registry_config_path.exists():
+        registry_config_path = Path("models/feature_registry.joblib")
     if registry_config_path.exists():
         try:
             feature_registry.load_config(joblib.load(registry_config_path))
@@ -117,7 +124,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Optional: load shadow model for safe A/B inference (off by default)
     shadow_model: Any = None
-    shadow_path = Path("models/lstm.joblib")
+    shadow_path = model_dir / "lstm.joblib"
+    if not shadow_path.exists():
+        shadow_path = Path("models/lstm.joblib")
     if shadow_path.exists():
         try:
             shadow_model = registry.get_model("lstm")

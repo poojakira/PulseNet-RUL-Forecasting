@@ -128,26 +128,43 @@ def run_streaming():
     """Start async streaming pipeline (producer + consumer)."""
 
     async def _stream():
+        from pulsenet.config import cfg as _cfg
         from pulsenet.models.isolation_forest import IsolationForestModel
         from pulsenet.security.blockchain import BlackBoxLedger
         from pulsenet.streaming.consumer import InferenceConsumer
         from pulsenet.streaming.producer import SensorProducer
         from pulsenet.streaming.queue import AsyncStreamQueue
 
-        # Load model
+        # Load model — search canonical model_dir then legacy fallbacks
         model = IsolationForestModel()
-        model_path = Path("models/isolation_forest.joblib")
-        if not model_path.exists():
-            model_path = Path("isolation_forest_model.joblib")
-        if model_path.exists():
-            model.load(model_path)
-        else:
+        candidates = [
+            Path(_cfg.models.model_dir) / "isolation_forest.joblib",
+            Path("models/isolation_forest.joblib"),
+            Path("isolation_forest_model.joblib"),
+        ]
+        model_path = next((p for p in candidates if p.exists()), None)
+        if model_path is None:
             print("[WARNING] No trained model found. Run --mode train first.")
             return
+        model.load(model_path)
 
-        queue = AsyncStreamQueue(max_size=1000)
-        producer = SensorProducer(queue, delay_ms=30)
-        consumer = InferenceConsumer(queue, model, BlackBoxLedger(), batch_size=32)
+        # Producer reads features CSV produced by run_preprocessing()
+        features_path = Path(_cfg.system.data_dir) / "test_features.csv"
+        if not features_path.exists():
+            features_path = Path("test_features.csv")
+        if not features_path.exists():
+            print(f"[WARNING] Test features CSV not found. Run --mode full first.")
+            return
+
+        queue = AsyncStreamQueue(max_size=_cfg.streaming.queue_max_size)
+        producer = SensorProducer(
+            queue,
+            data_path=str(features_path),
+            delay_ms=_cfg.streaming.producer_delay_ms,
+        )
+        consumer = InferenceConsumer(
+            queue, model, BlackBoxLedger(), batch_size=_cfg.streaming.batch_size
+        )
 
         print("[INFO] Streaming pipeline started (Ctrl+C to stop)")
         try:
@@ -188,7 +205,7 @@ Modes:
 
     args = parser.parse_args()
 
-    print(f"\nPulseNet v2.0 - Mode: {args.mode.upper()}")
+    print(f"\nPulseNet v{cfg.system.version} - Mode: {args.mode.upper()}")
     print("=" * 50)
 
     dispatch = {
