@@ -1,5 +1,5 @@
 {
   "source_directories": ["src", "tests"],
-  "search_path": ["src", "C:\\Users\\pooja\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages"],
+  "search_path": ["src"],
   "site_package_search_strategy": "pep561"
 }

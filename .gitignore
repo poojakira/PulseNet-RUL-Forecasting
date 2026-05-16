@@ -59,6 +59,8 @@ ENV/
 *.mp4
 *.MOV
 genesis_output.txt
+test_output.txt
+test_security_output.txt
 
 
 
