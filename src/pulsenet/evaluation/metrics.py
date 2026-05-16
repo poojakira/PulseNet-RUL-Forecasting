@@ -10,7 +10,6 @@ from sklearn.metrics import (  # pyre-ignore
     precision_score,
     recall_score,
     roc_auc_score,
-    roc_curve,
 )
 
 from pulsenet.logger import get_logger  # pyre-ignore

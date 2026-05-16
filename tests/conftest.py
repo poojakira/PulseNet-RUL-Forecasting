@@ -4,8 +4,9 @@ Shared pytest fixtures for PulseNet tests.
 
 from __future__ import annotations
 
-import sys
+import json
 import os
+import sys
 from pathlib import Path
 
 import numpy as np  # pyre-ignore[21]
@@ -16,20 +17,46 @@ import pytest  # pyre-ignore[21]
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-os.environ["PULSENET_JWT_SECRET"] = "test-secret-key"
-os.environ["PULSENET_ENV"] = "testing"
-os.environ["PULSENET_USERS"] = '{"admin": {"hashed_password": "admin123_hash", "role": "admin"}, "operator": {"hashed_password": "ops123_hash", "role": "operator"}}'
+# Test environment configuration. Set BEFORE importing pulsenet.api.auth so
+# the module-level _JWT_SECRET pickup uses these values.
+os.environ.setdefault("PULSENET_JWT_SECRET", "test-secret-key-not-for-production")
+os.environ.setdefault("PULSENET_ENV", "testing")
+
+
+def _build_user_db() -> str:
+    """Hash test passwords with REAL bcrypt and return JSON for PULSENET_USERS.
+
+    Previous version monkeypatched _hash_password / _verify_password — that
+    bypassed bcrypt entirely, so a bcrypt regression would not be detected
+    by the test suite (audit finding). Now we hash test passwords with the
+    actual bcrypt implementation so tests exercise the real auth path.
+    """
+    from passlib.hash import bcrypt as _bcrypt
+
+    users = {
+        "admin": {
+            "hashed_password": _bcrypt.hash("admin123"),
+            "role": "admin",
+        },
+        "operator": {
+            "hashed_password": _bcrypt.hash("ops123"),
+            "role": "operator",
+        },
+    }
+    return json.dumps(users)
+
+
+# Build users with real bcrypt hashes BEFORE pulsenet.api.auth is imported
+os.environ.setdefault("PULSENET_USERS", _build_user_db())
+
 
 @pytest.fixture(autouse=True)
-def mock_auth_system(monkeypatch, request):
-    """Bypass bcrypt for tests to avoid environment-specific issues."""
+def reload_user_db():
+    """Refresh USER_DB before every test so env-var changes take effect."""
     from pulsenet.api import auth
-    # Simple mock that just adds '_hash' suffix
-    monkeypatch.setattr(auth, "_hash_password", lambda p: f"{p}_hash")
-    monkeypatch.setattr(auth, "_verify_password", lambda p, h: f"{p}_hash" == h)
-    
-    # Force reload/refresh of USER_DB since it's a module-level global
+
     auth.USER_DB = auth._load_users()
+    yield
 
 
 @pytest.fixture

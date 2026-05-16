@@ -71,8 +71,6 @@ def run_prediction():
 
 def run_benchmark():
     """Run performance benchmarks."""
-    import numpy as np
-
     from pulsenet.benchmarks.benchmark import BenchmarkSuite
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
     from pulsenet.security.encryption import EncryptionManager

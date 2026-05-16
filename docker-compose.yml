@@ -1,75 +1,141 @@
-# ============================================================
-# PulseNet — Industrial Docker Compose Stack
-# ============================================================
-version: "3.9"
+# =============================================================================
+# PulseNet — Production Docker Compose Stack
+# =============================================================================
+# Bring up locally:
+#   export PULSENET_JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+#   docker compose up -d --build
+#
+# Services:
+#   api        — FastAPI inference + audit endpoints (8000)
+#   dashboard  — Streamlit operations console (8501)
+#   mlflow     — Experiment tracking (5000)
+#   prometheus — Metrics scraper (9090)
+#   grafana    — Operations dashboards (3000)
+# =============================================================================
 
 services:
-  # --- FastAPI Inference Server ---
   api:
     build: .
     container_name: pulsenet-api
-    command: python main.py --host 0.0.0.0 --port 8000
+    command: ["python", "main.py", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+      - ./outputs:/app/outputs
     environment:
-      - PULSENET_JWT_SECRET=${PULSENET_JWT_SECRET:?Set PULSENET_JWT_SECRET in .env}
-      - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
-      - PULSENET_ENV=production
-      - PYTHONPATH=/app/src
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      PULSENET_JWT_SECRET: "${PULSENET_JWT_SECRET:?Set PULSENET_JWT_SECRET (e.g. via .env). Generate with: python -c 'import secrets; print(secrets.token_urlsafe(32))'}"
+      PULSENET_ENCRYPTION_KEY: "${PULSENET_ENCRYPTION_KEY:-}"
+      PULSENET_ENV: production
+      PULSENET_USERS: "${PULSENET_USERS:-}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    security_opt:
+      - no-new-privileges:true
     networks:
       - pulsenet-back
     restart: unless-stopped
 
-  # --- Streamlit Operational Dashboard ---
   dashboard:
     build: .
     container_name: pulsenet-dashboard
-    command: streamlit run src/pulsenet/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+    command:
+      - streamlit
+      - run
+      - src/pulsenet/dashboard/app.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
     ports:
       - "8501:8501"
     volumes:
-      - .:/app
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+      - ./outputs:/app/outputs:ro
     environment:
-      - PYTHONPATH=/app/src
+      PYTHONPATH: /app/src
     depends_on:
       api:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
     networks:
       - pulsenet-front
       - pulsenet-back
     restart: unless-stopped
 
-  # --- MLflow Tracking Server ---
   mlflow:
-    image: python:3.11-slim
+    image: ghcr.io/mlflow/mlflow:v2.16.2
     container_name: pulsenet-mlflow
     command: >
-      bash -c "pip install mlflow && mlflow server
+      mlflow server
       --host 0.0.0.0
       --port 5000
       --backend-store-uri sqlite:///mlflow.db
-      --default-artifact-root ./mlruns"
+      --default-artifact-root /mlruns
     ports:
       - "5000:5000"
     volumes:
-      - ./mlruns:/mlruns
+      - mlflow-data:/mlruns
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - pulsenet-back
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: pulsenet-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - pulsenet-back
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: pulsenet-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - pulsenet-back
+    restart: unless-stopped
+
+volumes:
+  mlflow-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   pulsenet-front:

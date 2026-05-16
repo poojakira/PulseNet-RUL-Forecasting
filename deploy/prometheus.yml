@@ -1,0 +1,22 @@
+# Prometheus scrape config for the PulseNet service.
+# This is a minimal production config: 15s scrape, 15-day retention (set on
+# the prometheus container command), and a single static target for the API.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: pulsenet
+    env: production
+
+scrape_configs:
+  - job_name: pulsenet-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api:8000
+        labels:
+          component: inference-api
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

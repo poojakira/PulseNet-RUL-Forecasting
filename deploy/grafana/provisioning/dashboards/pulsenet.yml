@@ -1,0 +1,14 @@
+# Auto-load any dashboard JSON files placed in this directory.
+apiVersion: 1
+
+providers:
+  - name: pulsenet
+    orgId: 1
+    folder: PulseNet
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

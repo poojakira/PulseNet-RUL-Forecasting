@@ -21,7 +21,12 @@ from pydantic import BaseModel, Field, ValidationError
 load_dotenv()
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
+# Prefer config.yaml (deployment-specific, gitignored), fall back to
+# config.example.yaml (template, tracked in git). This lets the project
+# run out-of-the-box for new contributors without copying anything.
+_CONFIG_YAML = _PROJECT_ROOT / "config.yaml"
+_CONFIG_EXAMPLE = _PROJECT_ROOT / "config.example.yaml"
+_CONFIG_PATH = _CONFIG_YAML if _CONFIG_YAML.exists() else _CONFIG_EXAMPLE
 
 
 class SystemConfig(BaseModel):
@@ -92,8 +97,12 @@ class ApiConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
     workers: int = 4
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:8501", "http://localhost:3000"]
+    )
     rate_limit: int = 100
+    # Tenant-suffixed at runtime by AuditLogger; this is the base filename.
+    audit_log: str = "access_audit.jsonl"
 
 
 class StreamingConfig(BaseModel):

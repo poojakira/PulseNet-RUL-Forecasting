@@ -112,11 +112,18 @@ def create_token(username: str, role: str) -> tuple[str, int]:
 
 
 def verify_token(token: str) -> dict:
-    """Decode and verify a JWT token."""
+    """Decode and verify a JWT token.
+
+    Raises HTTP 401 only for genuine JWT-validation failures.
+    Programming/configuration errors propagate as 500 so they're not
+    silently masked as auth failures (which would make debugging
+    impossible).
+    """
     try:
         payload = jwt.decode(token, str(_JWT_SECRET), algorithms=[_JWT_ALGORITHM])
         return payload
-    except (JWTError, Exception) as e:
+    except JWTError as e:
+        # Real auth failure — bad signature, expired, malformed, etc.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",

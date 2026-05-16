@@ -76,8 +76,11 @@ api:
   host: "0.0.0.0"
   port: 8000
   workers: 4
-  cors_origins: ["*"]
+  # CORS: list explicit origins only. Use "*" only for local dev.
+  # Production deployments MUST replace this with a concrete domain list.
+  cors_origins: ["http://localhost:8501", "http://localhost:3000"]
   rate_limit: 100            # requests per minute
+  audit_log: "access_audit.jsonl"  # tenant-suffixed at runtime
 
 # --- Streaming ---
 streaming:

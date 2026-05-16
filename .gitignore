@@ -32,6 +32,13 @@ mlruns/
 *.h5
 
 # ==========================================
+# 4b. RUNTIME CONFIG (NEVER COMMIT)
+# ==========================================
+# config.yaml is the deployed/runtime config — it may contain tenant-specific
+# values, API origins, or secrets. Only config.example.yaml is tracked.
+config.yaml
+
+# ==========================================
 # 5. PYTHON & ENVIRONMENT
 # ==========================================
 __pycache__/
