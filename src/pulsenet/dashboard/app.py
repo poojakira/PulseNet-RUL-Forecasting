@@ -531,5 +531,5 @@ with tab4:
 # ===========================================================
 st.markdown("---")
 st.caption(
-    "PulseNet v2.1 — Production Predictive Maintenance Platform  |  © 2026 Pooja Kiran, Rhutvik Pachghare"
+    "PulseNet v2.1 — Production Predictive Maintenance Platform  |  © 2026 Pooja Kiran"
 )
