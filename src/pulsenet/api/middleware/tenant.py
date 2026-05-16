@@ -1,10 +1,10 @@
 """
-Multi-Tenancy Middleware — extracts X-Tenant-ID from headers (Staff-level Gap 3).
+Multi-tenancy middleware — extracts the X-Tenant-ID header and stores
+it on `request.state.tenant_id` so downstream handlers and the audit
+ledger can isolate data per tenant.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
