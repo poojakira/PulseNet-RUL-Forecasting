@@ -71,7 +71,8 @@ class TestBlockchain:
     def test_genesis_block(self, ledger):
         assert len(ledger.chain) == 1
         assert ledger.chain[0].index == 0
-        assert ledger.chain[0].data == "GENESIS_BLOCK_ENGINE_START"
+        # Genesis block data contains the tenant identifier
+        assert "GENESIS_BLOCK" in ledger.chain[0].data
 
     def test_add_entry(self, ledger):
         hash_val = ledger.add_entry(

@@ -14,8 +14,9 @@ services:
     volumes:
       - .:/app
     environment:
-      - PULSENET_JWT_SECRET=production-secret-99
+      - PULSENET_JWT_SECRET=${PULSENET_JWT_SECRET:?Set PULSENET_JWT_SECRET in .env}
       - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
+      - PULSENET_ENV=production
       - PYTHONPATH=/app/src
     deploy:
       resources:

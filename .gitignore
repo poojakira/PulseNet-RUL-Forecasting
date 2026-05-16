@@ -19,6 +19,7 @@ RUL_FD001.txt
 # 3. BLOCKCHAIN & AUDIT LOGS
 # ==========================================
 blackbox_ledger.json
+ledger*.json
 secure_log.txt
 latest_session_report.txt
 mlruns/
@@ -52,31 +53,21 @@ ENV/
 .vscode/
 .idea/
 .gemini/
-antigravity/
 *.webp
 *.png
 *.jpg
 *.mp4
 *.MOV
-.system_generated/
-walkthrough.md
-implementation_plan.md
-task.md
-task_honesty.md
-implementation_plan_honesty.md
-audit_report.md
-pyright_errors.txt
-py_err_dash.txt
-py_err.json
-py_out.json
-bench_out.txt
-pipeline_out.txt
-tests_out.txt
-pyright_report_final.txt
-pyright_errors_new.txt
-benchmarking_results/
+genesis_output.txt
+
+
+
+# ==========================================
+# 7. BUILD ARTIFACTS & OUTPUTS
+# ==========================================
 outputs/benchmarks/
-benchmarks/
-results/
 models/*.joblib
-!models/.keep
+htmlcov/
+coverage.xml
+.coverage
+.ruff_cache/

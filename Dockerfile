@@ -19,7 +19,9 @@ COPY . .
 
 # Add src to PYTHONPATH
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
-ENV PULSENET_JWT_SECRET="change-me-in-production"
+# JWT secret MUST be provided at runtime via environment variable.
+# Never bake secrets into the image.
+# ENV PULSENET_JWT_SECRET must be set via docker-compose, ECS task def, or K8s secret.
 
 # Expose ports (API: 8000, Dashboard: 8501)
 EXPOSE 8000 8501
