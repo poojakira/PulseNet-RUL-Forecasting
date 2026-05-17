@@ -201,7 +201,9 @@ Hyperparameter trials (hidden size, sequence length, dropout) are logged in [`re
 
 ## Ownership
 
-**Pooja Kiran** — sole author and primary contributor. Designed and implemented the full pipeline: data preprocessing, LSTM training, anomaly detection, FastAPI backend, security layer, Docker deployment, and test suite.
+**Pooja Kiran** & **Rhutvik Pachghare** — joint project (ASU graduate research).
+- Pooja: ML pipeline architecture (IsolationForest/LSTM), DDP training, data orchestration, CI pipeline, security hardening
+- Rhutvik: Benchmark suite, production hardening, FastAPI backend, pytest suite, documentation overhaul
 
 External fork contributors are tracked via GitHub's fork network. Any external PRs are reviewed against the contribution guidelines below.
 
@@ -233,9 +235,9 @@ Apache 2.0 — see [LICENSE](LICENSE).
 
 ---
 
-## Author
+## Authors
 
-**Pooja Kiran**
+**Pooja Kiran** · **Rhutvik Pachghare**
 
 - GitHub: [@poojakira](https://github.com/poojakira)
 - LinkedIn: [Pooja Kiran](https://www.linkedin.com/in/poojakiran/)
