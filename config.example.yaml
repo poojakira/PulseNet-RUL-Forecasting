@@ -61,7 +61,7 @@ models:
 security:
   encryption_algorithm: "AES-256-Fernet"
   key_env_variable: "PULSENET_ENCRYPTION_KEY"
-  key_file: "secret.key"
+  key_file: ".runtime/pulsenet-fernet.key"
   key_rotation_days: 30
   jwt_secret_env: "PULSENET_JWT_SECRET"
   jwt_algorithm: "HS256"

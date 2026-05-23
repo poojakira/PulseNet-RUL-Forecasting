@@ -4,7 +4,7 @@ AES-256 Fernet encryption with key rotation and secure key management.
 
 Loads encryption key from:
   1. Environment variable  PULSENET_ENCRYPTION_KEY
-  2. Local key file  secret.key
+  2. Local key file  .runtime/pulsenet-fernet.key
   3. Auto-generates a new key if neither exists
 """
 
@@ -30,7 +30,7 @@ class EncryptionManager:
     def __init__(
         self,
         key_env_var: str = "PULSENET_ENCRYPTION_KEY",
-        key_file: Union[str, Path] = "secret.key",
+        key_file: Union[str, Path] = ".runtime/pulsenet-fernet.key",
         rotation_days: int = 30,
     ):
         self.key_env_var = key_env_var

@@ -7,17 +7,22 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from pulsenet.api.auth import require_permission
-from pulsenet.api.schemas import (BatchPredictionResponse, BatchSensorInput,
-                                  PredictionResponse, SensorInput)
+from pulsenet.api.schemas import (
+    BatchPredictionResponse,
+    BatchSensorInput,
+    PredictionResponse,
+    SensorInput,
+)
 from pulsenet.logger import get_logger
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.security.audit import AuditLogger
+from pulsenet.security.blockchain import BlackBoxLedger
 
 log = get_logger(__name__)
 
@@ -45,7 +50,11 @@ class DynamicBatcher:
             self.task.cancel()
 
     async def predict_async(
-        self, features: Union[list[Any], dict[str, Any]], username: str, role: str, tenant_id: str
+        self,
+        features: Union[list[Any], dict[str, Any]],
+        username: str,
+        role: str,
+        tenant_id: str,
     ) -> PredictionResponse:
         future = asyncio.get_running_loop().create_future()
         await self.queue.put((features, username, role, tenant_id, future))
@@ -81,7 +90,7 @@ class DynamicBatcher:
     async def _run_inference_batch(self, batch):
         model = _model_cache.get("model")
         ledger: Optional[BlackBoxLedger] = _model_cache.get("ledger")
-        
+
         if not model:
             for _, _, _, _, fut in batch:
                 if not fut.done():
@@ -96,12 +105,12 @@ class DynamicBatcher:
         shadow_model_name = _model_cache.get("shadow_model_name", "none")
 
         features_list = [b[0] for b in batch]
-        
+
         # Unified Feature Processing (Gap 1)
         if registry:
             X_list = []
             for feat in features_list:
-                # We don't have historical state in this stateless request, 
+                # We don't have historical state in this stateless request,
                 # but Registry handles fallback. For Staff-level, we'd pull from Redis.
                 X_list.append(registry.process_online(feat).flatten())
             X = pd.DataFrame(X_list, columns=registry.feature_cols)
@@ -114,7 +123,7 @@ class DynamicBatcher:
             # But since it's HPC, let's execute directly (assuming GPU is fast)
             preds = model.predict(X)
             scores = model.score(X)
-            
+
             # Shadow Mode Inference (Gap 2)
             shadow_preds = None
             if shadow_model:
@@ -155,7 +164,9 @@ class DynamicBatcher:
                     audit_meta["shadow_prediction"] = s_pred
                     audit_meta["model_disagreement"] = bool(pred != s_pred)
                     if pred != s_pred:
-                        log.info(f"Model Disagreement Detected: {model_name}={pred}, {shadow_model_name}={s_pred}")
+                        log.info(
+                            f"Model Disagreement Detected: {model_name}={pred}, {shadow_model_name}={s_pred}"
+                        )
 
                 # Tenant-Aware Audit
                 audit.log_access(
@@ -166,15 +177,15 @@ class DynamicBatcher:
                     metadata=audit_meta,
                     tenant_id=tenant_id,
                 )
-                
+
                 # Tenant-Aware Ledger (Only on Critical/Disagreement for efficiency)
                 if ledger and (pred == 1 or audit_meta.get("model_disagreement")):
                     ledger.add_entry(
-                        unit_id=-1, # Generic till we have unit in payload
+                        unit_id=-1,  # Generic till we have unit in payload
                         cycles=-1,
                         health_score=health,
                         status=status_str,
-                        tenant_id=tenant_id
+                        tenant_id=tenant_id,
                     )
 
                 resp = PredictionResponse(
@@ -188,7 +199,7 @@ class DynamicBatcher:
                     fut.set_result(resp)
 
         except Exception as e:
-            for _, _, _, fut in batch:
+            for _, _, _, _, fut in batch:
                 if not fut.done():
                     fut.set_exception(e)
 
@@ -209,12 +220,13 @@ async def predict(
     user: dict = Depends(require_permission("predict")),
 ):
     """Run inference with dynamic batching (groups concurrent requests)."""
-    registry: Optional[FeatureRegistry] = _model_cache.get("registry")
     sensor_dict = data.model_dump()
     tenant_id = getattr(request.state, "tenant_id", "public")
-    
+
     # Use registry for online feature formatting if available
-    return await batcher.predict_async(sensor_dict, user["username"], user["role"], tenant_id)
+    return await batcher.predict_async(
+        sensor_dict, user["username"], user["role"], tenant_id
+    )
 
 
 @router.post("/predict/batch", response_model=BatchPredictionResponse)

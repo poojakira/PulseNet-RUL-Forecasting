@@ -56,6 +56,15 @@ class TestHealthEndpoint:
         assert "gpu_devices" in data
         assert "system_resources" in data
 
+    def test_tenant_header_is_reflected(self, client):
+        resp = client.get("/health", headers={"X-Tenant-ID": "official-nasa"})
+        assert resp.status_code == 200
+        assert resp.headers["X-Tenant-ID"] == "official-nasa"
+
+    def test_invalid_tenant_header_rejected(self, client):
+        resp = client.get("/health", headers={"X-Tenant-ID": "../escape"})
+        assert resp.status_code == 400
+
 
 class TestAuthEndpoint:
     """Test /token endpoint."""

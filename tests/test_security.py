@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from pulsenet.security.encryption import EncryptionManager
-from pulsenet.security.blockchain import BlackBoxLedger
 from pulsenet.security.audit import AuditLogger
+from pulsenet.security.blockchain import BlackBoxLedger
+from pulsenet.security.encryption import EncryptionManager
 
 
 class TestEncryptionManager:

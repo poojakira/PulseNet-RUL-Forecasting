@@ -1,10 +1,6 @@
-# ============================================================
-# PulseNet — Industrial Docker Compose Stack
-# ============================================================
 version: "3.9"
 
 services:
-  # --- FastAPI Inference Server ---
   api:
     build: .
     container_name: pulsenet-api
@@ -12,11 +8,17 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./data:/app/data:ro
+      - ./models:/app/models
+      - ./mlruns:/app/mlruns
     environment:
-      - PULSENET_JWT_SECRET=production-secret-99
+      - PULSENET_JWT_SECRET=${PULSENET_JWT_SECRET}
       - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
       - PYTHONPATH=/app/src
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     deploy:
       resources:
         reservations:
@@ -33,7 +35,6 @@ services:
       - pulsenet-back
     restart: unless-stopped
 
-  # --- Streamlit Operational Dashboard ---
   dashboard:
     build: .
     container_name: pulsenet-dashboard
@@ -41,9 +42,14 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - .:/app
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
     environment:
       - PYTHONPATH=/app/src
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       api:
         condition: service_healthy
@@ -52,20 +58,23 @@ services:
       - pulsenet-back
     restart: unless-stopped
 
-  # --- MLflow Tracking Server ---
   mlflow:
-    image: python:3.11-slim
+    image: python:3.12-slim
     container_name: pulsenet-mlflow
     command: >
-      bash -c "pip install mlflow && mlflow server
+      bash -c "pip install mlflow==2.19.0 && mlflow server
       --host 0.0.0.0
       --port 5000
-      --backend-store-uri sqlite:///mlflow.db
-      --default-artifact-root ./mlruns"
+      --backend-store-uri sqlite:////mlruns/mlflow.db
+      --default-artifact-root /mlruns/artifacts"
     ports:
       - "5000:5000"
     volumes:
       - ./mlruns:/mlruns
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - pulsenet-back
     restart: unless-stopped
