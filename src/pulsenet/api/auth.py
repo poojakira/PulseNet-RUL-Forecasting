@@ -9,15 +9,10 @@ import os
 import time
 from typing import Optional
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-
-try:
-    from passlib.hash import bcrypt
-except ImportError:
-    # This should be caught by verification/deployment, but we'll log it.
-    bcrypt = None  # type: ignore
 
 from pulsenet.logger import get_logger
 
@@ -25,17 +20,13 @@ log = get_logger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
-# Strict environment variable requirement for JWT secret
 _JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
-if not _JWT_SECRET or _JWT_SECRET == "change-me-in-production":
-    if os.environ.get("PULSENET_ENV") == "production":
-        log.critical("CRITICAL: PULSENET_JWT_SECRET not set in production!")
-        raise RuntimeError("PULSENET_JWT_SECRET must be set for production environments.")
-    
-    # In development, we use a more robust fallback but still warn.
-    # We generate a temporary one if not provided to avoid predictable hardcoding.
-    _JWT_SECRET = os.environ.get("PULSENET_DEV_SECRET", "pulsenet-insecure-dev-only-secret")
-    log.warning("PULSENET_JWT_SECRET not provided. Using development secret.")
+if not _JWT_SECRET or len(_JWT_SECRET) < 32:
+    if os.environ.get("PULSENET_ENV") == "testing":
+        _JWT_SECRET = "pulsenet-test-secret-not-for-production"
+    else:
+        log.critical("PULSENET_JWT_SECRET is required")
+        raise RuntimeError("PULSENET_JWT_SECRET must be set.")
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
@@ -50,24 +41,13 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
 
 def _hash_password(password: str) -> str:
     """Hash password using bcrypt."""
-    if bcrypt is None:
-        log.critical("BCRYPT NOT INSTALLED. Cannot hash passwords securely!")
-        raise RuntimeError(
-            "The 'passlib[bcrypt]' package is required for secure authentication. "
-            "Please run 'pip install passlib[bcrypt]'."
-        )
-    return bcrypt.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def _verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against hash."""
-    if bcrypt is None:
-        log.critical("VERIFICATION FAILED: BCRYPT NOT INSTALLED")
-        # NEVER fallback to plain text comparison in production
-        raise RuntimeError("Auth system missing dependencies (passlib[bcrypt])")
-    
     try:
-        return bcrypt.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
     except Exception as e:
         log.error(f"Password verification error: {e}")
         return False
@@ -82,14 +62,12 @@ def _load_users() -> dict:
         except Exception as e:
             log.error(f"Failed to parse PULSENET_USERS: {e}")
             raise RuntimeError("Invalid PULSENET_USERS JSON configuration")
-            
+
     # If no users JSON provided, but an admin password is, create a single fallback admin
     admin_pw = os.environ.get("PULSENET_ADMIN_PASSWORD")
     if admin_pw:
-        return {
-            "admin": {"hashed_password": _hash_password(admin_pw), "role": "admin"}
-        }
-        
+        return {"admin": {"hashed_password": _hash_password(admin_pw), "role": "admin"}}
+
     # Final fallback: Require explicit configuration
     log.error("No users configured! Authentication will fail.")
     return {}

@@ -73,15 +73,17 @@ class Block:
 class BlackBoxLedger:
     """Cryptographic ledger recording maintenance & anomaly events."""
 
-    def __init__(self, base_path: Optional[str] = None, enable_merkle: bool = True, **kwargs: Any):
+    def __init__(
+        self, base_path: Optional[str] = None, enable_merkle: bool = True, **kwargs: Any
+    ):
         # Use storage_path if provided (for backward compatibility with tests)
         storage_path = kwargs.get("storage_path", base_path)
         env_ledger = os.environ.get("PULSENET_LEDGER_PATH", "ledger.json")
-        
+
         # If storage_path is a file, use its parent as base_path
         p = Path(storage_path or env_ledger)
         self.base_path = p.parent if p.suffix else p
-        
+
         self.enable_merkle = enable_merkle
         self.tenants: dict[str, list[Block]] = {}
         self._metrics: dict[str, Any] = {"total_blocks": 0, "avg_add_latency_ms": 0.0}
@@ -100,7 +102,11 @@ class BlackBoxLedger:
     # ------------------------------------------------------------------
     def _create_genesis_block(self, tenant_id: str = "public") -> None:
         """Initialize a tenant's chain with a genesis block."""
-        msg = "GENESIS_BLOCK_ENGINE_START" if tenant_id == "public" else f"GENESIS_BLOCK_TENANT_{tenant_id.upper()}"
+        msg = (
+            "GENESIS_BLOCK_ENGINE_START"
+            if tenant_id == "public"
+            else f"GENESIS_BLOCK_TENANT_{tenant_id.upper()}"
+        )
         genesis = Block(
             index=0,
             timestamp=time.time(),
@@ -109,7 +115,10 @@ class BlackBoxLedger:
         )
         self.tenants[tenant_id] = [genesis]
         self.save_chain(tenant_id)
-        log.info(f"Genesis block created for tenant: {tenant_id}", extra={"hash": genesis.hash[:16]})
+        log.info(
+            f"Genesis block created for tenant: {tenant_id}",
+            extra={"hash": genesis.hash[:16]},
+        )
 
     def add_entry(
         self,
@@ -123,8 +132,8 @@ class BlackBoxLedger:
         t0 = time.perf_counter()
         with self.lock:
             if tenant_id not in self.tenants:
-                self.load_chain(tenant_id) # Try to load or create
-            
+                self.load_chain(tenant_id)  # Try to load or create
+
             chain = self.tenants[tenant_id]
             previous = chain[-1]
             data_payload = {
@@ -132,7 +141,7 @@ class BlackBoxLedger:
                 "cycles": cycles,
                 "health_score": round(health_score, 2),
                 "status": status,
-                "tenant": tenant_id
+                "tenant": tenant_id,
             }
             new_block = Block(
                 index=previous.index + 1,
@@ -148,7 +157,9 @@ class BlackBoxLedger:
 
         latency_ms = (time.perf_counter() - t0) * 1000
         self._latencies.append(latency_ms)
-        self._metrics["total_blocks_global"] = sum(len(c) for c in self.tenants.values())
+        self._metrics["total_blocks_global"] = sum(
+            len(c) for c in self.tenants.values()
+        )
         self._metrics["avg_add_latency_ms"] = sum(self._latencies) / len(
             self._latencies
         )
@@ -236,7 +247,10 @@ class BlackBoxLedger:
             with open(storage_path, "r") as f:
                 chain_data = json.load(f)
                 self.tenants[tenant_id] = [Block(**d) for d in chain_data]
-            log.info(f"Chain loaded for tenant {tenant_id}", extra={"blocks": len(self.tenants[tenant_id])})
+            log.info(
+                f"Chain loaded for tenant {tenant_id}",
+                extra={"blocks": len(self.tenants[tenant_id])},
+            )
         except Exception as e:
             log.error(f"Failed to load blockchain ledger for tenant {tenant_id}: {e}")
             self._create_genesis_block(tenant_id)
@@ -248,11 +262,15 @@ class BlackBoxLedger:
         """Return system health and integrity metrics for a tenant."""
         return {
             **self._metrics,
-            "merkle_root": self.compute_merkle_root(tenant_id) if self.enable_merkle else None,
+            "merkle_root": self.compute_merkle_root(tenant_id)
+            if self.enable_merkle
+            else None,
             "chain_valid": self.validate_integrity(tenant_id)[0],
         }
 
-    def get_recent_blocks(self, n: int = 10, tenant_id: str = "public") -> list[dict[str, Any]]:
+    def get_recent_blocks(
+        self, n: int = 10, tenant_id: str = "public"
+    ) -> list[dict[str, Any]]:
         """Return the last N blocks of a tenant."""
         with self.lock:
             if tenant_id not in self.tenants:

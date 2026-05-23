@@ -46,8 +46,12 @@ class BaseAnomalyModel(ABC):
 
     def evaluate(self, X: np.ndarray, y_true: np.ndarray) -> dict:
         """Compute standard classification metrics."""
-        from sklearn.metrics import (f1_score, precision_score, recall_score,
-                                     roc_auc_score)
+        from sklearn.metrics import (
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
+        )
 
         y_pred = self.predict(X)
         scores = self.score(X)

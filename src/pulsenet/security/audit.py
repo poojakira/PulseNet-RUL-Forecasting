@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional, cast
@@ -15,6 +16,7 @@ from pulsenet.config import cfg
 from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
+_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
 class AuditLogger:
@@ -27,6 +29,8 @@ class AuditLogger:
 
     def _get_log_path(self, tenant_id: str) -> Path:
         """Helper to compute tenant-isolated log path."""
+        if not _TENANT_ID_RE.fullmatch(tenant_id):
+            raise ValueError("Invalid tenant identifier")
         # Special case: if log_file is a .jsonl file, use it directly for 'public'
         if tenant_id == "public":
             return self.log_file
@@ -72,7 +76,9 @@ class AuditLogger:
             log.error(f"Failed to write audit log: {e}")
             return "ACCESS_LOG_FAILURE"
 
-    def get_recent(self, n: int = 50, tenant_id: str = "public") -> list[dict[str, Any]]:
+    def get_recent(
+        self, n: int = 50, tenant_id: str = "public"
+    ) -> list[dict[str, Any]]:
         """Return the last N audit entries for a given tenant."""
         log_path = self._get_log_path(tenant_id)
         if not log_path.exists():

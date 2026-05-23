@@ -1,18 +1,32 @@
-# PulseNet NVIDIA HPC System Design
+# PulseNet Design Notes
 
-This document outlines the core architecture and hardware optimizations applied during the transition to an NVIDIA containerized distributed environment.
+## Scope
 
-## Overview
-PulseNet is an enterprise-ready predictive maintenance platform. With the move to NVIDIA HPC, the stack relies strictly on:
-- **PyTorch DDP (Distributed Data Parallel)** for multi-node training
-- **AMP (Automatic Mixed Precision)** utilizing NVIDIA Tensor Cores
-- **RAPIDS cuML** for accelerated anomaly detection on GPU
-- **NVIDIA NGC Base Container (`nvcr.io/nvidia/pytorch:23.10-py3`)** for the runtime environment
+PulseNet is a single-service reference implementation for official NASA
+C-MAPSS FD001 predictive maintenance verification. It is not documented as a
+deployed production fleet.
 
-## Pipeline Strategy
-Our `main_pipeline.py` orchestrates the complete lifecycle:
-1. **DDP Initialization**: Bootstraps NCCL backend via `torchrun`.
-2. **Dynamic Batching**: Groups concurrent inference requests to fully saturate the GPU during FastAPI loads.
-3. **Hardware Telemetry**: Incorporates `pynvml` context gathering for GPU health, power usage, and temperature mapping.
+## Architecture
 
-*For complete implementation details on the test plans and deployment, please refer to the primary codebase configuration files.*
+1. `official_cmapss.py` verifies the NASA archive hash and extracts FD001.
+2. `ingestion.py` parses the 26-column C-MAPSS schema.
+3. `preprocessing.py` adds rolling features and fits scalers on train data only.
+4. `IsolationForestModel` trains on early-cycle healthy windows.
+5. FastAPI exposes authenticated prediction, training, health, and audit routes.
+6. Audit logs include hash integrity checks and tenant-scoped files.
+
+## Security Boundaries
+
+- Data provenance is enforced through archive SHA-256 verification.
+- JWT signing secret and users must come from environment configuration.
+- Tenant identifiers are constrained to a safe character set before audit paths
+  are built.
+- Runtime artifacts, keys, ledgers, model binaries, and extracted raw data are
+  ignored by git.
+
+## Limitations
+
+- GPU acceleration is optional and only used when compatible libraries are
+  installed.
+- API rate limiting is process-local, not distributed.
+- The checked-in validation is local evidence, not a cloud SLO or fleet metric.
