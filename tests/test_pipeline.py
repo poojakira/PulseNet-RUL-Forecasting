@@ -8,10 +8,10 @@ import pytest
 
 from pulsenet.pipeline.preprocessing import (
     compute_rolling_features,
-    normalize,
-    get_feature_columns,
     create_labels,
     create_sequences,
+    get_feature_columns,
+    normalize,
 )
 
 

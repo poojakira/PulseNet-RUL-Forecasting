@@ -1,13 +1,4 @@
-"""
-PulseNet CLI Orchestrator — central entry point for all pipeline operations.
-
-Usage:
-    python main_pipeline.py --mode full        # End-to-end pipeline
-    python main_pipeline.py --mode train       # Train models only
-    python main_pipeline.py --mode predict     # Run inference only
-    python main_pipeline.py --mode benchmark   # Run benchmarks
-    python main_pipeline.py --mode stream      # Start streaming pipeline
-"""
+"""PulseNet CLI entry point."""
 
 from __future__ import annotations
 
@@ -16,7 +7,6 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from pulsenet.config import cfg
@@ -25,28 +15,32 @@ from pulsenet.logger import get_logger
 log = get_logger("pulsenet.cli")
 
 
-def run_full_pipeline():
-    """Execute the complete pipeline: ingest → preprocess → train → evaluate → inference."""
+def run_full_pipeline() -> None:
+    """Execute ingestion, preprocessing, training, evaluation, and inference."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
     pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     results = pipeline.run_full_pipeline()
 
     print("\n" + "=" * 60)
-    print("  PIPELINE RESULTS")
+    print("PIPELINE RESULTS")
     print("=" * 60)
     for model_name, metrics in results.items():
-        print(f"\n  Model: {model_name}")
+        print(f"\nModel: {model_name}")
         if isinstance(metrics, dict) and "error" not in metrics:
-            for k, v in metrics.items():
-                print(f"    {k}: {v:.4f}" if isinstance(v, float) else f"    {k}: {v}")
+            for key, value in metrics.items():
+                print(
+                    f"  {key}: {value:.4f}"
+                    if isinstance(value, float)
+                    else f"  {key}: {value}"
+                )
         else:
-            print(f"    {metrics}")
+            print(f"  {metrics}")
     print("=" * 60)
 
 
-def run_training():
-    """Train models only (assumes data is already preprocessed)."""
+def run_training() -> None:
+    """Train the configured model."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
     pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
@@ -56,8 +50,8 @@ def run_training():
     print("[SUCCESS] Training complete")
 
 
-def run_prediction():
-    """Run inference on test data."""
+def run_prediction() -> None:
+    """Run inference on official FD001 test data."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
     pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
@@ -66,95 +60,44 @@ def run_prediction():
     pipeline.run_training()
     result_df = pipeline.run_inference()
     anomalies = result_df["prediction"].sum()
-    print(f"[SUCCESS] Inference complete: {anomalies}/{len(result_df)} anomalies detected")
+    print(
+        f"[SUCCESS] Inference complete: {anomalies}/{len(result_df)} anomalies detected"
+    )
 
 
-def run_benchmark():
-    """Run performance benchmarks."""
-    import numpy as np
+def run_benchmark() -> None:
+    """Run official-data validation metrics and evidence generation."""
+    from scripts.run_validation import main as run_validation_main
 
-    from pulsenet.benchmarks.benchmark import BenchmarkSuite
-    from pulsenet.pipeline.orchestrator import PipelineOrchestrator
-    from pulsenet.security.encryption import EncryptionManager
-
-    pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
-    pipeline.run_ingestion()
-    pipeline.run_preprocessing()
-    pipeline.run_training()
-
-    from pulsenet.pipeline.preprocessing import get_feature_columns
-
-    feat_cols = get_feature_columns(pipeline.test_df)
-    X = pipeline.test_df[feat_cols].values
-
-    model = pipeline.registry.get_model("isolation_forest")
-    bench = BenchmarkSuite()
-
-    # 1. Performance
-    bench.benchmark_inference_latency(model, X)
-    bench.benchmark_throughput(model, X)
-    
-    # 2. Network & Security
-    bench.benchmark_network_resilience(X)
-    bench.benchmark_encryption(EncryptionManager())
-
-    # 3. Quality & Lead Time (NEW)
-    # Using threshold from config if available
-    threshold = cfg.data.failure_rul_threshold
-    
-    # Check if we have RUL data for quality benchmarks
-    if pipeline.rul is not None:
-        log.info(f"Running quality benchmarks with threshold: {threshold}")
-        bench.benchmark_detection_quality(model, X, pipeline.test_df, pipeline.rul, threshold_cycles=threshold)
-        bench.benchmark_lead_time(model, X, pipeline.test_df, pipeline.rul, failure_threshold_cycles=threshold)
-        bench.benchmark_robustness(model, X, pipeline.test_df, pipeline.rul, threshold_cycles=threshold)
-    else:
-        log.warning("RUL ground truth missing — skipping quality/lead-time benchmarks")
-
-    try:
-        bench.profile_resources()
-    except ImportError:
-        log.warning("psutil not installed — skipping resource profiling")
-
-    bench.save_results()
-    report = bench.generate_report_table()
-    bench.generate_plots()
-
-    print("\n" + report)
-    print("\n[SUCCESS] Benchmarks saved to outputs/benchmarks/")
+    run_validation_main()
 
 
-def run_streaming():
-    """Start async streaming pipeline (producer + consumer)."""
+def run_streaming() -> None:
+    """Start async streaming from an approved telemetry file."""
 
-    async def _stream():
+    async def _stream() -> None:
         from pulsenet.models.isolation_forest import IsolationForestModel
         from pulsenet.security.blockchain import BlackBoxLedger
         from pulsenet.streaming.consumer import InferenceConsumer
         from pulsenet.streaming.producer import SensorProducer
         from pulsenet.streaming.queue import AsyncStreamQueue
 
-        # Load model
         model = IsolationForestModel()
         model_path = Path("models/isolation_forest.joblib")
         if not model_path.exists():
-            model_path = Path("isolation_forest_model.joblib")
-        if model_path.exists():
-            model.load(model_path)
-        else:
             print("[WARNING] No trained model found. Run --mode train first.")
             return
 
+        model.load(model_path)
         queue = AsyncStreamQueue(max_size=1000)
-        producer = SensorProducer(queue, delay_ms=30)
+        producer = SensorProducer(
+            queue, data_path="data/test_features.csv", delay_ms=30
+        )
         consumer = InferenceConsumer(queue, model, BlackBoxLedger(), batch_size=32)
 
         print("[INFO] Streaming pipeline started (Ctrl+C to stop)")
         try:
-            await asyncio.gather(
-                producer.start(),
-                consumer.start(),
-            )
+            await asyncio.gather(producer.start(), consumer.start())
         except KeyboardInterrupt:
             producer.stop()
             consumer.stop()
@@ -166,18 +109,9 @@ def run_streaming():
     asyncio.run(_stream())
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
-        description="PulseNet Predictive Maintenance Pipeline",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Modes:
-  full       Run complete pipeline (ingest → train → evaluate → inference)
-  train      Train models only
-  predict    Run inference on test data
-  benchmark  Run performance benchmarks
-  stream     Start real-time streaming pipeline
-        """,
+        description="PulseNet Predictive Maintenance Pipeline"
     )
     parser.add_argument(
         "--mode",
@@ -185,11 +119,7 @@ Modes:
         default="full",
         help="Pipeline execution mode",
     )
-
     args = parser.parse_args()
-
-    print(f"\nPulseNet v2.0 - Mode: {args.mode.upper()}")
-    print("=" * 50)
 
     dispatch = {
         "full": run_full_pipeline,
@@ -198,7 +128,6 @@ Modes:
         "benchmark": run_benchmark,
         "stream": run_streaming,
     }
-
     dispatch[args.mode]()
 
 

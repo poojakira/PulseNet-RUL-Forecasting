@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260" role="img" aria-label="Official NASA validation metrics">
+<rect width="720" height="260" fill="white" />
+<text x="20" y="24" font-size="16" font-weight="700" font-family="Arial">PulseNet official NASA FD001 metrics</text>
+<text x="20" y="62" font-size="14" font-family="Arial">F1</text><rect x="120" y="42" width="500" height="28" fill="#e8edf3" /><rect x="120" y="42" width="269" height="28" fill="#2563eb" /><text x="636" y="62" font-size="14" font-family="Arial">0.540</text>
+<text x="20" y="112" font-size="14" font-family="Arial">Precision</text><rect x="120" y="92" width="500" height="28" fill="#e8edf3" /><rect x="120" y="92" width="357" height="28" fill="#2563eb" /><text x="636" y="112" font-size="14" font-family="Arial">0.715</text>
+<text x="20" y="162" font-size="14" font-family="Arial">Recall</text><rect x="120" y="142" width="500" height="28" fill="#e8edf3" /><rect x="120" y="142" width="216" height="28" fill="#2563eb" /><text x="636" y="162" font-size="14" font-family="Arial">0.434</text>
+<text x="20" y="212" font-size="14" font-family="Arial">ROC AUC</text><rect x="120" y="192" width="500" height="28" fill="#e8edf3" /><rect x="120" y="192" width="350" height="28" fill="#2563eb" /><text x="636" y="212" font-size="14" font-family="Arial">0.701</text>
+</svg>
