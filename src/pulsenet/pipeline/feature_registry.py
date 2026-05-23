@@ -36,20 +36,19 @@ class FeatureRegistry:
         """Process batch data for training (Offline)."""
         df = df.copy()
         sensor_cols = [c for c in df.columns if str(c).startswith("sensor_")]
-        
+
         for col in sensor_cols:
             df[f"{col}_rolling_mean"] = df.groupby("unit_number")[col].transform(
                 lambda s: s.rolling(window=self.rolling_window, min_periods=1).mean()
             )
-        
+
         # Save feature list for inference consistency
-        self.feature_cols = [
-            str(c) for c in df.columns 
-            if str(c).startswith("sensor_")
-        ]
+        self.feature_cols = [str(c) for c in df.columns if str(c).startswith("sensor_")]
         return df
 
-    def process_online(self, data: dict[str, Any], history: Optional[pd.DataFrame] = None) -> np.ndarray:
+    def process_online(
+        self, data: dict[str, Any], history: Optional[pd.DataFrame] = None
+    ) -> np.ndarray:
         """Process single event for inference (Online)."""
         if not self.is_fitted:
             raise DataError("Feature Registry must be fitted with a scaler first.")
@@ -60,35 +59,43 @@ class FeatureRegistry:
             current_df = pd.concat([history, pd.DataFrame([data])], ignore_index=True)
             # Compute rolling for only the last row
             for col in self.feature_cols:
-                if not col.endswith("_rolling_mean") and f"{col}_rolling_mean" in self.feature_cols:
+                if (
+                    not col.endswith("_rolling_mean")
+                    and f"{col}_rolling_mean" in self.feature_cols
+                ):
                     val = current_df[col].tail(self.rolling_window).mean()
                     data[f"{col}_rolling_mean"] = val
         else:
             # Fallback: if no history, rolling mean = current value
             for col in self.feature_cols:
-                if not col.endswith("_rolling_mean") and f"{col}_rolling_mean" in self.feature_cols:
+                if (
+                    not col.endswith("_rolling_mean")
+                    and f"{col}_rolling_mean" in self.feature_cols
+                ):
                     data[f"{col}_rolling_mean"] = data.get(col, 0.0)
 
         # Enforce column order
         X = pd.DataFrame([data])[self.feature_cols]
-        
+
         # Scale
         if self.scaler:
             X.loc[:, :] = self.scaler.transform(X)
-            
+
         return X.to_numpy()
 
-    def fit_scaler(self, df: pd.DataFrame, scaler: Optional[MinMaxScaler] = None) -> MinMaxScaler:
+    def fit_scaler(
+        self, df: pd.DataFrame, scaler: Optional[MinMaxScaler] = None
+    ) -> MinMaxScaler:
         """Fit or set the internal scaler."""
         self.feature_cols = [str(c) for c in df.columns if str(c).startswith("sensor_")]
         X = df[self.feature_cols]
-        
+
         if scaler:
             self.scaler = scaler
         else:
             self.scaler = MinMaxScaler()
             self.scaler.fit(X)
-            
+
         self.is_fitted = True
         return self.scaler
 

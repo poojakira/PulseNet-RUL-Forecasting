@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pulsenet"
 version = "2.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -13,17 +13,16 @@ where = ["src"]
 [tool.pyright]
 include = ["src", "tests"]
 extraPaths = ["src"]
-pythonVersion = "3.11"
+pythonVersion = "3.12"
 typeCheckingMode = "off"
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]
-# Only enforce critical syntax/security rules; style rules are advisory
-select = ["E9", "F63", "F7"]
+select = ["E9", "F", "I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pulsenet"]

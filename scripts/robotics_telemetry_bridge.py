@@ -1,136 +1,135 @@
 #!/usr/bin/env python3
-"""
-PulseNet Edge Robotics Telemetry Bridge
-Architected by Rhutvik Pachghare (Robotics Systems & DevOps Engineer)
+"""Replay official NASA FD001 telemetry into a running PulseNet API."""
 
-Description:
-This script simulates a ROS (Robot Operating System) edge controller deployed on a 
-physical turbofan engine. It continuously transmits live sensor voltages and RPM metrics
-to the central PulseNet AI Inference server to receive real-time predictive degradation health.
-If the AI scores the hardware health below the critical threshold (50.0), this bridge
-executes an automated physical emergency safe-shutdown to prevent catastrophic failure.
-"""
+from __future__ import annotations
 
-import time
-import json
+import argparse
 import logging
-import random
-import requests
+import os
 import sys
+import time
+from pathlib import Path
+from typing import Any
 
-# Configure Edge Logging
+import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from pulsenet.pipeline.official_cmapss import load_official_fd001  # noqa: E402
+
+SENSOR_COLUMNS = [
+    "sensor_2",
+    "sensor_3",
+    "sensor_4",
+    "sensor_7",
+    "sensor_8",
+    "sensor_9",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21",
+]
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [EDGE-NODE-01] %(levelname)s: %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s [FD001-REPLAY] %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
 )
-log = logging.getLogger("RobotBridge")
+log = logging.getLogger("fd001-replay")
 
-API_URL = "http://localhost:8000"
-AUTH_ENDPOINT = f"{API_URL}/token"
-PREDICT_ENDPOINT = f"{API_URL}/predict"
 
-def authenticate_hardware(username="operator", password="operator_password"):
-    """
-    Authenticate the physical hardware node with the PulseNet central server
-    using AES-encrypted JWT Tokens.
-    """
-    log.info(f"Authenticating edge hardware as '{username}'...")
-    try:
-        response = requests.post(AUTH_ENDPOINT, json={"username": username, "password": password})
-        if response.status_code == 200:
-            token = response.json().get("access_token")
-            log.info("Hardware authentication SUCCESS. Access token acquired.")
-            return token
-        else:
-            log.error(f"Authentication failed: {response.text}")
-            sys.exit(1)
-    except requests.exceptions.ConnectionError:
-        log.error("Could not connect to PulseNet API. Is the server running?")
-        sys.exit(1)
+def authenticate(api_url: str, username: str, password: str) -> str:
+    response = requests.post(
+        f"{api_url}/token",
+        json={"username": username, "password": password},
+        timeout=10,
+    )
+    response.raise_for_status()
+    token = response.json()["access_token"]
+    log.info("Authenticated replay user '%s'", username)
+    return str(token)
 
-def trigger_emergency_shutdown(health_score):
-    """
-    Hardware kill-switch protocol.
-    """
-    log.error("=" * 60)
-    log.error(f"🚨 CRITICAL HARDWARE DEGRADATION RECOGNIZED BY AI (Health: {health_score}%) 🚨")
-    log.error("INITIATING PHYSICAL EMERGENCY SHUTDOWN PROTOCOL...")
-    log.error("Disengaging primary motors...")
-    time.sleep(1)
-    log.error("Purging fuel lines...")
-    time.sleep(1)
-    log.error("Activating mechanical brakes...")
-    time.sleep(1)
-    log.error("Hardware safely offline. Immediate maintenance required.")
-    log.error("=" * 60)
-    sys.exit(0)
 
-def simulate_telemetry_stream(token):
-    """
-    Simulates a 10Hz physical sensor frame loop reading voltage from 14 physical
-    channels (temperature, pressure, acoustic vibration, bypass ratios) and sending
-    to the AI engine.
-    """
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    
-    # Starting base sensors corresponding to a healthy engine
-    base_sensors = {
-        "sensor_2": 642.15, "sensor_3": 1589.0, "sensor_4": 1406.2,
-        "sensor_7": 554.1, "sensor_8": 2388.0, "sensor_9": 9044.8,
-        "sensor_11": 47.5, "sensor_12": 521.9, "sensor_13": 2388.1,
-        "sensor_14": 8138.6, "sensor_15": 8.44, "sensor_17": 393.0,
-        "sensor_20": 39.0, "sensor_21": 23.4
+def iter_official_frames(
+    data_dir: Path,
+    unit_number: int,
+    limit: int,
+) -> list[dict[str, Any]]:
+    fd001 = load_official_fd001(data_dir, max_train_rows=None, max_test_rows=None)
+    unit = fd001.test[fd001.test["unit_number"] == unit_number].head(limit)
+    if unit.empty:
+        raise ValueError(f"unit {unit_number} not present in FD001 test data")
+    return [
+        {col: float(row[col]) for col in SENSOR_COLUMNS} for _, row in unit.iterrows()
+    ]
+
+
+def replay(
+    api_url: str,
+    token: str,
+    frames: list[dict[str, Any]],
+    tenant_id: str,
+    delay_seconds: float,
+) -> None:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "X-Tenant-ID": tenant_id,
     }
-    
-    cycle = 1
-    degradation_factor = 0.0
-    
-    log.info("Starting closed-loop hardware telemetry transmission (1Hz)...")
-    
-    while True:
-        # Simulate slight hardware degradation over time
-        degradation_factor += random.uniform(0.1, 0.5)
-        
-        # Inject physical drift to mimic bearings / fan wear
-        payload = {k: v + (random.uniform(-0.1, 0.1) * v) for k, v in base_sensors.items()}
-        # Specifically degrade high-pressure compressor temperature (simulated sensor_4)
-        payload["sensor_4"] += degradation_factor * 12.0
-        
-        log.info(f"Cycle {cycle:04} | Transmitting 14-channel sensor frame (HPC Temp: {payload['sensor_4']:.2f})...")
-        
-        t0 = time.time()
-        try:
-            res = requests.post(PREDICT_ENDPOINT, json=payload, headers=headers)
-            if res.status_code == 200:
-                data = res.json()
-                latency = (time.time() - t0) * 1000
-                health = data.get("health_index", 100.0)
-                status = data.get("status", "UNKNOWN")
-                
-                log.info(f"   [API Reply: {latency:.1f}ms] Health={health:.1f}% | Status={status}")
-                
-                if health < 50.0:
-                    trigger_emergency_shutdown(health)
-                    
-            else:
-                log.warning(f"Unexpected response from AI Server: {res.status_code}")
-        except requests.exceptions.RequestException as e:
-            log.error(f"Telemetry payload transmission failed: {e}")
-            
-        cycle += 1
-        time.sleep(1.0) # 1Hz control loop
+    for index, payload in enumerate(frames, start=1):
+        start = time.perf_counter()
+        response = requests.post(
+            f"{api_url}/api/v1/predict",
+            json=payload,
+            headers=headers,
+            timeout=15,
+        )
+        latency_ms = (time.perf_counter() - start) * 1000
+        if response.status_code != 200:
+            log.warning(
+                "frame=%s status=%s body=%s", index, response.status_code, response.text
+            )
+        else:
+            body = response.json()
+            log.info(
+                "frame=%s latency_ms=%.1f status=%s health=%.2f",
+                index,
+                latency_ms,
+                body.get("status"),
+                body.get("health_index"),
+            )
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--api-url", default=os.getenv("PULSENET_API_URL", "http://localhost:8000")
+    )
+    parser.add_argument(
+        "--username", default=os.getenv("PULSENET_REPLAY_USER", "operator")
+    )
+    parser.add_argument("--password-env", default="PULSENET_REPLAY_PASSWORD")
+    parser.add_argument("--tenant-id", default="official-nasa")
+    parser.add_argument("--unit", type=int, default=1)
+    parser.add_argument("--limit", type=int, default=25)
+    parser.add_argument("--delay-seconds", type=float, default=0.0)
+    parser.add_argument("--data-dir", type=Path, default=Path("data/official"))
+    args = parser.parse_args()
+
+    password = os.getenv(args.password_env)
+    if not password:
+        raise SystemExit(f"{args.password_env} must be set")
+
+    token = authenticate(args.api_url, args.username, password)
+    frames = iter_official_frames(args.data_dir, args.unit, args.limit)
+    replay(args.api_url, token, frames, args.tenant_id, args.delay_seconds)
+
 
 if __name__ == "__main__":
-    print(r"""
-     _____       _           _   _        _   
-    |  __ \     | |         | \ | |      | |  
-    | |__) |   _| |___  __ _|  \| | ___  | |_ 
-    |  ___/ | | | / __|/ _` | . ` |/ _ \ | __|
-    | |   | |_| | \__ \ (_| | |\  |  __/ | |_ 
-    |_|    \__,_|_|___/\__,_|_| \_|\___|  \__|
-    Edge Robotics Inference Bridge v1.0
-    Architected by: Rhutvik Pachghare
-    """)
-    token = authenticate_hardware()
-    simulate_telemetry_stream(token)
+    main()

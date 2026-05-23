@@ -70,7 +70,9 @@ class ModelConfig(BaseModel):
     model_config = {"protected_namespaces": ()}
     active_model: str = "isolation_forest"
     model_dir: str = "./models"
-    isolation_forest: IsolationForestConfig = Field(default_factory=IsolationForestConfig)
+    isolation_forest: IsolationForestConfig = Field(
+        default_factory=IsolationForestConfig
+    )
     lstm: LstmConfig = Field(default_factory=LstmConfig)
     transformer: TransformerConfig = Field(default_factory=TransformerConfig)
     threshold: ThresholdConfig = Field(default_factory=ThresholdConfig)
@@ -79,7 +81,7 @@ class ModelConfig(BaseModel):
 class SecurityConfig(BaseModel):
     encryption_algorithm: str = "AES-256-Fernet"
     key_env_variable: str = "PULSENET_ENCRYPTION_KEY"
-    key_file: str = "secret.key"
+    key_file: str = ".runtime/pulsenet-fernet.key"
     key_rotation_days: int = 30
     jwt_secret_env: str = "PULSENET_JWT_SECRET"
     jwt_algorithm: str = "HS256"
@@ -145,6 +147,7 @@ class DashboardConfig(BaseModel):
 
 class PulseNetConfigSchema(BaseModel):
     """Strict validation schema for PulseNet configuration."""
+
     model_config = {"protected_namespaces": ()}
 
     system: SystemConfig = Field(default_factory=SystemConfig)

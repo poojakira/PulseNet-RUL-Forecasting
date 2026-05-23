@@ -32,6 +32,7 @@ class SensorInput(BaseModel):
 
 class BatchSensorInput(BaseModel):
     """Batch of sensor readings."""
+
     model_config = {"protected_namespaces": ()}
 
     readings: list[SensorInput]
@@ -40,6 +41,7 @@ class BatchSensorInput(BaseModel):
 
 class TrainRequest(BaseModel):
     """Training configuration request."""
+
     model_config = {"protected_namespaces": ()}
 
     model_name: str = Field(default="isolation_forest")
@@ -61,6 +63,7 @@ class TokenRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Single prediction result."""
+
     model_config = {"protected_namespaces": ()}
 
     prediction: int = Field(..., description="0=Normal, 1=Anomaly")
@@ -72,6 +75,7 @@ class PredictionResponse(BaseModel):
 
 class BatchPredictionResponse(BaseModel):
     """Batch prediction results."""
+
     model_config = {"protected_namespaces": ()}
 
     predictions: list[PredictionResponse]
@@ -82,6 +86,7 @@ class BatchPredictionResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """System health status."""
+
     model_config = {"protected_namespaces": ()}
 
     status: str = Field(..., description="healthy/degraded/unhealthy")
@@ -101,6 +106,7 @@ class HealthResponse(BaseModel):
 
 class TrainResponse(BaseModel):
     """Training result."""
+
     model_config = {"protected_namespaces": ()}
 
     model: str

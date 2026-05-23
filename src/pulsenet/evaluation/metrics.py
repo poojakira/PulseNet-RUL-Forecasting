@@ -10,7 +10,6 @@ from sklearn.metrics import (  # pyre-ignore
     precision_score,
     recall_score,
     roc_auc_score,
-    roc_curve,
 )
 
 from pulsenet.logger import get_logger  # pyre-ignore
@@ -27,10 +26,12 @@ def calculate_detection_metrics(
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
-    
+
     # Handle single-class case for ROC/PR
     if len(np.unique(y_true)) < 2:
-        log.warning("Only one class present in y_true. ROC AUC and PR AUC are not defined.")
+        log.warning(
+            "Only one class present in y_true. ROC AUC and PR AUC are not defined."
+        )
         roc_auc = 0.0
         pr_auc = 0.0
         avg_precision = 0.0
@@ -70,32 +71,32 @@ def calculate_lead_time(
         # Indices for this engine in df_test
         mask = df_test["unit_number"] == unit_id
         indices = np.where(mask)[0]
-        
+
         # Predicted labels for this engine
         unit_preds = y_pred[indices]
-        
+
         # Check if model predicted failure for this engine
         if np.any(unit_preds == 1):
             # First cycle index where prediction was positive
             first_fail_idx = np.where(unit_preds == 1)[0][0]
-            
+
             # Absolute cycle number for first prediction
             t_pred = df_test.iloc[indices[first_fail_idx]]["time_in_cycles"]
-            
+
             # Actual final failure cycle in test data
             max_cycle = max_cycles[unit_id]
-            
+
             # Ground truth RUL at the end of the test series for this engine
             # Unit IDs are 1-based, Series index is 0-based
             try:
                 final_rul_true = rul_truth.iloc[int(unit_id) - 1]
             except IndexError:
-                continue # Skip if no ground truth for this unit
-                
+                continue  # Skip if no ground truth for this unit
+
             # Actual RUL at the time of prediction
             # RUL(t) = Final_RUL + (Max_Cycle - Current_Cycle)
             actual_rul_at_pred = final_rul_true + (max_cycle - t_pred)
-            
+
             lead_times.append(actual_rul_at_pred)
 
     if not lead_times:
@@ -116,16 +117,16 @@ def map_ground_truth_labels(
     """Assign binary labels based on ground truth RUL values."""
     y_true = []
     max_cycles = df_test.groupby("unit_number")["time_in_cycles"].max()
-    
+
     for _, row in df_test.iterrows():
         unit_id = row["unit_number"]
         current_cycle = row["time_in_cycles"]
-        
+
         final_rul = rul_truth.iloc[int(unit_id) - 1]
         max_cycle = max_cycles[unit_id]
-        
+
         current_rul = final_rul + (max_cycle - current_cycle)
         label = 1 if current_rul <= threshold_cycles else 0
         y_true.append(label)
-        
+
     return np.array(y_true)

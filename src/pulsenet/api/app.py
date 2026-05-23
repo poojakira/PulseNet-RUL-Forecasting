@@ -109,12 +109,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         {
             "model": model if model_loaded else None,
             "model_name": "isolation_forest",
+            "feature_names": feature_names,
             "registry": feature_registry,
             "scaler": scaler,
             "ledger": ledger,
             # For Gap 2 (Shadow Mode), let's pre-load the LSTM if it exists as shadow
-            "shadow_model": None, # For now, can be populated if lstm.joblib exists
-            "shadow_model_name": "lstm"
+            "shadow_model": None,  # For now, can be populated if lstm.joblib exists
+            "shadow_model_name": "lstm",
         }
     )
     set_pipeline_ref({"pipeline": pipeline})
@@ -169,7 +170,7 @@ def create_app() -> FastAPI:
     # CORS Hardware Security: Pull from Config (No wildcards in production)
     origins = cfg.api.cors_origins
     is_production = os.environ.get("PULSENET_ENV") == "production"
-    
+
     if not origins:
         log.warning("No CORS_ORIGINS configured! Defaulting to empty list.")
         origins = []
@@ -251,13 +252,17 @@ def create_app() -> FastAPI:
         request: Request, exc: Exception
     ) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "unknown")
-        log.error(f"Unhandled exception: {exc}", extra={"request_id": request_id}, exc_info=True)
-        
+        log.error(
+            f"Unhandled exception: {exc}",
+            extra={"request_id": request_id},
+            exc_info=True,
+        )
+
         # In production, we mask the actual exception message to avoid leaking internals
         detail = "An internal server error occurred."
         if getattr(cfg.system, "debug", False):
             detail = str(exc)
-            
+
         return JSONResponse(
             status_code=500,
             content={

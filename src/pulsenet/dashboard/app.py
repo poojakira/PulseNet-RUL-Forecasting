@@ -21,15 +21,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
 from pulsenet.config import cfg
+from pulsenet.logger import get_logger
 from pulsenet.models.registry import ModelRegistry
 from pulsenet.pipeline.preprocessing import (
-    compute_rolling_features,
     create_sequences,
-    get_feature_columns,
-    normalize,
 )
 from pulsenet.security.blockchain import BlackBoxLedger  # noqa: E402
-from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -116,15 +113,15 @@ def load_test_data():
 def load_model():
     active_name = cfg.models.active_model
     registry = ModelRegistry()
-    
+
     try:
         model = registry.get_model(active_name)
         model_paths = [
             Path(f"models/{active_name}.joblib"),
             Path(f"data/models/{active_name}.joblib"),
-            Path(f"{active_name}_model.joblib")
+            Path(f"{active_name}_model.joblib"),
         ]
-        
+
         for p in model_paths:
             if p.exists():
                 model.load(p)
@@ -181,7 +178,7 @@ with st.sidebar:
     st.markdown("### 🏢 Multitenancy")
     tenant_id = st.text_input("Enter Tenant ID", value="public").strip().lower()
     st.caption(f"Context: {tenant_id.upper()}")
-    
+
     if ledger:
         is_secure, security_msg = ledger.validate_integrity(tenant_id)
 
@@ -217,24 +214,23 @@ X_engine = engine_data[feature_cols]
 try:
     # --- ML Backend Logic (Honest Implementation) ---
     active_model_name = cfg.models.active_model
-    
+
     if active_model_name in ("lstm", "transformer"):
         # Sequence windowing for 3D PyTorch models
         seq_len = int(cfg.models.lstm.sequence_length)
         # cast to pd.DataFrame to satisfy pyright
-        X_seq = create_sequences(cast(pd.DataFrame, engine_data), feature_cols, seq_len=seq_len)
-        
+        X_seq = create_sequences(
+            cast(pd.DataFrame, engine_data), feature_cols, seq_len=seq_len
+        )
+
         if len(X_seq) > 0:
             health_scores = model.health_index(X_seq)
-            
+
             # Re-align with padding for first (seq_len - 1) cycles
             # LSTM/Transformer predictions are for sequences ending at each cycle
-            padded_health = np.concatenate([
-                np.full(seq_len - 1, 100.0),
-                health_scores
-            ])
+            padded_health = np.concatenate([np.full(seq_len - 1, 100.0), health_scores])
             # Ensure lengths match (truncate if necessary due to windowing)
-            engine_data["health_index"] = padded_health[:len(engine_data)]
+            engine_data["health_index"] = padded_health[: len(engine_data)]
         else:
             engine_data["health_index"] = 100.0
     else:
@@ -265,7 +261,7 @@ if total_cycles > 10 and current_health < 95:
     # type: ignore
     poly_res = np.polyfit(recent_cycles, recent_health, 1)
     slope = float(poly_res[0])
-    
+
     if slope < 0:
         # Health = slope * t + intercept. Find t where Health = 0
         cycles_left = int(-current_health / slope)
@@ -417,11 +413,13 @@ with tab2:
     all_healths = []
     for uid in sorted(df_test["unit_number"].unique())[:20]:
         udata = df_test[df_test["unit_number"] == uid]
-        
+
         # Check if the model is sequence-based and apply windowing
         if cfg.models.active_model in ("lstm", "transformer"):
             seq_len = int(cfg.models.lstm.sequence_length)
-            X_u_seq = create_sequences(cast(pd.DataFrame, udata), feature_cols, seq_len=seq_len)
+            X_u_seq = create_sequences(
+                cast(pd.DataFrame, udata), feature_cols, seq_len=seq_len
+            )
             if len(X_u_seq) > 0:
                 h = model.health_index(X_u_seq)
             else:
@@ -429,7 +427,7 @@ with tab2:
         else:
             X_u = udata[feature_cols]
             h = model.health_index(np.asarray(X_u))
-            
+
         try:
             h_list = list(h)  # type: ignore
             all_healths.append({"unit": int(uid), "health": float(h_list[-1])})
