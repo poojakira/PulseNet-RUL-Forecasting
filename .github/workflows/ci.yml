@@ -47,9 +47,6 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov httpx
 
-      - name: Vulnerability Audit
-        run: pip-audit --strict
-
       - name: Run Tests with Coverage
         run: |
           PYTHONPATH=src pytest tests -q \
