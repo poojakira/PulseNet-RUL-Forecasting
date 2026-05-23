@@ -16,7 +16,7 @@ log = get_logger(__name__)
 
 
 class SensorProducer:
-    """Simulates real-time sensor telemetry by streaming CSV rows."""
+    """Streams sensor telemetry rows from an approved input file."""
 
     def __init__(
         self,

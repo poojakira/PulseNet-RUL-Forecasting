@@ -19,8 +19,12 @@ from pulsenet.logger import get_logger
 from pulsenet.models.registry import ModelRegistry
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.pipeline.ingestion import ingest, load_rul
-from pulsenet.pipeline.preprocessing import (create_labels, create_sequences,
-                                             get_feature_columns)
+from pulsenet.pipeline.official_cmapss import load_official_fd001
+from pulsenet.pipeline.preprocessing import (
+    create_labels,
+    create_sequences,
+    get_feature_columns,
+)
 from pulsenet.security.blockchain import BlackBoxLedger
 from pulsenet.security.encryption import EncryptionManager
 
@@ -28,9 +32,16 @@ log = get_logger(__name__)
 
 # Hardened feature selection: drop noisy sensors identified in research
 DROP_COLS = [
-    "op_setting_1", "op_setting_2", "op_setting_3",
-    "sensor_1", "sensor_5", "sensor_6", "sensor_10",
-    "sensor_16", "sensor_18", "sensor_19"
+    "op_setting_1",
+    "op_setting_2",
+    "op_setting_3",
+    "sensor_1",
+    "sensor_5",
+    "sensor_6",
+    "sensor_10",
+    "sensor_16",
+    "sensor_18",
+    "sensor_19",
 ]
 
 
@@ -41,7 +52,11 @@ class PipelineOrchestrator:
         self.data_dir = Path(data_dir)
         self.ledger = BlackBoxLedger()
         self.registry = ModelRegistry()
-        self.encryption = EncryptionManager()
+        self.encryption = EncryptionManager(
+            key_env_var=cfg.security.key_env_variable,
+            key_file=cfg.security.key_file,
+            rotation_days=cfg.security.key_rotation_days,
+        )
         self.feature_registry = FeatureRegistry(rolling_window=cfg.data.rolling_window)
         self.train_df: Optional[pd.DataFrame] = None
         self.test_df: Optional[pd.DataFrame] = None
@@ -56,11 +71,22 @@ class PipelineOrchestrator:
             test_path = self.data_dir / cfg.data.test_file
             rul_path = self.data_dir / cfg.data.rul_file
 
-            if not train_path.exists():
-                raise FileNotFoundError(f"Data file not found: {train_path}")
+            if train_path.exists() and test_path.exists() and rul_path.exists():
+                self.train_df, self.test_df = ingest(train_path, test_path)
+                self.rul = load_rul(rul_path)
+                return
 
-            self.train_df, self.test_df = ingest(train_path, test_path)
-            self.rul = load_rul(rul_path)
+            official_dir = self.data_dir / "official"
+            fd001 = load_official_fd001(
+                official_dir,
+                max_train_rows=None,
+                max_test_rows=None,
+                download=False,
+            )
+            drop_cols = cfg.data.drop_sensors + cfg.data.drop_settings
+            self.train_df = fd001.train.drop(columns=drop_cols, errors="ignore")
+            self.test_df = fd001.test.drop(columns=drop_cols, errors="ignore")
+            self.rul = fd001.rul
         except Exception as e:
             raise DataError(f"Ingestion failed: {e}") from e
 
@@ -73,7 +99,7 @@ class PipelineOrchestrator:
 
             self.train_df = self.feature_registry.process_offline(self.train_df)
             self.test_df = self.feature_registry.process_offline(self.test_df)
-            
+
             self.scaler = self.feature_registry.fit_scaler(self.train_df)
             # Apply scaling to both
             cols = self.feature_registry.feature_cols
@@ -95,13 +121,16 @@ class PipelineOrchestrator:
             models_dir.mkdir(exist_ok=True)
             scaler_path = models_dir / "scaler.joblib"
             registry_path = models_dir / "feature_registry.joblib"
-            
+
             joblib.dump(self.scaler, scaler_path)
             joblib.dump(self.feature_registry.save_config(), registry_path)
-            
+
             log.info(
-                "Features, scaler and registry saved", 
-                extra={"scaler_path": str(scaler_path), "registry_path": str(registry_path)}
+                "Features, scaler and registry saved",
+                extra={
+                    "scaler_path": str(scaler_path),
+                    "registry_path": str(registry_path),
+                },
             )
         except Exception as e:
             raise DataError(f"Preprocessing failed: {e}") from e
@@ -126,7 +155,9 @@ class PipelineOrchestrator:
             # Format inputs mathematically (sequence vs generic matrix)
             if model_name in ("lstm", "transformer"):
                 X_train = create_sequences(
-                    cast(pd.DataFrame, healthy_data), feat_cols, seq_len=cfg.models.lstm.sequence_length
+                    cast(pd.DataFrame, healthy_data),
+                    feat_cols,
+                    seq_len=cfg.models.lstm.sequence_length,
                 )
             else:
                 X_train = np.asarray(healthy_data[feat_cols])
@@ -269,7 +300,8 @@ class PipelineOrchestrator:
             return results
         except PulseNetError as e:
             log.error(
-                f"Pipeline failed: {e}", extra={"error_code": getattr(e, 'error_code', 'PIPELINE_ERROR')}
+                f"Pipeline failed: {e}",
+                extra={"error_code": getattr(e, "error_code", "PIPELINE_ERROR")},
             )
             return {}
         except Exception as e:

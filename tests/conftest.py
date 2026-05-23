@@ -4,10 +4,12 @@ Shared pytest fixtures for PulseNet tests.
 
 from __future__ import annotations
 
-import sys
+import json
 import os
+import sys
 from pathlib import Path
 
+import bcrypt
 import numpy as np  # pyre-ignore[21]
 import pandas as pd  # pyre-ignore[21]
 import pytest  # pyre-ignore[21]
@@ -16,35 +18,43 @@ import pytest  # pyre-ignore[21]
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-os.environ["PULSENET_JWT_SECRET"] = "test-secret-key"
+os.environ["PULSENET_JWT_SECRET"] = "test-secret-key-not-for-production"
 os.environ["PULSENET_ENV"] = "testing"
-os.environ["PULSENET_USERS"] = '{"admin": {"hashed_password": "admin123_hash", "role": "admin"}, "operator": {"hashed_password": "ops123_hash", "role": "operator"}}'
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+os.environ["PULSENET_USERS"] = json.dumps(
+    {
+        "admin": {"hashed_password": _hash_password("admin123"), "role": "admin"},
+        "operator": {"hashed_password": _hash_password("ops123"), "role": "operator"},
+    }
+)
+
 
 @pytest.fixture(autouse=True)
-def mock_auth_system(monkeypatch, request):
-    """Bypass bcrypt for tests to avoid environment-specific issues."""
+def reload_auth_system():
+    """Refresh auth users while still using real password hashing."""
     from pulsenet.api import auth
-    # Simple mock that just adds '_hash' suffix
-    monkeypatch.setattr(auth, "_hash_password", lambda p: f"{p}_hash")
-    monkeypatch.setattr(auth, "_verify_password", lambda p, h: f"{p}_hash" == h)
-    
-    # Force reload/refresh of USER_DB since it's a module-level global
+
     auth.USER_DB = auth._load_users()
+    yield
 
 
 @pytest.fixture
-def sample_sensor_data() -> pd.DataFrame:
-    """Generate synthetic sensor data for testing."""
-    np.random.seed(42)
-    n = 200
-    data = {
-        "unit_number": np.repeat([1, 2], n // 2),
-        "time_in_cycles": np.tile(np.arange(1, n // 2 + 1), 2),
-    }
-    # Add sensor columns (matching FD001 after dropping noisy ones)
-    for s in [2, 3, 4, 7, 8, 9, 11, 12, 13, 14, 15, 17, 20, 21]:
-        data[f"sensor_{s}"] = np.random.randn(n) * 0.1 + 0.5
-    return pd.DataFrame(data)
+def official_fd001():
+    """Official NASA FD001 subset for test fixtures."""
+    from pulsenet.pipeline.official_cmapss import load_official_fd001
+
+    return load_official_fd001(PROJECT_ROOT / "data" / "official", download=False)
+
+
+@pytest.fixture
+def sample_sensor_data(official_fd001) -> pd.DataFrame:
+    """Official NASA C-MAPSS sensor data for testing."""
+    return official_fd001.test.copy()
 
 
 @pytest.fixture
@@ -75,15 +85,18 @@ def sample_X(sample_features, feature_columns) -> np.ndarray:
 
 @pytest.fixture
 def sample_y() -> np.ndarray:
-    """Binary labels for testing."""
-    np.random.seed(42)
-    return np.array([0] * 170 + [1] * 30)
+    """Binary labels from official FD001 RUL ground truth."""
+    from pulsenet.pipeline.official_cmapss import load_official_fd001
+    from pulsenet.pipeline.preprocessing import create_labels
+
+    fd001 = load_official_fd001(PROJECT_ROOT / "data" / "official", download=False)
+    return create_labels(fd001.test, fd001.rul, failure_threshold=125)
 
 
 @pytest.fixture
-def sample_rul() -> pd.Series:
-    """Simulated RUL ground truth."""
-    return pd.Series([80, 50])
+def sample_rul(official_fd001) -> pd.Series:
+    """Official NASA FD001 RUL ground truth."""
+    return official_fd001.rul
 
 
 @pytest.fixture

@@ -154,7 +154,9 @@ class TransformerModel(BaseAnomalyModel):
                 batch = batch.to(self.device)
                 optimizer.zero_grad()
 
-                with torch.autocast(device_type=("cuda" if device.type == "cuda" else "cpu")):
+                with torch.autocast(
+                    device_type=("cuda" if device.type == "cuda" else "cpu")
+                ):
                     output = self.model(batch)
                     loss = criterion(output, batch)
 
@@ -191,7 +193,7 @@ class TransformerModel(BaseAnomalyModel):
         errors = self._compute_errors(X)
         if self.threshold is None or self.threshold == 0:
             return np.full_like(errors, 100.0)
-        
+
         # Mapping: 0 error -> 100%, threshold -> 50%, 2*threshold -> 0%
         health = np.clip(100 * (1 - (errors / (self.threshold * 2))), 0, 100)
         return health

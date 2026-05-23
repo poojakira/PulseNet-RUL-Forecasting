@@ -41,7 +41,7 @@ class IsolationForestModel(BaseAnomalyModel):
         threshold: Optional[float] = None,
     ):
         from pulsenet.config import cfg
-        
+
         # Pull from config if not explicitly provided
         conf = cfg.models.isolation_forest
         self.params: dict[str, Any] = {
@@ -136,9 +136,19 @@ class IsolationForestModel(BaseAnomalyModel):
             for c in cont_l:
                 for s in max_s_l:
                     if CUML_AVAILABLE:
-                        mdl = cumlIForest(n_estimators=n, contamination=c, max_samples=s, random_state=42)  # type: ignore
+                        mdl = cumlIForest(
+                            n_estimators=n,
+                            contamination=c,
+                            max_samples=s,
+                            random_state=42,
+                        )  # type: ignore
                     else:
-                        mdl = sklearnIForest(n_estimators=n, contamination=c, max_samples=s, random_state=42)  # type: ignore
+                        mdl = sklearnIForest(
+                            n_estimators=n,
+                            contamination=c,
+                            max_samples=s,
+                            random_state=42,
+                        )  # type: ignore
 
                     mdl.fit(X)
                     preds = np.where(mdl.predict(X) == -1, 1, 0)

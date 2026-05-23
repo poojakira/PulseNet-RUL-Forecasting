@@ -132,6 +132,7 @@ def ingest(
     # Production-grade: pull from dynamic configuration if NOT provided via argument
     if drop_cols is None:
         from pulsenet.config import cfg
+
         drop_cols = cfg.data.drop_sensors + cfg.data.drop_settings
 
     train_df = drop_noisy_columns(load_raw(train_path), drop_cols)

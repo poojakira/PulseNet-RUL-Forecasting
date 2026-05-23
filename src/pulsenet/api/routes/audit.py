@@ -38,18 +38,20 @@ async def get_audit_log(
 
     tenant_id = getattr(request.state, "tenant_id", "public")
     is_valid, msg = ledger.validate_integrity(tenant_id)
-    
+
     audit.log_access(
         endpoint="/audit",
         method="GET",
         user=user["username"],
         role=user["role"],
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
 
     metrics = ledger.get_metrics(tenant_id)
     return AuditResponse(
-        chain_length=metrics.get("total_blocks_global", 0), # Total across all for audit overview
+        chain_length=metrics.get(
+            "total_blocks_global", 0
+        ),  # Total across all for audit overview
         merkle_root=ledger.compute_merkle_root(tenant_id),
         is_valid=is_valid,
         validation_message=msg,
@@ -78,7 +80,7 @@ async def verify_chain(
         user=user["username"],
         role=user["role"],
         metadata={"result": is_valid},
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
     )
 
     return {
