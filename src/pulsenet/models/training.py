@@ -91,7 +91,7 @@ class TrainingPipeline:
 
         # Optional tuning (if model supports it)
         if tune and y_true is not None and hasattr(model, "tune") and self.rank == 0:
-            tune_func = model.tune
+            tune_func = getattr(model, "tune")
             tune_result = tune_func(X_train, y_true)
             log.info("Tuning result", extra=tune_result)
 
@@ -101,7 +101,7 @@ class TrainingPipeline:
             and hasattr(model, "optimize_threshold")
             and self.rank == 0
         ):
-            optim_func = model.optimize_threshold
+            optim_func = getattr(model, "optimize_threshold")
             optim_func(X_train, y_true)
 
         # -----------------------------------------------------------------
