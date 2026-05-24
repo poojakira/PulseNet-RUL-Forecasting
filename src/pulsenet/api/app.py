@@ -22,7 +22,6 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, AsyncGenerator, Optional, Union
 
-import joblib
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -40,6 +39,7 @@ from pulsenet.logger import get_logger
 from pulsenet.models.registry import ModelRegistry
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.pipeline.orchestrator import PipelineOrchestrator
+from pulsenet.security.artifacts import verified_joblib_load
 from pulsenet.security.blockchain import BlackBoxLedger
 
 log = get_logger(__name__)
@@ -99,7 +99,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scaler: Any = None
     if scaler_path.exists():
         try:
-            scaler = joblib.load(scaler_path)
+            scaler = verified_joblib_load(scaler_path)
             log.info("MinMaxScaler loaded successfully")
         except Exception as e:
             log.warning(f"Failed to load scaler: {e}")

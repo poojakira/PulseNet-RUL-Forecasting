@@ -23,6 +23,7 @@ except ImportError:
 
 from pulsenet.logger import get_logger
 from pulsenet.models.base import BaseAnomalyModel
+from pulsenet.security.artifacts import verified_joblib_load, write_sha256_manifest
 
 log = get_logger(__name__)
 
@@ -106,11 +107,12 @@ class IsolationForestModel(BaseAnomalyModel):
             {"model": self.model, "threshold": self.threshold, "params": self.params},
             path,
         )
+        write_sha256_manifest(path)
         log.info("IsolationForest saved", extra={"path": str(path)})
 
     def load(self, path: Union[Path, str]) -> None:
         """Load model, threshold and params from disk."""
-        data = joblib.load(path)
+        data = verified_joblib_load(path)
         self.model = data["model"]
         self.threshold = data.get("threshold")
         self.params = data.get("params", self.params)

@@ -10,6 +10,7 @@ import pytest
 from pulsenet.models.isolation_forest import IsolationForestModel
 from pulsenet.models.registry import ModelRegistry
 from pulsenet.models.training import TrainingPipeline
+from pulsenet.security.artifacts import manifest_path
 
 
 class TestIsolationForest:
@@ -42,12 +43,36 @@ class TestIsolationForest:
 
         path = temp_dir / "test_model.joblib"
         model.save(path)
+        assert manifest_path(path).exists()
 
         loaded = IsolationForestModel()
         loaded.load(path)
         preds_after = loaded.predict(sample_X)
 
         np.testing.assert_array_equal(preds_before, preds_after)
+
+    def test_load_rejects_missing_integrity_manifest(self, sample_X, temp_dir):
+        model = IsolationForestModel(n_estimators=50)
+        model.train(sample_X)
+        path = temp_dir / "test_model.joblib"
+        model.save(path)
+        manifest_path(path).unlink()
+
+        loaded = IsolationForestModel()
+        with pytest.raises(FileNotFoundError, match="integrity manifest"):
+            loaded.load(path)
+
+    def test_load_rejects_tampered_artifact(self, sample_X, temp_dir):
+        model = IsolationForestModel(n_estimators=50)
+        model.train(sample_X)
+        path = temp_dir / "test_model.joblib"
+        model.save(path)
+        with path.open("ab") as handle:
+            handle.write(b"tamper")
+
+        loaded = IsolationForestModel()
+        with pytest.raises(ValueError, match="integrity check failed"):
+            loaded.load(path)
 
     def test_evaluate(self, sample_X, sample_y):
         model = IsolationForestModel(n_estimators=50, contamination=0.1)
