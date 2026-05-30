@@ -90,3 +90,6 @@ access_audit*.jsonl
 ledger_*.json
 secret.key
 secret.key.*
+sbom.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
