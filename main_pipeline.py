@@ -22,11 +22,11 @@ def run_full_pipeline() -> None:
     pipeline = PipelineOrchestrator(data_dir=cfg.system.data_dir)
     results = pipeline.run_full_pipeline()
 
-    print("\n" + "=" * 60)
-    print("PIPELINE RESULTS")
-    print("=" * 60)
+    import logging; logging.info("\n" + "=" * 60)
+    import logging; logging.info("PIPELINE RESULTS")
+    import logging; logging.info("=" * 60)
     for model_name, metrics in results.items():
-        print(f"\nModel: {model_name}")
+        import logging; logging.info(f"\nModel: {model_name}")
         if isinstance(metrics, dict) and "error" not in metrics:
             for key, value in metrics.items():
                 print(
@@ -35,8 +35,8 @@ def run_full_pipeline() -> None:
                     else f"  {key}: {value}"
                 )
         else:
-            print(f"  {metrics}")
-    print("=" * 60)
+            import logging; logging.info(f"  {metrics}")
+    import logging; logging.info("=" * 60)
 
 
 def run_training() -> None:
@@ -47,7 +47,7 @@ def run_training() -> None:
     pipeline.run_ingestion()
     pipeline.run_preprocessing()
     pipeline.run_training()
-    print("[SUCCESS] Training complete")
+    import logging; logging.info("[SUCCESS] Training complete")
 
 
 def run_prediction() -> None:
@@ -85,7 +85,7 @@ def run_streaming() -> None:
         model = IsolationForestModel()
         model_path = Path("models/isolation_forest.joblib")
         if not model_path.exists():
-            print("[WARNING] No trained model found. Run --mode train first.")
+            import logging; logging.info("[WARNING] No trained model found. Run --mode train first.")
             return
 
         model.load(model_path)
@@ -95,16 +95,16 @@ def run_streaming() -> None:
         )
         consumer = InferenceConsumer(queue, model, BlackBoxLedger(), batch_size=32)
 
-        print("[INFO] Streaming pipeline started (Ctrl+C to stop)")
+        import logging; logging.info("[INFO] Streaming pipeline started (Ctrl+C to stop)")
         try:
             await asyncio.gather(producer.start(), consumer.start())
         except KeyboardInterrupt:
             producer.stop()
             consumer.stop()
-            print("\n[METRICS] Final metrics:")
-            print(f"  Producer: {producer.metrics}")
-            print(f"  Consumer: {consumer.metrics}")
-            print(f"  Queue: {queue.get_metrics()}")
+            import logging; logging.info("\n[METRICS] Final metrics:")
+            import logging; logging.info(f"  Producer: {producer.metrics}")
+            import logging; logging.info(f"  Consumer: {consumer.metrics}")
+            import logging; logging.info(f"  Queue: {queue.get_metrics()}")
 
     asyncio.run(_stream())
 

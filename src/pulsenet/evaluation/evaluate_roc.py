@@ -16,7 +16,7 @@ PLOT_FILENAME = "roc_curve_analysis.png"
 
 # 1. LOAD RESOURCES
 
-print("--- STARTING ROC/AUC ANALYSIS ---")
+import logging; logging.info("--- STARTING ROC/AUC ANALYSIS ---")
 
 if not os.path.exists(MODEL_FILE):
     raise FileNotFoundError(
@@ -32,21 +32,21 @@ if not os.path.exists(GROUND_TRUTH_FILE):
     )
 
 # Load Model
-print(f"Loading model: {MODEL_FILE}")
+import logging; logging.info(f"Loading model: {MODEL_FILE}")
 model = joblib.load(MODEL_FILE)
 
 # Load Test Features
-print(f"Loading test features: {TEST_FEATURES_FILE}")
+import logging; logging.info(f"Loading test features: {TEST_FEATURES_FILE}")
 df_test = pd.read_csv(TEST_FEATURES_FILE)
 
 # Load Ground Truth (RUL)
-print(f"Loading ground truth: {GROUND_TRUTH_FILE}")
+import logging; logging.info(f"Loading ground truth: {GROUND_TRUTH_FILE}")
 rul_true = pd.read_csv(GROUND_TRUTH_FILE, header=None, names=["RUL"])
 
 
 # 2. PREPARE DATA & LABELS
 
-print("Mapping Ground Truth labels to Test Data...")
+import logging; logging.info("Mapping Ground Truth labels to Test Data...")
 
 # Get feature columns (exclude metadata)
 feature_cols = model.feature_names_in_
@@ -81,7 +81,7 @@ for unit_id in df_test["unit_number"].unique():
 
 # 3. CALCULATE SCORES
 
-print("Calculating anomaly scores...")
+import logging; logging.info("Calculating anomaly scores...")
 
 # Isolation Forest returns: > 0 for Normal, < 0 for Anomaly
 raw_scores = model.decision_function(X_test)
@@ -92,15 +92,15 @@ y_scores = -raw_scores
 
 # 4. COMPUTE ROC & AUC
 
-print("Computing ROC curve metrics...")
+import logging; logging.info("Computing ROC curve metrics...")
 fpr, tpr, thresholds = roc_curve(y_true, y_scores)
 roc_auc = auc(fpr, tpr)
 
-print("\n========================================")
-print(" RESULTS")
-print("========================================")
-print(f"ROC AUC Score: {roc_auc:.4f}")
-print("========================================")
+import logging; logging.info("\n========================================")
+import logging; logging.info(" RESULTS")
+import logging; logging.info("========================================")
+import logging; logging.info(f"ROC AUC Score: {roc_auc:.4f}")
+import logging; logging.info("========================================")
 
 
 # 5. PLOT & SAVE
@@ -117,4 +117,4 @@ plt.legend(loc="lower right")
 plt.grid(True, alpha=0.3)
 
 plt.savefig(PLOT_FILENAME)
-print(f"\n ROC Curve plot saved as '{PLOT_FILENAME}'")
+import logging; logging.info(f"\n ROC Curve plot saved as '{PLOT_FILENAME}'")

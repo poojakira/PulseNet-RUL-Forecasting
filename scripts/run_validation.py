@@ -119,10 +119,10 @@ def run_validation() -> dict[str, Any]:
 
 def main() -> None:
     results = run_validation()
-    print(json.dumps(results, indent=2))
-    print("Saved to results/validation_results.json")
-    print("Saved to docs/evidence/validation_results.json")
-    print("Saved to docs/evidence/validation_metrics.svg")
+    import logging; logging.info(json.dumps(results, indent=2))
+    import logging; logging.info("Saved to results/validation_results.json")
+    import logging; logging.info("Saved to docs/evidence/validation_results.json")
+    import logging; logging.info("Saved to docs/evidence/validation_metrics.svg")
 
 
 if __name__ == "__main__":

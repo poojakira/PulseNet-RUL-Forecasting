@@ -20,7 +20,7 @@ from pulsenet.models.transformer_model import TransformerModel  # pyre-ignore
 
 def main():
     if not torch.cuda.is_available():
-        print("CUDA not available. Exiting DDP benchmark.")
+        import logging; logging.info("CUDA not available. Exiting DDP benchmark.")
         return
 
     # Initialize process group
@@ -32,7 +32,7 @@ def main():
     torch.cuda.set_device(local_rank)
 
     if rank == 0:
-        print(f"--- Starting DDP Throughput Benchmark (World Size: {world_size}) ---")
+        import logging; logging.info(f"--- Starting DDP Throughput Benchmark (World Size: {world_size}) ---")
 
     # Generate synthetic telemetry payload
     batch_size = 256
@@ -41,7 +41,7 @@ def main():
     samples = 10000
 
     if rank == 0:
-        print(f"Generating {samples} synthetic sequences for testing...")
+        import logging; logging.info(f"Generating {samples} synthetic sequences for testing...")
 
     # Pre-windowed shape for transformer: (B, seq_len, features)
     X = np.random.randn(samples, seq_len, n_features).astype(np.float32)
@@ -50,7 +50,7 @@ def main():
     model = TransformerModel(batch_size=batch_size, epochs=1)
 
     if rank == 0:
-        print("Warming up...")
+        import logging; logging.info("Warming up...")
 
     # Train invokes the DDP wrap internally
     t0 = time.perf_counter()
@@ -62,14 +62,14 @@ def main():
     throughput = samples_processed_global / elapsed
 
     if rank == 0:
-        print("\n--- DDP Benchmark Results ---")
-        print(f"GPUs Configured      : {world_size}")
-        print(f"Per-GPU Batch Size   : {batch_size}")
-        print(f"Global Batch Size    : {batch_size * world_size}")
-        print(f"Time Elapsed         : {elapsed:.2f} seconds")
-        print(f"Total Global Samples : {samples_processed_global}")
-        print(f"Effective Throughput : {throughput:.2f} sequences/sec")
-        print("-------------------------------------------\n")
+        import logging; logging.info("\n--- DDP Benchmark Results ---")
+        import logging; logging.info(f"GPUs Configured      : {world_size}")
+        import logging; logging.info(f"Per-GPU Batch Size   : {batch_size}")
+        import logging; logging.info(f"Global Batch Size    : {batch_size * world_size}")
+        import logging; logging.info(f"Time Elapsed         : {elapsed:.2f} seconds")
+        import logging; logging.info(f"Total Global Samples : {samples_processed_global}")
+        import logging; logging.info(f"Effective Throughput : {throughput:.2f} sequences/sec")
+        import logging; logging.info("-------------------------------------------\n")
 
     dist.destroy_process_group()
 

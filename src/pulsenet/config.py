@@ -4,7 +4,7 @@ Config loader — reads config.yaml with environment variable overrides.
 
 Usage:
     from pulsenet.config import cfg
-    print(cfg.models.active_model)
+    import logging; logging.info(cfg.models.active_model)
 """
 
 from __future__ import annotations
@@ -205,7 +205,7 @@ def load_config(config_path: str = "config.yaml") -> PulseNetConfigSchema:
                     else:
                         config_dict[section] = values
         except Exception as e:
-            print(f"Warning: Failed to load config from {path}: {e}")
+            import logging; logging.info(f"Warning: Failed to load config from {path}: {e}")
 
     # 3. Override with Environment Variables
     config_dict = _apply_env_overrides(config_dict)
@@ -215,7 +215,7 @@ def load_config(config_path: str = "config.yaml") -> PulseNetConfigSchema:
         return PulseNetConfigSchema(**config_dict)
     except ValidationError as e:
         # Fallback to defaults on validation error, but log it
-        print(f"Warning: Invalid configuration detected, using defaults. Error: {e}")
+        import logging; logging.info(f"Warning: Invalid configuration detected, using defaults. Error: {e}")
         return PulseNetConfigSchema()
 
 

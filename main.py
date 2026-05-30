@@ -19,15 +19,15 @@ import uvicorn
 
 def main():
     parser = argparse.ArgumentParser(description="PulseNet API Server")
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1; use 0.0.0.0 to expose on all interfaces)")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1; use 127.0.0.1 to expose on all interfaces)")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind")
     parser.add_argument("--reload", action="store_true", help="Auto-reload on changes")
     args = parser.parse_args()
 
-    print(f"\n⚡ PulseNet API v2.0")
-    print(f"   Starting on http://{args.host}:{args.port}")
-    print(f"   Docs: http://localhost:{args.port}/docs")
-    print("=" * 50)
+    import logging; logging.info(f"\n⚡ PulseNet API v2.0")
+    import logging; logging.info(f"   Starting on http://{args.host}:{args.port}")
+    import logging; logging.info(f"   Docs: http://localhost:{args.port}/docs")
+    import logging; logging.info("=" * 50)
 
     uvicorn.run(
         "pulsenet.api.app:app",
