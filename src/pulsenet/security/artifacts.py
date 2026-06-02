@@ -25,7 +25,9 @@ def manifest_path(path: Path | str) -> Path:
 def write_sha256_manifest(path: Path | str) -> Path:
     artifact_path = Path(path)
     manifest = manifest_path(artifact_path)
-    manifest.write_text(f"{sha256_file(artifact_path)}  {artifact_path.name}\n", encoding="utf-8")
+    manifest.write_text(
+        f"{sha256_file(artifact_path)}  {artifact_path.name}\n", encoding="utf-8"
+    )
     return manifest
 
 
