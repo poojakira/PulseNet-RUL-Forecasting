@@ -36,11 +36,11 @@ os.environ.setdefault(
     ),
 )
 
-import logging; logging.info("=" * 60)
-import logging; logging.info("PULSENET OFFICIAL DATA VERIFICATION")
-import logging; logging.info("=" * 60)
+print("=" * 60)
+print("PULSENET OFFICIAL DATA VERIFICATION")
+print("=" * 60)
 
-import logging; logging.info("\n[1/5] Loading official NASA C-MAPSS FD001 archive...")
+print("\n[1/5] Loading official NASA C-MAPSS FD001 archive...")
 from pulsenet.models.isolation_forest import IsolationForestModel  # noqa: E402
 from pulsenet.pipeline.official_cmapss import load_official_fd001  # noqa: E402
 from pulsenet.pipeline.preprocessing import (  # noqa: E402
@@ -53,13 +53,13 @@ from pulsenet.pipeline.preprocessing import (  # noqa: E402
 fd001 = load_official_fd001(
     "data/official", max_train_rows=4000, max_test_rows=None, download=False
 )
-import logging; logging.info(f"  Source: {fd001.source_url}")
-import logging; logging.info(f"  Landing page: {fd001.landing_page}")
-import logging; logging.info(f"  Archive SHA256: {fd001.archive_sha256}")
-import logging; logging.info(f"  Train rows used: {len(fd001.train)}")
-import logging; logging.info(f"  Test rows used: {len(fd001.test)}")
+print(f"  Source: {fd001.source_url}")
+print(f"  Landing page: {fd001.landing_page}")
+print(f"  Archive SHA256: {fd001.archive_sha256}")
+print(f"  Train rows used: {len(fd001.train)}")
+print(f"  Test rows used: {len(fd001.test)}")
 
-import logging; logging.info("\n[2/5] Training Isolation Forest on official sensor features...")
+print("\n[2/5] Training Isolation Forest on official sensor features...")
 train_df = compute_rolling_features(fd001.train.copy())
 test_df = compute_rolling_features(fd001.test.copy())
 train_df, test_df, _ = normalize(train_df, test_df)
@@ -73,13 +73,13 @@ model = IsolationForestModel(n_estimators=50, contamination=0.12)
 model.train(healthy_train)
 train_seconds = time.perf_counter() - t0
 metrics = model.evaluate(x_test, y_test)
-import logging; logging.info(f"  Features: {len(feature_cols)}")
-import logging; logging.info(f"  Train seconds: {train_seconds:.3f}")
-import logging; logging.info(f"  F1: {metrics['f1']:.3f}")
-import logging; logging.info(f"  Precision: {metrics['precision']:.3f}")
-import logging; logging.info(f"  Recall: {metrics['recall']:.3f}")
+print(f"  Features: {len(feature_cols)}")
+print(f"  Train seconds: {train_seconds:.3f}")
+print(f"  F1: {metrics['f1']:.3f}")
+print(f"  Precision: {metrics['precision']:.3f}")
+print(f"  Recall: {metrics['recall']:.3f}")
 
-import logging; logging.info("\n[3/5] Testing JWT auth and tenant header traceability...")
+print("\n[3/5] Testing JWT auth and tenant header traceability...")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from pulsenet.api.app import create_app  # noqa: E402
@@ -91,11 +91,11 @@ client = TestClient(create_app())
 resp = client.get("/health", headers={"X-Tenant-ID": "official-nasa"})
 assert resp.status_code == 200
 assert resp.headers["X-Tenant-ID"] == "official-nasa"
-import logging; logging.info(f"  Token subject: {payload['sub']}")
-import logging; logging.info(f"  Token role: {payload['role']}")
-import logging; logging.info(f"  Expires in: {expiry}min")
+print(f"  Token subject: {payload['sub']}")
+print(f"  Token role: {payload['role']}")
+print(f"  Expires in: {expiry}min")
 
-import logging; logging.info("\n[4/5] Testing hash-chain audit ledger...")
+print("\n[4/5] Testing hash-chain audit ledger...")
 from pulsenet.security.audit import AuditLogger  # noqa: E402
 
 ledger = AuditLogger()
@@ -108,10 +108,10 @@ ledger.log_access(
     tenant_id="official-nasa",
 )
 valid, corrupt_count = ledger.verify_integrity()
-import logging; logging.info(f"  Chain integrity: {'VALID' if valid else 'BROKEN'}")
-import logging; logging.info(f"  Corrupt entries: {corrupt_count}")
+print(f"  Chain integrity: {'VALID' if valid else 'BROKEN'}")
+print(f"  Corrupt entries: {corrupt_count}")
 
-import logging; logging.info("\n[5/5] Running focused test suite...")
+print("\n[5/5] Running focused test suite...")
 result = subprocess.run(  # noqa: S603
     [sys.executable, "-m", "pytest", "tests/", "-q", "-x", "--tb=no"],
     capture_output=True,
@@ -120,12 +120,12 @@ result = subprocess.run(  # noqa: S603
     check=False,
 )
 if result.returncode != 0:
-    import logging; logging.info(result.stdout)
-    import logging; logging.info(result.stderr)
+    print(result.stdout)
+    print(result.stderr)
     raise SystemExit(result.returncode)
 
 last_line = [line for line in result.stdout.strip().split("\n") if line][-1]
-import logging; logging.info(f"  {last_line}")
+print(f"  {last_line}")
 
 results = {
     "dataset": {
@@ -151,6 +151,6 @@ Path("results/verification_results.json").write_text(
     json.dumps(results, indent=2), encoding="utf-8"
 )
 
-import logging; logging.info("\n" + "=" * 60)
-import logging; logging.info("VERIFICATION COMPLETE")
-import logging; logging.info("=" * 60)
+print("\n" + "=" * 60)
+print("VERIFICATION COMPLETE")
+print("=" * 60)
