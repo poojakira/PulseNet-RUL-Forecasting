@@ -131,12 +131,12 @@ class LSTMModel(BaseAnomalyModel):
             )
             sampler = torch.utils.data.DistributedSampler(dataset)
             loader: Any = DataLoader(
-                dataset, batch_size=self.batch_size, sampler=sampler
+                dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=True
             )
         else:
             self.model = raw_model.to(self.device)
             sampler = None
-            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, pin_memory=True)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
@@ -258,7 +258,9 @@ class LSTMModel(BaseAnomalyModel):
             else self.model.state_dict()
         )
 
-        torch.save(
+        # Security note (semgrep: python.lang.security.audit.pickle): torch.save uses pickle
+        # internally. Always load checkpoints with weights_only=True (see load method).
+        torch.save(  # noqa: S614
             {
                 "state_dict": state_dict,
                 "threshold": self.threshold,
@@ -275,7 +277,9 @@ class LSTMModel(BaseAnomalyModel):
 
     def load(self, path: Union[Path, str]) -> None:
         """Load model and state from disk."""
-        data = torch.load(path, map_location=self.device, weights_only=True)
+        # Security note: weights_only=True prevents arbitrary code execution via
+        # pickle deserialization (semgrep: python.lang.security.audit.pickle).
+        data = torch.load(path, map_location=self.device, weights_only=True)  # noqa: S614
         self._n_features = data["n_features"]
         model_cfg = data["config"]
 

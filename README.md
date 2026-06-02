@@ -1,4 +1,4 @@
-# PulseNet RUL Forecasting
+# PulseNet-RUL-Forecasting
 
 [![PulseNet CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-blue)

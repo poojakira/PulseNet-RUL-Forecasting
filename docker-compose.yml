@@ -71,6 +71,11 @@ services:
       - "5000:5000"
     volumes:
       - ./mlruns:/mlruns
+    # Security fix: read_only + tmpfs prevents malicious writes to the container filesystem
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /root/.cache
     security_opt:
       - no-new-privileges:true
     cap_drop:
