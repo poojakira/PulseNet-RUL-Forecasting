@@ -133,11 +133,11 @@ class TransformerModel(BaseAnomalyModel):
                 self.model, device_ids=[local_rank]
             )
             sampler = torch.utils.data.DistributedSampler(dataset)
-            loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=True, pin_memory=True)
+            loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=True)
         else:
             self.model = self.model.to(self.device)
             sampler = None
-            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, pin_memory=True)
+            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
