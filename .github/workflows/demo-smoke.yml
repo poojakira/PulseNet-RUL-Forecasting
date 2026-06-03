@@ -1,0 +1,25 @@
+name: demo-smoke
+
+# Fast guard: runs the recruiter-facing demo on every push/PR so the core
+# security logic cannot silently regress. Stdlib-only — no heavy deps needed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run demo smoke test
+        run: python demo.py
