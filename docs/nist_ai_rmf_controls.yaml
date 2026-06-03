@@ -1,0 +1,64 @@
+# NIST AI RMF 1.0 Control Register - PulseNet-RUL-Forecasting
+# Author: Pooja Kiran (github.com/poojakira)
+#
+# Maps NIST AI Risk Management Framework 1.0 functions to concrete controls
+# implemented in this repository. Status values are honest:
+#   IMPLEMENTED - code exists and is exercised by tests/demo
+#   PARTIAL     - mechanism exists but not fully validated
+#   PLANNED     - documented intent, not yet built
+#
+# Reference: NIST AI 100-1, AI Risk Management Framework (January 2023)
+
+metadata:
+  system: PulseNet-RUL-Forecasting
+  domain: Safety-critical turbofan Remaining Useful Life (RUL) prediction
+  dataset: NASA C-MAPSS FD001 (official)
+  owner: Pooja Kiran
+
+govern:
+  - id: GV-1.1
+    control: Security disclosure policy and threat model published
+    evidence: SECURITY.md, THREAT_MODEL.md
+    status: IMPLEMENTED
+  - id: GV-1.4
+    control: Risk tolerance documented for safety-critical RUL under-prediction
+    evidence: THREAT_MODEL.md (residual risk table)
+    status: IMPLEMENTED
+  - id: GV-4.1
+    control: Roles separated via RBAC (DataScientist / Operator / Consumer)
+    evidence: src/pulsenet/api/auth.py
+    status: IMPLEMENTED
+
+map:
+  - id: MP-2.3
+    control: Adversarial telemetry attack surface enumerated
+    evidence: src/pulsenet/security/adversarial_telemetry_guard.py
+    status: IMPLEMENTED
+  - id: MP-5.1
+    control: Sensor-level attack scenarios mapped to MITRE ATT&CK for ICS
+    evidence: THREAT_MODEL.md (T0839 sensor manipulation)
+    status: IMPLEMENTED
+
+measure:
+  - id: MS-2.5
+    control: Adversarial robustness of inference inputs measured
+    evidence: tests for replay/frozen/jump/bias detection; demo.py
+    status: PARTIAL  # z-score bias detection assumes stationarity; CUSUM planned
+  - id: MS-2.6
+    control: Data lineage - SHA-256 verification of C-MAPSS before training
+    evidence: scripts/ data hash verification
+    status: IMPLEMENTED
+  - id: MS-4.1
+    control: Hash-chain audit ledger over model versions and inferences
+    evidence: src/pulsenet/security/audit.py, blockchain.py
+    status: IMPLEMENTED
+
+manage:
+  - id: MG-2.2
+    control: Adversarial frames rejected/flagged before reaching RUL model
+    evidence: AdversarialTelemetryGuard.check() inline gate
+    status: IMPLEMENTED
+  - id: MG-3.2
+    control: Non-stationary drift detection (CUSUM/ADWIN) over long sequences
+    evidence: ROADMAP.md
+    status: PLANNED
