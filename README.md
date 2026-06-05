@@ -86,8 +86,8 @@ flowchart LR
 
     H --> I[Audit Log Store]
 
-    classDef trusted fill:#e0ffe0,stroke:#333;
-    classDef untrusted fill:#ffe0e0,stroke:#333;
+    classDef untrusted fill:#0a0a0a,stroke:#ff5555,color:#ffffff;
+    classDef trusted fill:#111111,stroke:#4da6ff,color:#ffffff;
 
     class A,B untrusted;
     class C,D,E,F,G,H,I trusted;
