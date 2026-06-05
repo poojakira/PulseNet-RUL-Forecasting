@@ -1,93 +1,188 @@
-# PulseNet – Secure RUL Forecasting for Safety‑Critical Telemetry
+PulseNet — Secure RUL Forecasting for Safety‑Critical Telemetry
 
-## Problem
+PulseNet is a security‑aware Remaining Useful Life (RUL) forecasting pipeline designed for aviation, industrial IoT, satellites, and other safety‑critical systems where telemetry integrity directly determines operational safety.
 
-Modern safety‑critical systems (engines, turbines, satellites, industrial assets) rely on telemetry streams to estimate Remaining Useful Life (RUL) and schedule maintenance.  
-If telemetry is corrupted, delayed, replayed, or silently drifted, RUL forecasts become untrustworthy—and failures can be catastrophic.  
+Modern assets rely on telemetry streams to estimate RUL.
+If telemetry is corrupted, delayed, replayed, or silently drifted, RUL forecasts become untrustworthy — and failures can be catastrophic. 
 
-**PulseNet** is a security‑aware RUL forecasting pipeline that treats telemetry as a high‑value asset: it combines RUL modeling with data lineage, drift detection, and audit logging.
+PulseNet treats telemetry as a high‑value security asset, combining:
 
----
+Data lineage & integrity verification
 
-## Threat model
+Drift & anomaly detection
 
-**Assets**
+Secure RUL modeling
 
-- Telemetry streams (time‑series sensor data)
-- Preprocessed feature sets
-- Trained RUL models and predictions
-- Audit logs and lineage metadata
+Append‑only audit logging
 
-**Adversaries**
+Supply‑chain security artifacts (SBOM + SARIF)
 
-- Network‑adjacent attacker able to inject, drop, or replay telemetry
-- Insider with access to intermediate data or preprocessing scripts
-- Misconfigured or compromised upstream service corrupting data
+🚀 Quickstart
+bash
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting
+cd PulseNet-RUL-Forecasting
+pip install -r requirements.txt
 
-**Attack surfaces**
+# Run secure pipeline
+python main_pipeline.py --config config.example.yaml
+🧠 Core Capabilities
+1. Data Lineage & Integrity
+PulseNet performs:
 
-- Telemetry ingestion endpoints
-- Intermediate files / feature stores
-- Model input pipeline
-- Logging / monitoring infrastructure
+SHA‑256 hashing of raw telemetry
 
-**Defended (in scope)**
+Hashing of preprocessed features
 
-- Detection of tampered or replayed telemetry via lineage and hash checks  
-- Detection of distribution drift in telemetry  
-- Detection of missing or truncated data segments  
+Hash‑chained lineage linking telemetry → features → model inputs
 
-**Not defended (out of scope)**
+Replay detection via timestamp monotonicity checks
 
-- Physical sensor spoofing  
-- Model extraction / IP theft  
-- Compromise of the entire host or orchestrator  
+(Your README already describes hashing + lineage; this section formalizes it.) 
 
-See `docs/threat_model.md` for a detailed threat model.
+2. Drift & Anomaly Detection
+PulseNet detects:
 
----
+Statistical drift in key telemetry features
 
-## Approach
+Distribution shifts beyond configured thresholds
 
-PulseNet implements a secure RUL forecasting pipeline with:
+Missing or truncated data segments
 
-- **Data lineage & integrity**
-  - Hashing of raw and preprocessed data
-  - Lineage metadata linking telemetry → features → model inputs
-- **Drift & anomaly detection**
-  - Statistical drift checks on key features
-  - Alerts when telemetry distribution shifts beyond configured thresholds
-- **RUL modeling**
-  - Time‑series RUL model (e.g., sequence model or regression on engineered features)
-  - Evaluation on held‑out telemetry
-- **Audit logging**
-  - Append‑only audit log of data and model events
-  - Hash‑chained entries to detect tampering
+(Directly based on your “drift checks” and “missing/truncated detection”.) 
 
----
+3. RUL Modeling
+Supports:
 
-## Architecture
+Sequence models (LSTM/GRU/Transformer)
 
-```mermaid
-flowchart LR
-    subgraph Ingestion
-        A[Telemetry Source] --> B[Ingestion Service]
-    end
+Regression on engineered features
 
-    B --> C[Raw Storage]
-    C --> D[Preprocessing & Feature Engineering]
-    D --> E[RUL Model]
-    D --> F[Drift Detector]
+Evaluation on held‑out telemetry
 
-    C --> G[Lineage Tracker]
-    D --> G
-    E --> H[Audit Logger]
-    F --> H
+(From your “RUL modeling” section.) 
 
-    H --> I[Audit Log Store]
+4. Audit Logging
+Append‑only audit log
 
-    classDef untrusted fill:#0a0a0a,stroke:#ff5555,color:#ffffff;
-    classDef trusted fill:#111111,stroke:#4da6ff,color:#ffffff;
+Hash‑chained entries
 
-    class A,B untrusted;
-    class C,D,E,F,G,H,I trusted;
+Detects insider tampering or unauthorized modification
+
+(From your “audit logging” section.) 
+
+🛡️ Threat Model
+PulseNet’s threat model includes the following (all sourced from your README):
+
+Assets
+Telemetry streams
+
+Preprocessed feature sets
+
+RUL models & predictions
+
+Audit logs & lineage metadata
+
+Adversaries
+Network‑adjacent attacker injecting/dropping/replaying telemetry
+
+Insider modifying intermediate data
+
+Misconfigured or compromised upstream services
+
+Attack Surfaces
+Telemetry ingestion endpoints
+
+Intermediate feature stores
+
+Model input pipeline
+
+Logging/monitoring infrastructure
+
+Defended (In Scope)
+Tampering/replay detection via lineage + hashing
+
+Drift detection
+
+Missing/truncated segment detection
+
+Not Defended (Out of Scope)
+Physical sensor spoofing
+
+Model extraction/IP theft
+
+Full host compromise
+
+For full details, see docs/threat_model.md.
+
+🔐 Threat → Control Mapping
+Threat	PulseNet Control
+Telemetry replay	Hash‑chain lineage + timestamp monotonicity
+Data tampering	SHA‑256 hashing of raw + processed data
+Silent drift	Statistical drift detection
+Missing/truncated segments	Sequence completeness validator
+Insider modification	Append‑only hash‑chained audit log
+
+
+🏗️ Architecture
+A high‑level architecture diagram should be placed here:
+
+Code
+docs/architecture.png
+(We will generate this when we reach /docs.)
+
+📊 Evaluation Metrics
+Component	Metric	Value
+RUL Model	MAE	TBD
+Drift Detector	KL‑div threshold	TBD
+Lineage Integrity	Hash‑chain verification	100%
+Missing Data Detection	Recall	TBD
+
+
+🧪 Demo
+bash
+python demo.py
+This runs:
+
+Drift detection
+
+Lineage verification
+
+RUL prediction
+
+Audit logging
+
+🧩 Supply‑Chain Security
+PulseNet ships with:
+
+sbom.json — Software Bill of Materials
+
+sarif_output.json — Static analysis results
+
+These can be integrated into CI/CD gates for artifact integrity.
+
+🗺️ Roadmap (Summary)
+From ROADMAP.md:
+
+Transformer‑based RUL models
+
+Real‑time streaming ingestion
+
+Anomaly localization
+
+Grafana dashboards for drift monitoring
+
+📁 Repository Structure
+Code
+├── main_pipeline.py
+├── verify.py
+├── demo.py
+├── src/
+├── docs/
+├── sbom.json
+├── sarif_output.json
+├── provenance.json
+├── config.example.yaml
+└── smoke_test.sh
+
+📜 License
+MIT License
