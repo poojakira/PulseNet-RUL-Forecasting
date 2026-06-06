@@ -1,3 +1,4 @@
+# Pinned versions (run `pip freeze > requirements.txt` to update)
 # Core
 pandas==2.2.3
 numpy==1.26.4

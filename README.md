@@ -186,3 +186,25 @@ Code
 
 📜 License
 MIT License
+
+
+## Security & Limitations
+This project is a research prototype and is not intended for production use. It has not been formally audited and may contain vulnerabilities. Specific limitations include:
+- No formal guarantees of security or robustness.
+- May not protect against all classes of attacks.
+
+
+### Threat Model
+This section outlines the assumed attacker capabilities and the scope of protection. We assume a "white-box" attacker with access to the model and data, but not necessarily the training infrastructure. We do not explicitly protect against zero-day exploits or highly sophisticated, targeted attacks beyond the scope of typical research prototypes.
+
+
+## Data, Privacy, and Ethics
+This project uses data that is either synthetic, publicly available, or anonymized. No sensitive personal data is used unless explicitly stated and justified. Users should be aware of the ethical implications of deploying ML models and ensure compliance with relevant privacy regulations.
+
+
+## Supply Chain Security
+To ensure the integrity of dependencies, we recommend running `pip-audit` or `safety` regularly. For model artifacts, hashes and verification steps should be documented to prevent tampering.
+
+
+## Threat Model for Predictive Maintenance
+**Threat Model**: We consider attackers who might attempt to poison telemetry data, spoof sensor readings, or inject malicious updates into the predictive maintenance models. Such attacks could lead to incorrect RUL predictions, potentially causing equipment failure or unnecessary maintenance.
