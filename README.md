@@ -1,210 +1,139 @@
-PulseNet — Secure RUL Forecasting for Safety‑Critical Telemetry
+# PulseNet-RUL-Forecasting
 
-PulseNet is a security‑aware Remaining Useful Life (RUL) forecasting pipeline designed for aviation, industrial IoT, satellites, and other safety‑critical systems where telemetry integrity directly determines operational safety.
+Remaining Useful Life forecasting on NASA C-MAPSS FD001 — built as a secure MLOps reference
+implementation with a STRIDE threat model, RBAC, tenant audit trail, and SARIF CI security gates.
 
-Modern assets rely on telemetry streams to estimate RUL.
-If telemetry is corrupted, delayed, replayed, or silently drifted, RUL forecasts become untrustworthy — and failures can be catastrophic. 
+This is the ops side of ML security: what does a properly hardened ML inference pipeline
+look like from data ingestion to prediction API?
 
-PulseNet treats telemetry as a high‑value security asset, combining:
+![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)
 
-Data lineage & integrity verification
+---
 
-Drift & anomaly detection
+## Threat model (STRIDE)
 
-Secure RUL modeling
+Full STRIDE analysis: `STRIDE_THREAT_MODEL.md`
 
-Append‑only audit logging
+| STRIDE category | Threat | Mitigation |
+|----------------|--------|-----------|
+| **Spoofing** | Sensor spoofing — malicious actors inject false telemetry readings | Mutual TLS + API key auth; data origin validation at ingestion gate |
+| **Tampering** | Training data or model weights modified at rest | SHA-256 hash chain on pipeline artifacts; Ed25519-signed model checkpoints |
+| **Repudiation** | Actor denies performing a critical action (model update, data deletion) | Append-only structured audit log — tenant, user, timestamp, prediction, input hash |
+| **Information disclosure** | Proprietary sensor data or model IP exfiltrated | RBAC per tenant; encryption in transit and at rest; 0.019 ms mean encrypt overhead |
+| **Denial of service** | Prediction endpoint flooded | Rate limiting; load balancing config in `docker-compose.yml` |
+| **Elevation of privilege** | Low-privilege user gains admin access | Least-privilege RBAC enforced at API layer; scoped JWT tokens |
 
-Supply‑chain security artifacts (SBOM + SARIF)
+---
 
-🚀 Quickstart
-bash
+## What this implements
+
+| Component | Implementation | Location |
+|-----------|---------------|----------|
+| RUL model | LSTM + Transformer ensemble on C-MAPSS FD001 | `src/pulsenet/models/` |
+| Data lineage | SHA-256 hash chain from raw sensor data to training set | `src/pulsenet/pipeline/` |
+| Input validation | Schema enforcement + anomaly gate before inference | `src/pulsenet/security/adversarial_telemetry_guard.py` |
+| RBAC | Role-scoped API endpoints; tenant isolation at middleware layer | `src/pulsenet/api/auth.py`, `src/pulsenet/api/middleware/tenant.py` |
+| Audit trail | Append-only JSONL log — prediction, input hash, tenant, user, timestamp | `src/pulsenet/security/audit.py` |
+| Encryption | AES-GCM at rest; TLS in transit | `src/pulsenet/security/encryption.py` |
+| CI gates | GitHub Actions: dependency scan + artifact hash check + SARIF output | `.github/workflows/ci.yml` |
+| NIST AI RMF controls | Mapped controls in `docs/nist_ai_rmf_controls.yaml` | `docs/` |
+
+---
+
+## Benchmark results
+
+Dataset: NASA C-MAPSS FD001 (official `.zip` — `data/official/CMAPSSData.zip`)
+
+### Inference latency
+
+| Metric | Value |
+|--------|-------|
+| Mean | 2.7 ms |
+| Median | 2.5 ms |
+| P95 | 3.9 ms |
+| P99 | 4.3 ms |
+| Target met | ✓ |
+
+### Throughput (samples/sec)
+
+| Batch size | Throughput |
+|-----------|-----------|
+| 1 | 329 |
+| 32 | 13,429 |
+| 128 | 31,424 |
+| 256 | 52,368 |
+
+### Anomaly detection (adversarial telemetry guard)
+
+| Metric | Value |
+|--------|-------|
+| Recall | 1.0 (all 10 degrading engines detected) |
+| Precision | 0.23 |
+| F1 | 0.37 |
+| Avg lead time | 195 cycles before failure |
+| Detection rate | 10/10 engines |
+
+High recall / lower precision is a deliberate design choice for a safety-critical path —
+false negatives (missing a failing engine) are more costly than false positives (unnecessary inspection).
+See `FAILURE_MODES.md` for the full trade-off rationale.
+
+### Encryption overhead
+
+| Operation | Mean | P95 |
+|-----------|------|-----|
+| Encrypt | 0.019 ms | 0.027 ms |
+| Decrypt | 0.018 ms | 0.024 ms |
+
+Full JSON: `reports/benchmark_results.json`
+
+---
+
+## Known limits
+
+- Threat model covers data ingestion and API surface; training infrastructure compromise is not in scope
+- RBAC is application-layer only — no hardware isolation, TEE, or confidential compute
+- Audit log is append-only with hash-chain integrity; not blockchain-sealed
+- Anomaly gate is tuned for FD001; other C-MAPSS subsets (FD002–FD004) need recalibration
+- Network resilience drops below target under 10%+ packet loss — documented in benchmark (target_met: false)
+- LSTM/Transformer ensemble not yet evaluated against adversarial sensor injection beyond Gaussian noise
+
+---
+
+## Setup
+
+```bash
 git clone https://github.com/poojakira/PulseNet-RUL-Forecasting
 cd PulseNet-RUL-Forecasting
 pip install -r requirements.txt
 
-# Run secure pipeline
-python main_pipeline.py --config config.example.yaml
-🧠 Core Capabilities
-1. Data Lineage & Integrity
-PulseNet performs:
+# Run pipeline
+python main_pipeline.py
 
-SHA‑256 hashing of raw telemetry
+# Start API
+uvicorn src.pulsenet.api.app:app --reload
 
-Hashing of preprocessed features
+# POST /predict with sensor payload
+# Audit log written to logs/audit.jsonl
 
-Hash‑chained lineage linking telemetry → features → model inputs
+# Run security tests
+pytest tests/test_security.py -v
 
-Replay detection via timestamp monotonicity checks
+# Reproduce benchmarks
+python scripts/run_validation.py
+```
 
-(Your README already describes hashing + lineage; this section formalizes it.) 
+Docker:
 
-2. Drift & Anomaly Detection
-PulseNet detects:
+```bash
+docker-compose up
+```
 
-Statistical drift in key telemetry features
+---
 
-Distribution shifts beyond configured thresholds
+## References
 
-Missing or truncated data segments
-
-(Directly based on your “drift checks” and “missing/truncated detection”.) 
-
-3. RUL Modeling
-Supports:
-
-Sequence models (LSTM/GRU/Transformer)
-
-Regression on engineered features
-
-Evaluation on held‑out telemetry
-
-(From your “RUL modeling” section.) 
-
-4. Audit Logging
-Append‑only audit log
-
-Hash‑chained entries
-
-Detects insider tampering or unauthorized modification
-
-(From your “audit logging” section.) 
-
-🛡️ Threat Model
-PulseNet’s threat model includes the following (all sourced from your README):
-
-Assets
-Telemetry streams
-
-Preprocessed feature sets
-
-RUL models & predictions
-
-Audit logs & lineage metadata
-
-Adversaries
-Network‑adjacent attacker injecting/dropping/replaying telemetry
-
-Insider modifying intermediate data
-
-Misconfigured or compromised upstream services
-
-Attack Surfaces
-Telemetry ingestion endpoints
-
-Intermediate feature stores
-
-Model input pipeline
-
-Logging/monitoring infrastructure
-
-Defended (In Scope)
-Tampering/replay detection via lineage + hashing
-
-Drift detection
-
-Missing/truncated segment detection
-
-Not Defended (Out of Scope)
-Physical sensor spoofing
-
-Model extraction/IP theft
-
-Full host compromise
-
-For full details, see docs/threat_model.md.
-
-🔐 Threat → Control Mapping
-Threat	PulseNet Control
-Telemetry replay	Hash‑chain lineage + timestamp monotonicity
-Data tampering	SHA‑256 hashing of raw + processed data
-Silent drift	Statistical drift detection
-Missing/truncated segments	Sequence completeness validator
-Insider modification	Append‑only hash‑chained audit log
-
-
-🏗️ Architecture
-A high‑level architecture diagram should be placed here:
-
-Code
-docs/architecture.png
-(We will generate this when we reach /docs.)
-
-📊 Evaluation Metrics
-Component	Metric	Value
-RUL Model	MAE	TBD
-Drift Detector	KL‑div threshold	TBD
-Lineage Integrity	Hash‑chain verification	100%
-Missing Data Detection	Recall	TBD
-
-
-🧪 Demo
-bash
-python demo.py
-This runs:
-
-Drift detection
-
-Lineage verification
-
-RUL prediction
-
-Audit logging
-
-🧩 Supply‑Chain Security
-PulseNet ships with:
-
-sbom.json — Software Bill of Materials
-
-sarif_output.json — Static analysis results
-
-These can be integrated into CI/CD gates for artifact integrity.
-
-🗺️ Roadmap (Summary)
-From ROADMAP.md:
-
-Transformer‑based RUL models
-
-Real‑time streaming ingestion
-
-Anomaly localization
-
-Grafana dashboards for drift monitoring
-
-📁 Repository Structure
-Code
-├── main_pipeline.py
-├── verify.py
-├── demo.py
-├── src/
-├── docs/
-├── sbom.json
-├── sarif_output.json
-├── provenance.json
-├── config.example.yaml
-└── smoke_test.sh
-
-📜 License
-MIT License
-
-
-## Security & Limitations
-This project is a research prototype and is not intended for production use. It has not been formally audited and may contain vulnerabilities. Specific limitations include:
-- No formal guarantees of security or robustness.
-- May not protect against all classes of attacks.
-
-
-### Threat Model
-This section outlines the assumed attacker capabilities and the scope of protection. We assume a "white-box" attacker with access to the model and data, but not necessarily the training infrastructure. We do not explicitly protect against zero-day exploits or highly sophisticated, targeted attacks beyond the scope of typical research prototypes.
-
-
-## Data, Privacy, and Ethics
-This project uses data that is either synthetic, publicly available, or anonymized. No sensitive personal data is used unless explicitly stated and justified. Users should be aware of the ethical implications of deploying ML models and ensure compliance with relevant privacy regulations.
-
-
-## Supply Chain Security
-To ensure the integrity of dependencies, we recommend running `pip-audit` or `safety` regularly. For model artifacts, hashes and verification steps should be documented to prevent tampering.
-
-
-## Threat Model for Predictive Maintenance
-**Threat Model**: We consider attackers who might attempt to poison telemetry data, spoof sensor readings, or inject malicious updates into the predictive maintenance models. Such attacks could lead to incorrect RUL predictions, potentially causing equipment failure or unnecessary maintenance.
+- [NASA C-MAPSS Jet Engine Simulated Dataset](https://data.nasa.gov/dataset/CMAPSS-Jet-Engine-Simulated-Data/ff5v-kuh6)
+- [NIST AI Risk Management Framework (AI RMF 1.0)](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf)
+- [NIST SP 800-204D: DevSecOps for Microservices](https://csrc.nist.gov/pubs/sp/800/204/d/final)
+- [STRIDE Threat Modelling — Microsoft](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
+- [MITRE ATLAS — Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
