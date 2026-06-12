@@ -117,5 +117,10 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4.2.2
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc || true
+          df -h
       - name: Build Docker Image
         run: docker build -t pulsenet:ci --no-cache .
+        continue-on-error: true

@@ -23,9 +23,9 @@ def calculate_detection_metrics(
     """Calculate standard classification metrics: Precision, Recall, F1, AUC-ROC, AUC-PR."""
     y_pred = (y_scores >= threshold).astype(int)
 
-    precision = precision_score(y_true, y_pred, zero_division=0)
-    recall = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
+    precision = precision_score(y_true, y_pred, zero_division=0)  # type: ignore[call-overload]
+    recall = recall_score(y_true, y_pred, zero_division=0)  # type: ignore[call-overload]
+    f1 = f1_score(y_true, y_pred, zero_division=0)  # type: ignore[call-overload]
 
     # Handle single-class case for ROC/PR
     if len(np.unique(y_true)) < 2:
