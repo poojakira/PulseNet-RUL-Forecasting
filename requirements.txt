@@ -17,8 +17,8 @@ uvicorn[standard]==0.32.1
 pydantic==2.10.4
 python-jose[cryptography]==3.4.0
 bcrypt==4.2.1
-python-multipart==0.0.20
-cryptography==44.0.0
+python-multipart==0.0.27
+cryptography==44.0.3
 
 # Dashboard
 streamlit==1.41.0
@@ -39,14 +39,14 @@ opentelemetry-sdk==1.29.0
 opentelemetry-instrumentation-fastapi==0.50b0
 
 # Clients
-requests==2.32.4
+requests==2.33.0
 
 # Testing
-pytest==8.3.4
+pytest==9.0.3
 pytest-cov==6.0.0
 pytest-asyncio==0.24.0
 httpx==0.28.1
 
 # Deployment
 gunicorn==23.0.0
-starlette==0.41.3
+starlette==0.49.1

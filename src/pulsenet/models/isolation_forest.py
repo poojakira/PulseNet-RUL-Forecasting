@@ -147,10 +147,10 @@ class IsolationForestModel(BaseAnomalyModel):
                     else:
                         mdl = sklearnIForest(
                             n_estimators=n,
-                            contamination=c,
-                            max_samples=s,
+                            contamination=c,  # type: ignore[arg-type]
+                            max_samples=s,  # type: ignore[arg-type]
                             random_state=42,
-                        )  # type: ignore
+                        )
 
                     mdl.fit(X)
                     preds = np.where(mdl.predict(X) == -1, 1, 0)
