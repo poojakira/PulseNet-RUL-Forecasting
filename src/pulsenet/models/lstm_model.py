@@ -136,7 +136,9 @@ class LSTMModel(BaseAnomalyModel):
         else:
             self.model = raw_model.to(self.device)
             sampler = None
-            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True)
+            loader = DataLoader(
+                dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True
+            )
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()

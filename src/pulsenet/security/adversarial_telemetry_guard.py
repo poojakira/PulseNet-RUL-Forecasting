@@ -9,14 +9,16 @@ Gap: Safety-critical ML inference (turbofan RUL prediction) is vulnerable to
 sensor-level manipulation. A compromised sensor reading fed to a pre-trained
 model can cause catastrophic RUL under-prediction or over-prediction.
 """
+
 from __future__ import annotations
+
+import hashlib
+import json
+import statistics
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-import hashlib
-import json
-import statistics
 
 
 class TelemetryAlertCode(Enum):
@@ -29,7 +31,7 @@ class TelemetryAlertCode(Enum):
 @dataclass
 class TelemetryAlert:
     code: TelemetryAlertCode
-    severity: str    # CRITICAL | HIGH | MEDIUM
+    severity: str  # CRITICAL | HIGH | MEDIUM
     sensor_index: Optional[int]
     detail: str
 
@@ -82,21 +84,21 @@ class AdversarialTelemetryGuard:
             List of TelemetryAlert (empty = clean)
         """
         if len(frame) != self.n_sensors:
-            raise ValueError(
-                f"Expected {self.n_sensors} sensors, got {len(frame)}"
-            )
+            raise ValueError(f"Expected {self.n_sensors} sensors, got {len(frame)}")
 
         alerts: list[TelemetryAlert] = []
 
         # --- Replay attack: exact frame seen before ---
         fhash = self._frame_hash(frame)
         if fhash in self._seen_hashes:
-            alerts.append(TelemetryAlert(
-                code=TelemetryAlertCode.REPLAY,
-                severity="HIGH",
-                sensor_index=None,
-                detail=f"Exact frame replay detected. hash={fhash[:16]}. MITRE ICS T0839.",
-            ))
+            alerts.append(
+                TelemetryAlert(
+                    code=TelemetryAlertCode.REPLAY,
+                    severity="HIGH",
+                    sensor_index=None,
+                    detail=f"Exact frame replay detected. hash={fhash[:16]}. MITRE ICS T0839.",
+                )
+            )
         self._seen_hashes.add(fhash)
 
         # --- Frozen sensor: same value for N consecutive frames ---
@@ -104,17 +106,22 @@ class AdversarialTelemetryGuard:
             for i, (prev_val, curr_val) in enumerate(zip(self._prev_frame, frame)):
                 if abs(curr_val - prev_val) < 1e-9:
                     self._consecutive_counts[i] += 1
-                    if self._consecutive_counts[i] >= self.cfg.frozen_consecutive_threshold:
-                        alerts.append(TelemetryAlert(
-                            code=TelemetryAlertCode.FROZEN_SENSOR,
-                            severity="HIGH",
-                            sensor_index=i,
-                            detail=(
-                                f"Sensor {i} frozen for "
-                                f"{self._consecutive_counts[i]} consecutive frames. "
-                                "Possible sensor masking attack."
-                            ),
-                        ))
+                    if (
+                        self._consecutive_counts[i]
+                        >= self.cfg.frozen_consecutive_threshold
+                    ):
+                        alerts.append(
+                            TelemetryAlert(
+                                code=TelemetryAlertCode.FROZEN_SENSOR,
+                                severity="HIGH",
+                                sensor_index=i,
+                                detail=(
+                                    f"Sensor {i} frozen for "
+                                    f"{self._consecutive_counts[i]} consecutive frames. "
+                                    "Possible sensor masking attack."
+                                ),
+                            )
+                        )
                 else:
                     self._consecutive_counts[i] = 0
 
@@ -123,16 +130,18 @@ class AdversarialTelemetryGuard:
             for i, (prev_val, curr_val) in enumerate(zip(self._prev_frame, frame)):
                 delta = abs(curr_val - prev_val)
                 if delta > self.cfg.max_single_step_delta:
-                    alerts.append(TelemetryAlert(
-                        code=TelemetryAlertCode.SUDDEN_JUMP,
-                        severity="HIGH",
-                        sensor_index=i,
-                        detail=(
-                            f"Sensor {i} sudden jump: delta={delta:.4f} > "
-                            f"threshold={self.cfg.max_single_step_delta}. "
-                            "Possible bias injection attack."
-                        ),
-                    ))
+                    alerts.append(
+                        TelemetryAlert(
+                            code=TelemetryAlertCode.SUDDEN_JUMP,
+                            severity="HIGH",
+                            sensor_index=i,
+                            detail=(
+                                f"Sensor {i} sudden jump: delta={delta:.4f} > "
+                                f"threshold={self.cfg.max_single_step_delta}. "
+                                "Possible bias injection attack."
+                            ),
+                        )
+                    )
 
         # --- Sensor bias injection: z-score vs rolling baseline ---
         if len(self._history) >= self.cfg.baseline_window // 2:
@@ -145,16 +154,18 @@ class AdversarialTelemetryGuard:
                     if stdev > 0:
                         z = abs(frame[i] - mean) / stdev
                         if z > self.cfg.bias_sigma_threshold:
-                            alerts.append(TelemetryAlert(
-                                code=TelemetryAlertCode.SENSOR_BIAS,
-                                severity="MEDIUM",
-                                sensor_index=i,
-                                detail=(
-                                    f"Sensor {i} z-score={z:.2f} > "
-                                    f"threshold={self.cfg.bias_sigma_threshold}. "
-                                    "Possible slow bias injection."
-                                ),
-                            ))
+                            alerts.append(
+                                TelemetryAlert(
+                                    code=TelemetryAlertCode.SENSOR_BIAS,
+                                    severity="MEDIUM",
+                                    sensor_index=i,
+                                    detail=(
+                                        f"Sensor {i} z-score={z:.2f} > "
+                                        f"threshold={self.cfg.bias_sigma_threshold}. "
+                                        "Possible slow bias injection."
+                                    ),
+                                )
+                            )
                 except statistics.StatisticsError:
                     pass
 

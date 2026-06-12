@@ -133,11 +133,15 @@ class TransformerModel(BaseAnomalyModel):
                 self.model, device_ids=[local_rank]
             )
             sampler = torch.utils.data.DistributedSampler(dataset)
-            loader = DataLoader(dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=True)
+            loader = DataLoader(
+                dataset, batch_size=self.batch_size, sampler=sampler, pin_memory=True
+            )
         else:
             self.model = self.model.to(self.device)
             sampler = None
-            loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True)
+            loader = DataLoader(
+                dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True
+            )
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
@@ -220,7 +224,7 @@ class TransformerModel(BaseAnomalyModel):
     def save(self, path: Path | str) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-                # Security note (semgrep: python.lang.security.audit.pickle): torch.save uses pickle
+        # Security note (semgrep: python.lang.security.audit.pickle): torch.save uses pickle
         # internally. Always load with weights_only=True (see load method).
         torch.save(  # noqa: S614
             {
@@ -236,6 +240,7 @@ class TransformerModel(BaseAnomalyModel):
             },
             path,
         )
+
     def load(self, path: Path | str) -> None:
         # Security note: weights_only=True prevents arbitrary code execution via
         # pickle deserialization (semgrep: python.lang.security.audit.pickle).
