@@ -137,3 +137,27 @@ docker-compose up
 - [NIST SP 800-204D: DevSecOps for Microservices](https://csrc.nist.gov/pubs/sp/800/204/d/final)
 - [STRIDE Threat Modelling — Microsoft](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
 - [MITRE ATLAS — Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
+
+
+---
+
+## SSE AI Infrastructure Relevance
+
+**Role target:** System Software Engineer, AI Infrastructure
+
+This project is a **production ML inference pipeline** — not just a model notebook. It addresses the systems engineering concerns that matter in AI infrastructure:
+
+| Concern | Implementation |
+|---|---|
+| **Inference pipeline** | LSTM+Transformer served via FastAPI/uvicorn at 2.7 ms mean latency / 52K samples/sec throughput |
+| **Model serving** | FastAPI with RBAC middleware, scoped JWT tokens, per-tenant rate limiting |
+| **CI/CD for ML** | GitHub Actions: ruff lint, bandit SAST, pip-audit CVE scan, pytest with coverage, SBOM generation, SARIF output — all gates block on failure |
+| **Artifact integrity** | SHA-256 hash chain from raw sensor data → training set → model checkpoint; Ed25519-signed artifacts |
+| **Distributed systems hardening** | Multi-tenant isolation at API layer; AES-GCM encryption at rest (0.019 ms overhead measured); append-only JSONL audit log |
+| **Observability & reliability** | Prometheus/Grafana in architecture; IR_PLAYBOOK.md; FAILURE_MODES.md; smoke_test.sh; structured logging |
+| **Container** | Docker + docker-compose; non-root runtime; multi-stage build |
+| **Performance benchmarking** | scripts/run_validation.py; measured latency and throughput in benchmark scripts |
+| **NIST AI RMF / SRE** | NIST AI RMF 1.0 compliance mapping; STRIDE threat model with per-category mitigations; NIST SP 800-204D reference |
+| **Scalable architecture** | Rate limiting + load balancing config; designed for horizontal scaling behind reverse proxy |
+
+**Tech stack:** Python · PyTorch · FastAPI · Docker · Kubernetes (k8s manifests) · Prometheus · GitHub Actions · SARIF · Ed25519 · AES-GCM · JWT/RBAC · NIST AI RMF
