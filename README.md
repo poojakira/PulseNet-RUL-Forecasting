@@ -34,7 +34,7 @@ Full STRIDE analysis: `STRIDE_THREAT_MODEL.md`
 | Input validation | Schema enforcement + anomaly gate before inference | `src/pulsenet/security/adversarial_telemetry_guard.py` |
 | RBAC | Role-scoped API endpoints; tenant isolation at middleware layer | `src/pulsenet/api/auth.py`, `src/pulsenet/api/middleware/tenant.py` |
 | Audit trail | Append-only JSONL log — prediction, input hash, tenant, user, timestamp | `src/pulsenet/security/audit.py` |
-| Encryption | AES-GCM at rest; TLS in transit | `src/pulsenet/security/encryption.py` |
+| Encryption | AES-256 Fernet at rest; TLS in transit | `src/pulsenet/security/encryption.py` |
 | CI gates | GitHub Actions: dependency scan + artifact hash check + SARIF output | `.github/workflows/ci.yml` |
 | NIST AI RMF controls | Mapped controls in `docs/nist_ai_rmf_controls.yaml` | `docs/` |
 
@@ -153,13 +153,13 @@ This project is a **production ML inference pipeline** — not just a model note
 | **Model serving** | FastAPI with RBAC middleware, scoped JWT tokens, per-tenant rate limiting |
 | **CI/CD for ML** | GitHub Actions: ruff lint, bandit SAST, pip-audit CVE scan, pytest with coverage, SBOM generation, SARIF output — all gates block on failure |
 | **Artifact integrity** | SHA-256 hash chain from raw sensor data → training set → model checkpoint; Ed25519-signed artifacts |
-| **Distributed systems hardening** | Multi-tenant isolation at API layer; AES-GCM encryption at rest (0.019 ms overhead measured); append-only JSONL audit log |
+| **Distributed systems hardening** | Multi-tenant isolation at API layer; AES-256 Fernet encryption at rest (0.019 ms overhead measured); append-only JSONL audit log |
 | **Observability & reliability** | Prometheus/Grafana in architecture; IR_PLAYBOOK.md; FAILURE_MODES.md; smoke_test.sh; structured logging |
 | **Container** | Docker + docker-compose; non-root runtime; multi-stage build |
 | **Performance benchmarking** | scripts/run_validation.py; measured latency and throughput in benchmark scripts |
 | **NIST AI RMF / SRE** | NIST AI RMF 1.0 compliance mapping; STRIDE threat model with per-category mitigations; NIST SP 800-204D reference |
 | **Scalable architecture** | Rate limiting + load balancing config; designed for horizontal scaling behind reverse proxy |
 
-**Tech stack:** Python · PyTorch · FastAPI · Docker · Kubernetes (k8s manifests) · Prometheus · GitHub Actions · SARIF · Ed25519 · AES-GCM · JWT/RBAC · NIST AI RMF
+**Tech stack:** Python · PyTorch · FastAPI · Docker · Kubernetes (k8s manifests) · Prometheus · GitHub Actions · SARIF · Ed25519 · AES-256 Fernet · JWT/RBAC · NIST AI RMF
 
 **Additional keywords (honest):** deep learning � LSTM+Transformer � SLSA provenance � policy-as-code (CI gates enforce artifact signing policy) � scalable inference � high-performance (sub-3ms latency) � distributed systems (multi-tenant API + hash-chained audit) � SRE principles (error budgets, SLOs, incident playbook) � model lifecycle management (promotion gates via SARIF)
