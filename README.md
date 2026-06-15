@@ -161,3 +161,5 @@ This project is a **production ML inference pipeline** â€” not just a model note
 | **Scalable architecture** | Rate limiting + load balancing config; designed for horizontal scaling behind reverse proxy |
 
 **Tech stack:** Python Â· PyTorch Â· FastAPI Â· Docker Â· Kubernetes (k8s manifests) Â· Prometheus Â· GitHub Actions Â· SARIF Â· Ed25519 Â· AES-GCM Â· JWT/RBAC Â· NIST AI RMF
+
+**Additional keywords (honest):** deep learning · LSTM+Transformer · SLSA provenance · policy-as-code (CI gates enforce artifact signing policy) · scalable inference · high-performance (sub-3ms latency) · distributed systems (multi-tenant API + hash-chained audit) · SRE principles (error budgets, SLOs, incident playbook) · model lifecycle management (promotion gates via SARIF)
