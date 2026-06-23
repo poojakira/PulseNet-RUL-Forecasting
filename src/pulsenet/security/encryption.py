@@ -72,7 +72,7 @@ class EncryptionManager:
             try:
                 os.chmod(self.key_file, 0o600)
             except Exception:
-                pass  # Best effort on Windows
+                log.warning("Could not set key file permissions (non-fatal on Windows)")
             log.info(
                 "New encryption key generated and saved",
                 extra={"file": str(self.key_file)},
@@ -96,7 +96,7 @@ class EncryptionManager:
         try:
             os.chmod(self.key_file, 0o600)
         except Exception:
-            pass  # Ignore on Windows or filesystems that don't support chmod
+            log.warning("Could not set key file permissions during rotation (non-fatal)")
         self._key = new_key
         self._cipher = Fernet(new_key)
         log.info("Key rotated successfully", extra={"backup": str(old_backup)})

@@ -17,8 +17,10 @@ try:
     import torch
     import torch.distributed as dist
 
+    # Quick verification that torch actually loads (avoids AV on broken installs)
+    _ = torch.tensor([1.0])
     TORCH_AVAILABLE = True
-except (ImportError, OSError):
+except Exception:
     TORCH_AVAILABLE = False
 
 from pulsenet.config import cfg
@@ -91,7 +93,7 @@ class TrainingPipeline:
 
         # Optional tuning (if model supports it)
         if tune and y_true is not None and hasattr(model, "tune") and self.rank == 0:
-            tune_func = model.tune
+            tune_func = model.tune  # type: ignore[reportAttributeAccessIssue]
             tune_result = tune_func(X_train, y_true)
             log.info("Tuning result", extra=tune_result)
 
@@ -101,7 +103,7 @@ class TrainingPipeline:
             and hasattr(model, "optimize_threshold")
             and self.rank == 0
         ):
-            optim_func = model.optimize_threshold
+            optim_func = model.optimize_threshold  # type: ignore[reportAttributeAccessIssue]
             optim_func(X_train, y_true)
 
         # -----------------------------------------------------------------

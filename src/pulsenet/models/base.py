@@ -1,3 +1,4 @@
+# pyright: reportGeneralTypeIssues=false
 """
 Abstract base class for all PulseNet anomaly detection models.
 """
@@ -57,9 +58,9 @@ class BaseAnomalyModel(ABC):
         scores = self.score(X)
 
         metrics: dict[str, float] = {
-            "f1": float(f1_score(y_true, y_pred, zero_division=0)),  # type: ignore
-            "precision": float(precision_score(y_true, y_pred, zero_division=0)),  # type: ignore
-            "recall": float(recall_score(y_true, y_pred, zero_division=0)),  # type: ignore
+            "f1": float(f1_score(y_true, y_pred, zero_division=0.0)),
+            "precision": float(precision_score(y_true, y_pred, zero_division=0.0)),
+            "recall": float(recall_score(y_true, y_pred, zero_division=0.0)),
         }
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, scores))
