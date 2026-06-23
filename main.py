@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--reload", action="store_true", help="Auto-reload on changes")
     args = parser.parse_args()
 
-    print(f"\n⚡ PulseNet API v2.0")
+    print("\n⚡ PulseNet API v2.0")
     print(f"   Starting on http://{args.host}:{args.port}")
     print(f"   Docs: http://localhost:{args.port}/docs")
     print("=" * 50)
