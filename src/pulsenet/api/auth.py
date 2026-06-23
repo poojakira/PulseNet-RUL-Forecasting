@@ -23,7 +23,7 @@ security = HTTPBearer(auto_error=False)
 _JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
 if not _JWT_SECRET or len(_JWT_SECRET) < 32:
     if os.environ.get("PULSENET_ENV") == "testing":
-        _JWT_SECRET = "pulsenet-test-secret-not-for-production"
+        _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # nosec
     else:
         log.critical("PULSENET_JWT_SECRET is required")
         raise RuntimeError("PULSENET_JWT_SECRET must be set.")
