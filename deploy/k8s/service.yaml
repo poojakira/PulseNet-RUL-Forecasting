@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulsenet-api
+  namespace: pulsenet
+  labels:
+    app.kubernetes.io/name: pulsenet
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-api
+      port: 8000
+      targetPort: http-api
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: pulsenet
+    app.kubernetes.io/component: api
