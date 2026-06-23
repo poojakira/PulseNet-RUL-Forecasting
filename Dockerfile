@@ -1,5 +1,5 @@
 # ============================================================
-# PulseNet — NVIDIA HPC Docker Build
+# PulseNet -- NVIDIA HPC Docker Build
 # ============================================================
 FROM nvcr.io/nvidia/pytorch:24.07-py3 AS base
 
