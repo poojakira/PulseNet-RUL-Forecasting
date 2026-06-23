@@ -1,28 +1,24 @@
 # Contributing
 
-PulseNet contributions must preserve the official-data evidence boundary.
+## Scope
+This project is a portfolio demonstration of ML security engineering patterns. It is maintained for hiring screen evaluation.
 
-## Required Checks
+## How to Submit Changes
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-change`)
+3. Make your changes
+4. Run linting: `ruff check .`
+5. Run formatting: `ruff format --check .`
+6. Run tests: `pytest --cov=src --cov-fail-under=80`
+7. Run security scan: `bandit -r src/ -ll`
+8. Submit a pull request
 
-```powershell
-python -m ruff check src tests scripts verify.py
-python -m ruff format --check src tests scripts verify.py
-python -m pytest tests -q
-python verify.py
-```
+## Coding Standards
+- Follow PEP 8 (enforced by ruff)
+- Type hints required for all public functions
+- Docstrings for all public modules, classes, and functions
+- Test coverage minimum 80%
+- No sensitive data (keys, passwords) in code
 
-## Data Rules
-
-- Do not add generated telemetry fixtures.
-- Tests must use `data/official/CMAPSSData.zip` or a verified download from
-  `https://data.nasa.gov/docs/legacy/CMAPSSData.zip`.
-- Any new metric must be produced by a checked-in command and documented with
-  dataset source, row counts, and hash.
-
-## Security Rules
-
-- Do not commit secrets, local key files, ledgers, model binaries, or runtime
-  CSV outputs.
-- Do not add permissive production defaults such as wildcard CORS, hardcoded
-  JWT secrets, or plaintext passwords.
-- Do not make lint, tests, verification, or dependency checks advisory.
+## Code of Conduct
+Be respectful, constructive, and professional. This is a professional portfolio project.
