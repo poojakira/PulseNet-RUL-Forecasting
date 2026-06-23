@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pulsenet-api
+  namespace: pulsenet
+  labels:
+    app.kubernetes.io/name: pulsenet
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pulsenet
+      app.kubernetes.io/component: api

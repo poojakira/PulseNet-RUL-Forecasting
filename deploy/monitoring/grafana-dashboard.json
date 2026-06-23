@@ -1,0 +1,189 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "dashboard": {
+    "title": "PulseNet - Production Monitoring",
+    "uid": "pulsenet-prod",
+    "version": 1,
+    "timezone": "utc",
+    "panels": [
+      {
+        "title": "Request Rate (QPS)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"pulsenet\"}[1m]))",
+            "legendFormat": "Total"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"pulsenet\", status=~\"2..\"}[1m]))",
+            "legendFormat": "2xx"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"pulsenet\", status=~\"4..\"}[1m]))",
+            "legendFormat": "4xx"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"pulsenet\", status=~\"5..\"}[1m]))",
+            "legendFormat": "5xx"
+          }
+        ],
+        "description": "Requests per second broken down by status code"
+      },
+      {
+        "title": "Latency (p50 / p95 / p99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
+            "legendFormat": "p99"
+          }
+        ],
+        "description": "Request latency percentiles in seconds"
+      },
+      {
+        "title": "Error Rate by Endpoint",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"pulsenet\", status=~\"5..\"}[5m])) by (endpoint) / sum(rate(http_requests_total{namespace=\"pulsenet\"}[5m])) by (endpoint)",
+            "legendFormat": "{{ endpoint }}"
+          }
+        ],
+        "description": "Error rate percentage per API endpoint"
+      },
+      {
+        "title": "Model Prediction Distribution",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(pulsenet_predictions_normal_total[5m]))",
+            "legendFormat": "Normal"
+          },
+          {
+            "expr": "sum(rate(pulsenet_predictions_anomalous_total[5m]))",
+            "legendFormat": "Anomalous"
+          },
+          {
+            "expr": "sum(rate(pulsenet_predictions_total[5m]))",
+            "legendFormat": "Total"
+          }
+        ],
+        "description": "Model prediction outcomes by class"
+      },
+      {
+        "title": "Active Users by Role",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(pulsenet_active_sessions) by (role)",
+            "legendFormat": "{{ role }}"
+          }
+        ],
+        "description": "Concurrent active user sessions broken down by RBAC role"
+      },
+      {
+        "title": "Audit Log Write Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(pulsenet_audit_log_writes_total[5m])",
+            "legendFormat": "Writes/s"
+          }
+        ],
+        "description": "Rate of audit log entries being written to the hash-chain ledger"
+      },
+      {
+        "title": "Encryption Overhead",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "pulsenet_encryption_encrypt_duration_seconds",
+            "legendFormat": "Encrypt"
+          },
+          {
+            "expr": "pulsenet_encryption_decrypt_duration_seconds",
+            "legendFormat": "Decrypt"
+          }
+        ],
+        "description": "Encryption/decryption operation duration in seconds"
+      },
+      {
+        "title": "System Resources",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+        "targets": [
+          {
+            "expr": "process_cpu_seconds_total{namespace=\"pulsenet\"}",
+            "legendFormat": "CPU"
+          },
+          {
+            "expr": "process_resident_memory_bytes{namespace=\"pulsenet\"}",
+            "legendFormat": "Memory RSS"
+          }
+        ],
+        "description": "CPU and memory usage of PulseNet pods"
+      },
+      {
+        "title": "K8s Pod Status",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+        "targets": [
+          {
+            "expr": "kube_deployment_status_replicas_available{deployment=\"pulsenet-api\"}",
+            "legendFormat": "Available"
+          },
+          {
+            "expr": "kube_deployment_status_replicas_unavailable{deployment=\"pulsenet-api\"}",
+            "legendFormat": "Unavailable"
+          }
+        ],
+        "description": "Available vs unavailable replicas for the PulseNet deployment"
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "namespace",
+          "type": "constant",
+          "query": "pulsenet",
+          "label": "Namespace",
+          "current": { "text": "pulsenet", "value": "pulsenet" }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": { "type": "prometheus" },
+          "enable": true,
+          "expr": "timestamp(changes(container_start_time_seconds{namespace=\"pulsenet\"}[1m]) > 0)",
+          "titleFormat": "Deployment detected",
+          "textFormat": "Pod restart detected"
+        }
+      ]
+    },
+    "links": [
+      {
+        "title": "Runbooks",
+        "url": "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks"
+      }
+    ]
+  }
+}

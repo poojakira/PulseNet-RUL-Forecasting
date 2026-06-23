@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pulsenet
+  labels:
+    name: pulsenet
+    environment: production
+    app.kubernetes.io/name: pulsenet
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
