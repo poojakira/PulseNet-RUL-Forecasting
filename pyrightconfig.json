@@ -1,9 +1,12 @@
 {
   "include": ["src", "tests"],
   "extraPaths": ["src"],
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
   "typeCheckingMode": "basic",
   "reportMissingImports": "warning",
   "reportOptionalMemberAccess": "warning",
-  "reportGeneralTypeIssues": "warning"
+  "reportGeneralTypeIssues": "warning",
+  "reportArgumentType": "warning",
+  "venvPath": ".",
+  "venv": ".venv"
 }

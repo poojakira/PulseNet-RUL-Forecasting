@@ -88,7 +88,7 @@ def _download_nasa_archive(destination: Path) -> None:
     parsed = urlparse(NASA_CMAPSS_URL)
     if parsed.scheme != "https" or parsed.netloc != "data.nasa.gov":
         raise ValueError(f"refusing non-NASA HTTPS dataset URL: {NASA_CMAPSS_URL}")
-    with urllib.request.urlopen(NASA_CMAPSS_URL, timeout=90) as response:  # noqa: S310
+    with urllib.request.urlopen(NASA_CMAPSS_URL, timeout=90) as response:  # nosec
         destination.write_bytes(response.read())
 
 

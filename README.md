@@ -57,3 +57,11 @@ GitHub Actions run:
 - Docker build
 
 CI must fail on lint, test, or official-data verification failure.
+## License
+MIT
+
+## Security
+See SECURITY.md for vulnerability reporting.
+
+## Contributing
+See CONTRIBUTING.md for guidelines.
