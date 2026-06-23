@@ -1,0 +1,119 @@
+groups:
+  - name: pulsenet-alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: ml-platform
+        annotations:
+          summary: "High error rate on PulseNet API"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 5%)"
+          runbook_url: "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks#high-error-rate"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: ml-platform
+        annotations:
+          summary: "High p99 latency on PulseNet API"
+          description: "p99 latency is {{ $value | humanizeDuration }} over the last 5 minutes (threshold: 500ms)"
+          runbook_url: "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks#high-latency"
+
+      - alert: PodDown
+        expr: |
+          sum(kube_pod_status_phase{namespace="pulsenet", phase="Running"})
+          <
+          count(kube_pod_controller{namespace="pulsenet"})
+        for: 2m
+        labels:
+          severity: critical
+          team: ml-platform
+        annotations:
+          summary: "PulseNet pod is down"
+          description: "Expected {{ $labels }} pods running, got {{ $value }}"
+          runbook_url: "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks#pod-down"
+
+      - alert: ModelDriftDetected
+        expr: |
+          pulsenet_model_drift_score > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml-platform
+        annotations:
+          summary: "Model drift detected"
+          description: "Drift score is {{ $value | humanizePercentage }} (threshold: 10%)"
+          runbook_url: "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks#model-drift"
+
+      - alert: AuditLogIntegrityFailure
+        expr: |
+          pulsenet_audit_chain_valid == 0
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Audit log integrity failure"
+          description: "Hash-chain audit ledger integrity check failed on {{ $labels.instance }}"
+          runbook_url: "https://github.com/user/PulseNet-RUL-Forecasting/wiki/Runbooks#audit-integrity"
+
+      - alert: HighPredictionAnomalyRate
+        expr: |
+          rate(pulsenet_predictions_anomalous_total[5m])
+          /
+          rate(pulsenet_predictions_total[5m])
+          > 0.3
+        for: 10m
+        labels:
+          severity: info
+          team: ml-platform
+        annotations:
+          summary: "Elevated anomaly detection rate"
+          description: "{{ $value | humanizePercentage }} of predictions are anomalous (threshold: 30%)"
+
+      - alert: EncryptionKeyExpiring
+        expr: |
+          pulsenet_encryption_key_age_days > 25
+        for: 24h
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Encryption key approaching rotation"
+          description: "Current key is {{ $value | humanizeDuration }} old (rotation at 30 days)"
+
+      - alert: RateLimitThrottling
+        expr: |
+          rate(pulsenet_rate_limit_rejected_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: info
+          team: ml-platform
+        annotations:
+          summary: "Requests being rate limited"
+          description: "Rate limit rejections: {{ $value }} req/s over 5m"
+
+      - alert: DiskSpaceRunningLow
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/", namespace="pulsenet"}
+          / node_filesystem_size_bytes{mountpoint="/", namespace="pulsenet"}
+          < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Node disk space below 10%"
+          description: "Disk usage at {{ $value | humanizePercentage }} on {{ $labels.instance }}"
