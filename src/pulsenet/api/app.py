@@ -22,7 +22,7 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, AsyncGenerator, Optional, Union
 
-import joblib
+import skops.io as sio
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -76,9 +76,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("Dynamic batcher worker started")
 
     # Try to load existing model
-    model_path = Path("models/isolation_forest.joblib")
+    model_path = Path("models/isolation_forest.skops")
     if not model_path.exists():
-        model_path = Path("isolation_forest_model.joblib")
+        model_path = Path("isolation_forest_model.skops")
 
     model = registry.get_model("isolation_forest")
     model_loaded = False
@@ -92,17 +92,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 feature_names = list(model.model.feature_names_in_)  # type: ignore
             log.info("Model loaded successfully")
         except Exception as e:
-            log.warning(f"Failed to load model: {e}")
+            log.error(f"Failed to load model: {e}")
+            raise RuntimeError(f"Critical error: Failed to load model {model_path}") from e
+    else:
+        log.error(f"Model file not found: {model_path}")
+        raise RuntimeError(f"Critical error: Model file not found {model_path}")
 
     # Load scaler
-    scaler_path = Path("models/scaler.joblib")
+    scaler_path = Path("models/scaler.skops")
     scaler: Any = None
     if scaler_path.exists():
         try:
-            scaler = joblib.load(scaler_path)
+            scaler = sio.load(trusted=True, file=scaler_path)
             log.info("MinMaxScaler loaded successfully")
         except Exception as e:
-            log.warning(f"Failed to load scaler: {e}")
+            log.error(f"Failed to load scaler: {e}")
+            raise RuntimeError(f"Critical error: Failed to load scaler {scaler_path}") from e
+    else:
+        log.error(f"Scaler file not found: {scaler_path}")
+        raise RuntimeError(f"Critical error: Scaler file not found {scaler_path}")
 
     # Wire up dependencies
     set_model_cache(
@@ -114,7 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "scaler": scaler,
             "ledger": ledger,
             # For Gap 2 (Shadow Mode), let's pre-load the LSTM if it exists as shadow
-            "shadow_model": None,  # For now, can be populated if lstm.joblib exists
+            "shadow_model": None,  # For now, can be populated if lstm.skops exists
             "shadow_model_name": "lstm",
         }
     )
