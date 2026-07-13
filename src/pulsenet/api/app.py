@@ -93,7 +93,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             log.info("Model loaded successfully")
         except Exception as e:
             log.error(f"Failed to load model: {e}")
-            raise RuntimeError(f"Critical error: Failed to load model {model_path}") from e
+            raise RuntimeError(
+                f"Critical error: Failed to load model {model_path}"
+            ) from e
     else:
         log.error(f"Model file not found: {model_path}")
         raise RuntimeError(f"Critical error: Model file not found {model_path}")
@@ -107,7 +109,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             log.info("MinMaxScaler loaded successfully")
         except Exception as e:
             log.error(f"Failed to load scaler: {e}")
-            raise RuntimeError(f"Critical error: Failed to load scaler {scaler_path}") from e
+            raise RuntimeError(
+                f"Critical error: Failed to load scaler {scaler_path}"
+            ) from e
     else:
         log.error(f"Scaler file not found: {scaler_path}")
         raise RuntimeError(f"Critical error: Scaler file not found {scaler_path}")

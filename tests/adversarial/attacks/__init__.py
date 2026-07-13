@@ -10,8 +10,8 @@ Three attack vectors against sensor input space:
 from __future__ import annotations
 
 from .gradient_perturbation import GradientPerturbationAttack, PGDAttackResult
+from .replay_staleness import ReplayResult, ReplayStalenessAttack
 from .sensor_spoofing import SensorSpoofingAttack, SpoofingResult
-from .replay_staleness import ReplayStalenessAttack, ReplayResult
 
 __all__ = [
     "GradientPerturbationAttack",

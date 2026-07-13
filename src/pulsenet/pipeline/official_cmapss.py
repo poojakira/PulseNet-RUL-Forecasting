@@ -123,7 +123,9 @@ def load_official_subset(
     """
     subset = subset.upper()
     if subset not in _VALID_SUBSETS:
-        raise ValueError(f"unknown C-MAPSS subset {subset!r}; expected one of {_VALID_SUBSETS}")
+        raise ValueError(
+            f"unknown C-MAPSS subset {subset!r}; expected one of {_VALID_SUBSETS}"
+        )
 
     root = Path(data_dir)
     archive_path = root / "CMAPSSData.zip"

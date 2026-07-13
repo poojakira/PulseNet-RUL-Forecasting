@@ -155,7 +155,8 @@ class TransformerModel(BaseAnomalyModel):
                 optimizer.zero_grad()
 
                 with torch.autocast(
-                    device_type=("cuda" if device.type == "cuda" else "cpu")
+                    device_type=("cuda" if device.type == "cuda" else "cpu"),
+                    enabled=(device.type == "cuda"),
                 ):
                     output = self.model(batch)
                     loss = criterion(output, batch)
