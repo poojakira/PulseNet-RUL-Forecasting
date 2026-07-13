@@ -10,6 +10,8 @@ Loads encryption key from:
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import time
@@ -51,7 +53,7 @@ class EncryptionManager:
         env_val = os.environ.get(self.key_env_var)
         if env_val:
             self._key_source = "environment"
-            return env_val.encode()
+            return self._normalize_fernet_key(env_val)
 
         if self.key_file.exists():
             self._key_source = "file"
@@ -81,6 +83,30 @@ class EncryptionManager:
             log.error(f"Failed to save generated key to {self.key_file}: {e}")
 
         return key
+
+    @staticmethod
+    def _normalize_fernet_key(raw: str) -> bytes:
+        """Return a valid 32-byte url-safe base64 Fernet key from ``raw``.
+
+        Fernet requires a 32-byte url-safe base64-encoded key, not an arbitrary
+        string. Passing a plain passphrase would raise a cryptic
+        ``binascii.Error`` at runtime. We therefore:
+          * accept the value as-is if it is already a valid Fernet key;
+          * otherwise derive a deterministic key from the passphrase via
+            SHA-256, logging a warning so operators know a KDF was applied.
+        """
+        candidate = raw.strip().encode()
+        try:
+            Fernet(candidate)
+            return candidate
+        except Exception:
+            log.warning(
+                "PULSENET_ENCRYPTION_KEY is not a valid Fernet key; deriving one "
+                "via SHA-256. For production, set a key generated with "
+                "Fernet.generate_key()."
+            )
+            digest = hashlib.sha256(raw.encode()).digest()
+            return base64.urlsafe_b64encode(digest)
 
     def rotate_key(self) -> bytes:
         """Generate a new key, back up old one, and save."""

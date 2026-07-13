@@ -9,8 +9,11 @@ SHA-256 hash chaining and optional Merkle root computation.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
+import shutil
+import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -22,6 +25,20 @@ import numpy as np
 from pulsenet.logger import get_logger
 
 log = get_logger(__name__)
+
+# Optional server-side key. When set, block digests are HMAC-SHA256 keyed so an
+# attacker who edits the on-disk ledger cannot recompute a self-consistent chain
+# (plain SHA-256 chaining can be fully re-forged by anyone with file access).
+# Unset -> plain SHA-256 (backwards compatible with existing ledgers).
+_LEDGER_HMAC_KEY = os.environ.get("PULSENET_LEDGER_HMAC_KEY")
+
+
+def _digest(payload: str) -> str:
+    """Return the keyed (HMAC) or plain SHA-256 hex digest for ``payload``."""
+    data = payload.encode()
+    if _LEDGER_HMAC_KEY:
+        return hmac.new(_LEDGER_HMAC_KEY.encode(), data, hashlib.sha256).hexdigest()
+    return hashlib.sha256(data).hexdigest()
 
 
 class _NpEncoder(json.JSONEncoder):
@@ -63,7 +80,7 @@ class Block:
             sort_keys=True,
             cls=_NpEncoder,
         )
-        return hashlib.sha256(block_string.encode()).hexdigest()
+        return _digest(block_string)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert block to a serializable dictionary."""
@@ -169,20 +186,24 @@ class BlackBoxLedger:
     # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
+    @staticmethod
+    def _validate_chain(chain: list[Block]) -> tuple[bool, str]:
+        """Lock-free validation of a chain (safe to call while lock is held)."""
+        for i in range(1, len(chain)):
+            current = chain[i]
+            previous = chain[i - 1]
+            if current.hash != current.calculate_hash():
+                return False, f"Block #{current.index} data tampered!"
+            if current.previous_hash != previous.hash:
+                return False, f"Broken chain link at Block #{current.index}"
+        return True, "Ledger integrity verified"
+
     def validate_integrity(self, tenant_id: str = "public") -> tuple[bool, str]:
         """Verify the entire chain of a tenant. Returns (is_valid, message)."""
         with self.lock:
             if tenant_id not in self.tenants:
                 self.load_chain(tenant_id)
-            chain = self.tenants[tenant_id]
-            for i in range(1, len(chain)):
-                current = chain[i]
-                previous = chain[i - 1]
-                if current.hash != current.calculate_hash():
-                    return False, f"Block #{current.index} data tampered!"
-                if current.previous_hash != previous.hash:
-                    return False, f"Broken chain link at Block #{current.index}"
-        return True, "Ledger integrity verified"
+            return self._validate_chain(self.tenants[tenant_id])
 
     def detect_tampering(self, tenant_id: str = "public") -> list[int]:
         """Return indices of tampered blocks in a tenant's chain."""
@@ -226,15 +247,45 @@ class BlackBoxLedger:
     # Persistence
     # ------------------------------------------------------------------
     def save_chain(self, tenant_id: str = "public") -> None:
-        """Persist a tenant's chain to disk."""
+        """Persist a tenant's chain to disk atomically.
+
+        Writes to a temp file, fsyncs, then atomically renames over the target
+        so a crash mid-write can never leave a truncated/corrupt ledger. The
+        previous good copy is retained as ``.json.bak``. Failures are logged and
+        re-raised rather than silently swallowed (which would lose audit data).
+        """
+        chain = self.tenants[tenant_id]
+        chain_data = [b.to_dict() for b in chain]
+        storage_path = self.base_path / f"ledger_{tenant_id}.json"
         try:
-            chain = self.tenants[tenant_id]
-            chain_data = [b.to_dict() for b in chain]
-            storage_path = self.base_path / f"ledger_{tenant_id}.json"
-            with open(storage_path, "w") as f:
-                json.dump(chain_data, f, indent=2, cls=_NpEncoder)
+            self.base_path.mkdir(parents=True, exist_ok=True)
+
+            # Keep a backup of the last known-good file before overwriting.
+            if storage_path.exists():
+                try:
+                    shutil.copy2(storage_path, storage_path.with_suffix(".json.bak"))
+                except OSError as e:
+                    log.warning(f"Could not create ledger backup: {e}")
+
+            fd, tmp_name = tempfile.mkstemp(
+                dir=str(self.base_path),
+                prefix=f"ledger_{tenant_id}_",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(fd, "w") as f:
+                    json.dump(chain_data, f, indent=2, cls=_NpEncoder)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_name, storage_path)
+            finally:
+                if os.path.exists(tmp_name):
+                    os.remove(tmp_name)
         except Exception as e:
-            log.error(f"Failed to save blockchain ledger for tenant {tenant_id}: {e}")
+            log.critical(
+                f"Failed to save blockchain ledger for tenant {tenant_id}: {e}"
+            )
+            raise
 
     def load_chain(self, tenant_id: str = "public") -> None:
         """Load a tenant's chain from disk."""
@@ -251,6 +302,17 @@ class BlackBoxLedger:
                 f"Chain loaded for tenant {tenant_id}",
                 extra={"blocks": len(self.tenants[tenant_id])},
             )
+            # Verify integrity immediately on load. A tampered on-disk ledger
+            # must raise a loud alert rather than being trusted silently. We do
+            # NOT wipe/recreate here: the tampered chain is preserved as
+            # forensic evidence for investigation.
+            is_valid, msg = self._validate_chain(self.tenants[tenant_id])
+            if not is_valid:
+                log.critical(
+                    "AUDIT LEDGER INTEGRITY FAILURE for tenant %s: %s",
+                    tenant_id,
+                    msg,
+                )
         except Exception as e:
             log.error(f"Failed to load blockchain ledger for tenant {tenant_id}: {e}")
             self._create_genesis_block(tenant_id)

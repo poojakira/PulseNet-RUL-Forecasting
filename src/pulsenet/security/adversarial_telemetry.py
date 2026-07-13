@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,6 +32,7 @@ class AdversarialTelemetryGuard:
         perturb_eps: float = 0.01,
         finite_diff_step: float = 1e-3,
         max_rows_for_perturbation: int = 4,
+        enable_perturbation: bool | None = None,
     ):
         self.reference_mean = reference_mean
         self.reference_std = reference_std
@@ -38,6 +40,14 @@ class AdversarialTelemetryGuard:
         self.perturb_eps = perturb_eps
         self.finite_diff_step = finite_diff_step
         self.max_rows_for_perturbation = max_rows_for_perturbation
+        # Finite-difference gradient estimation costs 2 model calls per feature
+        # per row, i.e. it multiplies inference cost dramatically. It can be
+        # disabled to bound worst-case compute (denial-of-wallet defense).
+        # Precedence: explicit arg > PULSENET_ADV_TELEMETRY_PERTURB env > on.
+        if enable_perturbation is None:
+            env_flag = os.environ.get("PULSENET_ADV_TELEMETRY_PERTURB", "1")
+            enable_perturbation = env_flag.lower() not in ("0", "false", "no")
+        self.enable_perturbation = enable_perturbation
 
     @classmethod
     def from_scaler(cls, scaler: Any) -> "AdversarialTelemetryGuard":
@@ -88,13 +98,16 @@ class AdversarialTelemetryGuard:
             return TelemetryGuardResult(False, 0.0, 0.0, 0.0, 0.0, 0)
 
         sampled = min(arr.shape[0], self.max_rows_for_perturbation)
-        base_scores = np.asarray(model.score(arr[:sampled]), dtype=float)
         deltas: list[float] = []
-        for row_idx in range(sampled):
-            grad = self._approximate_gradient(model, arr[row_idx])
-            perturbed = arr[row_idx] + self.perturb_eps * np.sign(grad)
-            perturbed_score = float(model.score(perturbed.reshape(1, -1))[0])
-            deltas.append(abs(perturbed_score - float(base_scores[row_idx])))
+        if self.enable_perturbation:
+            base_scores = np.asarray(model.score(arr[:sampled]), dtype=float)
+            for row_idx in range(sampled):
+                grad = self._approximate_gradient(model, arr[row_idx])
+                perturbed = arr[row_idx] + self.perturb_eps * np.sign(grad)
+                perturbed_score = float(model.score(perturbed.reshape(1, -1))[0])
+                deltas.append(abs(perturbed_score - float(base_scores[row_idx])))
+        else:
+            sampled = 0
 
         ood_detected, ood_fraction, max_ood_z = self._ood_stats(arr)
         max_delta = max(deltas) if deltas else 0.0

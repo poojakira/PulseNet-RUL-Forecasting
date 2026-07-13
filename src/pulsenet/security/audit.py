@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -66,6 +67,10 @@ class AuditLogger:
             log_path = self._get_log_path(tenant_id)
             with open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
+                # Durably flush so the tamper-evident audit entry survives a
+                # crash immediately after write.
+                f.flush()
+                os.fsync(f.fileno())
 
             log.debug(
                 "Access logged",

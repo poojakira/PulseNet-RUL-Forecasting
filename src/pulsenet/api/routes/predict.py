@@ -268,7 +268,12 @@ async def predict_batch(
         try:
             if feature_names:
                 X = X[feature_names]
-            X.loc[:, :] = scaler.transform(X)
+            # Rebuild a DataFrame from the transformed array so column labels,
+            # index and dtypes stay consistent (scaler.transform returns a bare
+            # numpy array; assigning via .loc silently mis-coerces on mismatch).
+            X = pd.DataFrame(
+                scaler.transform(X), columns=X.columns, index=X.index
+            )
         except Exception as e:
             log.error(f"Failed to scale batch input data: {e}")
 
