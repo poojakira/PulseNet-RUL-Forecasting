@@ -84,6 +84,84 @@ def load_official_fd001(
     )
 
 
+@dataclass(frozen=True)
+class OfficialCmapssSubset:
+    """A single C-MAPSS subset (FD001..FD004) loaded via the official split.
+
+    The NASA archive already ships a proper train/test split *by engine unit*:
+    ``train_FD00x.txt`` contains complete run-to-failure trajectories for one
+    set of engines, ``test_FD00x.txt`` contains truncated trajectories for a
+    *disjoint* set of engines, and ``RUL_FD00x.txt`` gives the ground-truth
+    remaining useful life at the last observed cycle of each test engine.
+
+    This is a chronological / per-unit split by construction — there is no
+    random shuffling of cycles across the train/test boundary.
+    """
+
+    subset: str
+    train: pd.DataFrame
+    test: pd.DataFrame
+    rul: pd.Series
+    archive_path: Path
+    archive_sha256: str
+    source_url: str = NASA_CMAPSS_URL
+    landing_page: str = NASA_CMAPSS_LANDING_PAGE
+
+
+_VALID_SUBSETS = ("FD001", "FD002", "FD003", "FD004")
+
+
+def load_official_subset(
+    subset: str,
+    data_dir: Path | str = Path("data/official"),
+    *,
+    download: bool = False,
+) -> OfficialCmapssSubset:
+    """Load any C-MAPSS subset (FD001..FD004) after SHA-256 verification.
+
+    Uses the official NASA train/test split by engine unit — no random split.
+    """
+    subset = subset.upper()
+    if subset not in _VALID_SUBSETS:
+        raise ValueError(f"unknown C-MAPSS subset {subset!r}; expected one of {_VALID_SUBSETS}")
+
+    root = Path(data_dir)
+    archive_path = root / "CMAPSSData.zip"
+    if not archive_path.exists():
+        if not download:
+            raise FileNotFoundError(
+                f"{archive_path} missing. Download from {NASA_CMAPSS_URL} "
+                "or call load_official_subset(..., download=True)."
+            )
+        root.mkdir(parents=True, exist_ok=True)
+        _download_nasa_archive(archive_path)
+
+    digest = _sha256(archive_path)
+    if digest != NASA_CMAPSS_SHA256:
+        raise ValueError(
+            "CMAPSSData.zip SHA-256 mismatch: "
+            f"expected {NASA_CMAPSS_SHA256}, got {digest}"
+        )
+
+    extract_dir = root / "CMAPSSData"
+    if not extract_dir.exists():
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        _safe_extract(archive_path, extract_dir)
+
+    train = load_raw(_find_file(extract_dir, f"train_{subset}.txt"))
+    test = load_raw(_find_file(extract_dir, f"test_{subset}.txt"))
+    rul = load_rul(_find_file(extract_dir, f"RUL_{subset}.txt"))
+
+    return OfficialCmapssSubset(
+        subset=subset,
+        train=train,
+        test=test,
+        rul=rul,
+        archive_path=archive_path,
+        archive_sha256=digest,
+    )
+
+
 def _download_nasa_archive(destination: Path) -> None:
     parsed = urlparse(NASA_CMAPSS_URL)
     if parsed.scheme != "https" or parsed.netloc != "data.nasa.gov":
