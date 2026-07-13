@@ -1,9 +1,23 @@
 # pyright: reportGeneralTypeIssues=false
 """
-Blockchain audit ledger with Merkle tree optimization.
+Hash-chained audit ledger (SHA-256) with optional Merkle root.
 
-Provides tamper-proof audit logging for maintenance events using
-SHA-256 hash chaining and optional Merkle root computation.
+IMPORTANT — this is NOT a blockchain. Be precise about what it is and is not:
+  * It IS a tamper-EVIDENT, append-only SHA-256 hash chain (optionally HMAC-
+    keyed) persisted to local JSON files, with an optional Merkle root.
+  * It is NOT distributed, has NO consensus (no PoW/PoS/BFT), and provides NO
+    availability or immutability guarantee against an attacker with write
+    access to the filesystem. Tamper-EVIDENCE (detecting change) is not the
+    same as tamper-PROOF (preventing change).
+
+For real immutability, anchor the chain tip to an external write-once store
+(e.g. AWS QLDB, S3 Object-Lock, or a transparency log). The HMAC keying option
+(PULSENET_LEDGER_HMAC_KEY) raises the bar by preventing an attacker without the
+key from recomputing a self-consistent chain.
+
+The module/class names (blockchain.py, BlackBoxLedger, BlockchainConfig) are
+retained for backwards compatibility; the accurate term is "hash-chained audit
+ledger".
 """
 
 from __future__ import annotations
@@ -88,7 +102,9 @@ class Block:
 
 
 class BlackBoxLedger:
-    """Cryptographic ledger recording maintenance & anomaly events."""
+    """Hash-chained (SHA-256), tamper-evident audit ledger for maintenance &
+    anomaly events. Not a blockchain (no distributed consensus); see module
+    docstring for the precise threat model and limitations."""
 
     def __init__(
         self, base_path: Optional[str] = None, enable_merkle: bool = True, **kwargs: Any
@@ -199,11 +215,16 @@ class BlackBoxLedger:
         return True, "Ledger integrity verified"
 
     def validate_integrity(self, tenant_id: str = "public") -> tuple[bool, str]:
-        """Verify the entire chain of a tenant. Returns (is_valid, message)."""
+        """Verify the entire chain of a tenant. Returns (is_valid, message).
+
+        Snapshots the chain under the lock, then validates OUTSIDE the lock so
+        an O(n) verification does not block concurrent add_entry() calls.
+        """
         with self.lock:
             if tenant_id not in self.tenants:
                 self.load_chain(tenant_id)
-            return self._validate_chain(self.tenants[tenant_id])
+            chain_snapshot = list(self.tenants[tenant_id])
+        return self._validate_chain(chain_snapshot)
 
     def detect_tampering(self, tenant_id: str = "public") -> list[int]:
         """Return indices of tampered blocks in a tenant's chain."""
@@ -283,9 +304,29 @@ class BlackBoxLedger:
                     os.remove(tmp_name)
         except Exception as e:
             log.critical(
-                f"Failed to save blockchain ledger for tenant {tenant_id}: {e}"
+                f"Failed to save audit ledger for tenant {tenant_id}: {e}"
             )
             raise
+
+    def archive_chain(self, tenant_id: str = "public") -> Optional[str]:
+        """Snapshot the current ledger file to a timestamped archive copy.
+
+        Unbounded single-file growth is an operational risk (L14). This creates
+        an immutable-by-convention archive (``ledger_<tenant>_<ts>.json.archive``)
+        without breaking the live hash chain. For true rotation you must also
+        checkpoint and anchor the tip externally (see module docstring); a bare
+        rotate would sever the chain link. Returns the archive path, or None if
+        there is nothing to archive.
+        """
+        with self.lock:
+            storage_path = self.base_path / f"ledger_{tenant_id}.json"
+            if not storage_path.exists():
+                return None
+            ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+            archive_path = self.base_path / f"ledger_{tenant_id}_{ts}.json.archive"
+            shutil.copy2(storage_path, archive_path)
+            log.info("Archived audit ledger for tenant %s -> %s", tenant_id, archive_path)
+            return str(archive_path)
 
     def load_chain(self, tenant_id: str = "public") -> None:
         """Load a tenant's chain from disk."""
@@ -314,8 +355,19 @@ class BlackBoxLedger:
                     msg,
                 )
         except Exception as e:
-            log.error(f"Failed to load blockchain ledger for tenant {tenant_id}: {e}")
-            self._create_genesis_block(tenant_id)
+            # The file EXISTS but could not be parsed — that is corruption or an
+            # IO fault, NOT a first-run. Silently recreating a genesis block here
+            # would destroy/hide existing audit data. Fail loud instead; a
+            # ``.json.bak`` from save_chain is available for recovery.
+            log.critical(
+                f"Failed to load audit ledger for tenant {tenant_id}: {e}"
+            )
+            raise RuntimeError(
+                f"Audit ledger for tenant {tenant_id} is unreadable/corrupt at "
+                f"{storage_path}; refusing to silently reinitialize. "
+                f"Restore from {storage_path.with_suffix('.json.bak')} or "
+                f"investigate before continuing."
+            ) from e
 
     # ------------------------------------------------------------------
     # Metrics / API helpers
