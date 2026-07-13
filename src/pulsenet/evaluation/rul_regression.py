@@ -68,13 +68,17 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
 
-def piecewise_linear_rul(cycles: np.ndarray, max_cycle: float, rul_cap: float) -> np.ndarray:
+def piecewise_linear_rul(
+    cycles: np.ndarray, max_cycle: float, rul_cap: float
+) -> np.ndarray:
     """Piecewise-linear RUL target: ``min(max_cycle - cycle, rul_cap)``."""
     rul = max_cycle - np.asarray(cycles, dtype=float)
     return np.minimum(rul, rul_cap)
 
 
-def select_feature_columns(train: pd.DataFrame, variance_threshold: float = 1e-6) -> list[str]:
+def select_feature_columns(
+    train: pd.DataFrame, variance_threshold: float = 1e-6
+) -> list[str]:
     """Drop metadata and (near-)constant sensor/setting columns.
 
     Sensors that never move on a given subset carry no degradation signal and
@@ -82,7 +86,9 @@ def select_feature_columns(train: pd.DataFrame, variance_threshold: float = 1e-6
     dropping constant channels, chosen automatically per subset by variance.
     """
     candidate = [c for c in train.columns if c not in _META_COLS]
-    variances = train[candidate].var(axis=0, numeric_only=True)
+    # Wrap in pd.Series so static type checkers know ``.get`` is valid
+    # (DataFrame.var(axis=0) returns a Series, but stubs widen it to float).
+    variances = pd.Series(train[candidate].var(axis=0, numeric_only=True))
     return [c for c in candidate if float(variances.get(c, 0.0)) > variance_threshold]
 
 
@@ -146,7 +152,9 @@ def evaluate_subset(
     for _, unit_df in train.groupby("unit_number"):
         max_cycle = float(unit_df["time_in_cycles"].max())
         y_parts.append(
-            piecewise_linear_rul(unit_df["time_in_cycles"].to_numpy(), max_cycle, rul_cap)
+            piecewise_linear_rul(
+                unit_df["time_in_cycles"].to_numpy(), max_cycle, rul_cap
+            )
         )
     y_train = np.concatenate(y_parts)
 

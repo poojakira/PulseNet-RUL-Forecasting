@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -31,11 +31,12 @@ from pulsenet.models.lstm_model import LSTMModel
 @dataclass(frozen=True)
 class PGDAttackResult:
     """Result of a gradient-based perturbation attack trial."""
+
     success: bool
     original_score: float
     perturbed_score: float
     perturbation_magnitude: float  # L2 norm of perturbation
-    perturbation_linf: float       # L-infinity norm (max per-feature change)
+    perturbation_linf: float  # L-infinity norm (max per-feature change)
     iterations: int
     model_name: str
 
@@ -113,11 +114,13 @@ class GradientPerturbationAttack:
         # Determine target: push score above threshold
         if self.target_score is not None:
             target = self.target_score
-        elif hasattr(self.model, 'threshold') and self.model.threshold is not None:
+        elif hasattr(self.model, "threshold") and self.model.threshold is not None:
             target = float(self.model.threshold) * 1.1  # exceed threshold by 10%
         else:
             # For Isolation Forest: push decision_function more negative
-            target = original_score * 2.0 if original_score > 0 else original_score * 0.5
+            target = (
+                original_score * 2.0 if original_score > 0 else original_score * 0.5
+            )
 
         delta = np.zeros_like(X)
 
@@ -164,7 +167,7 @@ class GradientPerturbationAttack:
 
     def attack_batch(self, X: np.ndarray) -> list[PGDAttackResult]:
         """Run attack on each sample in batch."""
-        return [self.attack(X[i:i+1]) for i in range(len(X))]
+        return [self.attack(X[i : i + 1]) for i in range(len(X))]
 
 
 def load_trained_ensemble(model_dir: Path) -> EnsembleModel:
