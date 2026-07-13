@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 import signal
 import time
 import uuid
@@ -22,12 +23,13 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, AsyncGenerator, Optional, Union
 
-import skops.io as sio
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from pulsenet.api.auth import authenticate_user, create_token
+from pulsenet.api.auth import authenticate_user, create_token, verify_token
 from pulsenet.api.middleware.tenant import TenantMiddleware
 from pulsenet.api.routes import audit, health, predict, train
 from pulsenet.api.routes.audit import set_audit_refs
@@ -41,6 +43,7 @@ from pulsenet.models.registry import ModelRegistry
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 from pulsenet.security.blockchain import BlackBoxLedger
+from pulsenet.security.model_loading import safe_skops_load, verify_file_integrity
 
 log = get_logger(__name__)
 
@@ -86,6 +89,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     if model_path.exists():
         try:
+            # Verify artifact integrity before deserializing (joblib/pickle =
+            # arbitrary code execution if an attacker swaps the file).
+            verify_file_integrity(model_path)
             model.load(model_path)
             model_loaded = True
             if hasattr(model, "model") and hasattr(model.model, "feature_names_in_"):  # type: ignore
@@ -103,7 +109,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scaler: Any = None
     if scaler_path.exists():
         try:
-            scaler = sio.load(trusted=True, file=scaler_path)
+            # Integrity-checked load without blanket trusted=True.
+            scaler = safe_skops_load(scaler_path)
             log.info("MinMaxScaler loaded successfully")
         except Exception as e:
             log.error(f"Failed to load scaler: {e}")
@@ -146,14 +153,56 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # Rate limiter (in-memory, per-IP)
 # ---------------------------------------------------------------------------
 class _RateLimiter:
-    """Simple sliding-window rate limiter."""
+    """Sliding-window rate limiter.
+
+    Uses a shared Redis backend when ``PULSENET_REDIS_URL`` is configured so the
+    limit is enforced consistently across all API replicas (a single in-memory
+    limiter per process is trivially bypassed by a distributed client hitting
+    different replicas). Falls back to a per-process in-memory window when Redis
+    is unavailable, and logs the degraded state so it is never silent.
+    """
 
     def __init__(self, max_requests: int = 100, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window = window_seconds
         self._requests: dict[str, list[float]] = {}
+        self._redis: Any = None
+
+        redis_url = os.environ.get("PULSENET_REDIS_URL")
+        if redis_url:
+            try:
+                import redis  # type: ignore
+
+                self._redis = redis.Redis.from_url(
+                    redis_url, socket_timeout=0.25, socket_connect_timeout=0.25
+                )
+                self._redis.ping()
+                log.info("Distributed rate limiting enabled via Redis")
+            except Exception as e:  # pragma: no cover - infra dependent
+                self._redis = None
+                log.error(
+                    "PULSENET_REDIS_URL set but Redis unavailable (%s); "
+                    "falling back to per-process in-memory rate limiting",
+                    e,
+                )
+        else:
+            log.warning(
+                "No PULSENET_REDIS_URL configured; rate limiting is per-process "
+                "only and NOT effective across multiple replicas"
+            )
 
     def is_allowed(self, client_ip: str) -> bool:
+        if self._redis is not None:
+            try:
+                key = f"pulsenet:ratelimit:{client_ip}"
+                count = self._redis.incr(key)
+                if count == 1:
+                    self._redis.expire(key, self.window)
+                return int(count) <= self.max_requests
+            except Exception as e:  # pragma: no cover - infra dependent
+                log.error("Redis rate-limit check failed (%s); allowing request", e)
+                return True
+
         now = time.time()
         window_start = now - self.window
         hits = self._requests.get(client_ip, [])
@@ -163,7 +212,50 @@ class _RateLimiter:
         return len(hits) <= self.max_requests
 
 
-_rate_limiter = _RateLimiter(max_requests=100, window_seconds=60)
+_rate_limiter = _RateLimiter(
+    max_requests=cfg.api.rate_limit if getattr(cfg.api, "rate_limit", None) else 100,
+    window_seconds=60,
+)
+
+
+# ---------------------------------------------------------------------------
+# Metrics access control
+# ---------------------------------------------------------------------------
+_metrics_bearer = HTTPBearer(auto_error=False)
+
+
+async def verify_metrics_access(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_metrics_bearer),
+) -> None:
+    """Authorize access to /metrics.
+
+    - If ``PULSENET_METRICS_TOKEN`` is set, require it as a Bearer token
+      (suitable for Prometheus scrape configs that inject a static token).
+    - Otherwise require a valid JWT with the ``admin`` role.
+    """
+    metrics_token = os.environ.get("PULSENET_METRICS_TOKEN")
+    token = credentials.credentials if credentials else None
+
+    if metrics_token:
+        if token and secrets.compare_digest(token, metrics_token):
+            return
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Metrics access requires a valid token",
+        )
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Metrics access requires authentication",
+        )
+    payload = verify_token(token)
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Metrics access requires the admin role",
+        )
 
 
 def create_app() -> FastAPI:
@@ -194,6 +286,47 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
     )
+
+    # --- Trusted Host protection (Host header / DNS-rebinding defense) ---
+    allowed_hosts_env = os.environ.get("PULSENET_ALLOWED_HOSTS", "").strip()
+    allowed_hosts = (
+        [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
+        if allowed_hosts_env
+        else ["*"]
+    )
+    if allowed_hosts == ["*"] and is_production:
+        log.critical(
+            "SECURITY: PULSENET_ALLOWED_HOSTS not set in production; "
+            "Host header validation is disabled"
+        )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
+    # --- Security headers ---
+    @app.middleware("http")
+    async def security_headers_middleware(
+        request: Request, call_next: Any
+    ) -> Response:
+        """Attach hardening headers to every response."""
+        response: Response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        )
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+        )
+        response.headers.setdefault("Cache-Control", "no-store")
+        if is_production:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
 
     # --- Multi-Tenancy middleware ---
     app.add_middleware(TenantMiddleware)
@@ -246,8 +379,8 @@ def create_app() -> FastAPI:
             return response
 
         @app.get("/metrics", tags=["Monitoring"], include_in_schema=False)
-        async def metrics() -> Response:
-            """Prometheus-compatible metrics endpoint."""
+        async def metrics(_: None = Depends(verify_metrics_access)) -> Response:
+            """Prometheus-compatible metrics endpoint (auth required)."""
             return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
         log.info("Prometheus metrics enabled at /metrics")
@@ -266,10 +399,9 @@ def create_app() -> FastAPI:
             exc_info=True,
         )
 
-        # In production, we mask the actual exception message to avoid leaking internals
+        # Never leak internal exception details to clients. The full traceback
+        # is captured in the server logs above, correlated by request_id.
         detail = "An internal server error occurred."
-        if getattr(cfg.system, "debug", False):
-            detail = str(exc)
 
         return JSONResponse(
             status_code=500,

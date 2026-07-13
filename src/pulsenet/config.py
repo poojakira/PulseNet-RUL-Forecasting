@@ -17,6 +17,10 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
 
+from pulsenet.logger import get_logger
+
+log = get_logger(__name__)
+
 # Load .env if present
 load_dotenv()
 
@@ -94,7 +98,10 @@ class ApiConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
     workers: int = 4
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    # Deny-by-default: origins must be configured explicitly. A wildcard
+    # default combined with allow_credentials would let any site make
+    # authenticated cross-origin requests on a victim's behalf.
+    cors_origins: list[str] = Field(default_factory=list)
     rate_limit: int = 100
 
 
@@ -205,18 +212,20 @@ def load_config(config_path: str = "config.yaml") -> PulseNetConfigSchema:
                     else:
                         config_dict[section] = values
         except Exception as e:
-            print(f"Warning: Failed to load config from {path}: {e}")
+            # A malformed config file must fail loudly, never silently fall back
+            # to defaults (which could disable security controls unnoticed).
+            log.critical("Failed to load config from %s: %s", path, e)
+            raise RuntimeError(f"Invalid configuration file {path}: {e}") from e
 
     # 3. Override with Environment Variables
     config_dict = _apply_env_overrides(config_dict)
 
-    # 4. Validate schema
+    # 4. Validate schema (fail-fast on invalid configuration)
     try:
         return PulseNetConfigSchema(**config_dict)
     except ValidationError as e:
-        # Fallback to defaults on validation error, but log it
-        print(f"Warning: Invalid configuration detected, using defaults. Error: {e}")
-        return PulseNetConfigSchema()
+        log.critical("Invalid configuration detected: %s", e)
+        raise RuntimeError(f"Invalid PulseNet configuration: {e}") from e
 
 
 # Module-level singleton

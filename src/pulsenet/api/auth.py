@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import time
 from typing import Optional
 
@@ -23,10 +24,14 @@ security = HTTPBearer(auto_error=False)
 _JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
 if not _JWT_SECRET or len(_JWT_SECRET) < 32:
     if os.environ.get("PULSENET_ENV") == "testing":
-        _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # nosec
+        # Generate an ephemeral, per-process secret for tests instead of a
+        # hardcoded string. A checked-in secret is public and would let anyone
+        # forge admin tokens if it ever leaked into a real deployment.
+        _JWT_SECRET = secrets.token_hex(32)
+        log.warning("Using an ephemeral JWT secret (testing mode only)")
     else:
-        log.critical("PULSENET_JWT_SECRET is required")
-        raise RuntimeError("PULSENET_JWT_SECRET must be set.")
+        log.critical("PULSENET_JWT_SECRET is required (>=32 chars)")
+        raise RuntimeError("PULSENET_JWT_SECRET must be set to at least 32 chars.")
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
@@ -54,9 +59,34 @@ def _verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def _load_users() -> dict:
-    """Load users from PULSENET_USERS JSON env var or secure defaults."""
+    """Load users from an external secret store, file, or (discouraged) env var.
+
+    Resolution order:
+      1. ``PULSENET_USERS_FILE`` — path to a JSON file (mount from a secrets
+         manager such as Vault Agent / AWS Secrets Manager / a K8s secret).
+         Preferred: keeps credentials out of the process environment where they
+         leak via ``/proc/<pid>/environ``, crash dumps and CI logs.
+      2. ``PULSENET_USERS`` — inline JSON. Supported for backwards-compat but
+         discouraged for the reasons above; a warning is emitted.
+      3. ``PULSENET_ADMIN_PASSWORD`` — single bootstrap admin.
+    """
+    users_file = os.environ.get("PULSENET_USERS_FILE")
+    if users_file:
+        try:
+            with open(users_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            log.critical(f"Failed to load PULSENET_USERS_FILE: {e}")
+            raise RuntimeError("Invalid PULSENET_USERS_FILE configuration")
+
     users_json = os.environ.get("PULSENET_USERS")
     if users_json:
+        if os.environ.get("PULSENET_ENV") not in ("testing", "development"):
+            log.warning(
+                "PULSENET_USERS is set via environment variable; prefer "
+                "PULSENET_USERS_FILE backed by a secret store (env vars leak "
+                "via /proc, process dumps and CI logs)"
+            )
         try:
             return json.loads(users_json)
         except Exception as e:
