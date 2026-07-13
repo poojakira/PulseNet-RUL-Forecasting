@@ -195,7 +195,7 @@ def _render_markdown(p: dict) -> str:
         "- The repository name is *RUL Forecasting*, but before this work the "
         "codebase contained **no RUL regressor** - only a binary Isolation-Forest "
         "anomaly detector. The README's claim of \"baseline RMSE on C-MAPSS "
-        "FD001\" and a \"RUL Regressor\" was unsupported by any code. This "
+        'FD001" and a "RUL Regressor" was unsupported by any code. This '
         "benchmark adds the missing regression capability.",
         "- This is a **classical baseline**, not a state-of-the-art model. Deep "
         "sequence models (CNN/LSTM/Transformer with per-condition normalization) "

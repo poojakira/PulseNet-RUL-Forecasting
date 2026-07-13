@@ -96,7 +96,9 @@ class EncryptionManager:
         try:
             os.chmod(self.key_file, 0o600)
         except Exception:
-            log.warning("Could not set key file permissions during rotation (non-fatal)")
+            log.warning(
+                "Could not set key file permissions during rotation (non-fatal)"
+            )
         self._key = new_key
         self._cipher = Fernet(new_key)
         log.info("Key rotated successfully", extra={"backup": str(old_backup)})

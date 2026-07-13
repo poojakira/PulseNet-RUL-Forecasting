@@ -44,6 +44,11 @@ class MLOpsTracker:
             )
         except ImportError:
             log.warning("MLflow not installed — using local file tracking")
+        except Exception as e:
+            # Any MLflow init failure (bad URI, backend store, registry, etc.)
+            # must not crash the tracker — degrade gracefully to local tracking.
+            self._mlflow_available = False
+            log.warning(f"MLflow init failed ({e}); using local file tracking")
 
     # ------------------------------------------------------------------
     # Experiment Tracking

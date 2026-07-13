@@ -34,7 +34,9 @@ def _fmt(val: float, decimals: int = 3) -> float:
 # ---------------------------------------------------------------------------
 # Benchmarks
 # ---------------------------------------------------------------------------
-def benchmark_inference_latency(model, X: np.ndarray, warmup: int = 50, iterations: int = 500) -> dict:
+def benchmark_inference_latency(
+    model, X: np.ndarray, warmup: int = 50, iterations: int = 500
+) -> dict:
     """Inference latency (ms) with GC-disabled hot loop."""
     import gc
 
@@ -63,7 +65,9 @@ def benchmark_inference_latency(model, X: np.ndarray, warmup: int = 50, iteratio
     }
 
 
-def benchmark_throughput(model, X: np.ndarray, batch_sizes: list[int] | None = None) -> dict:
+def benchmark_throughput(
+    model, X: np.ndarray, batch_sizes: list[int] | None = None
+) -> dict:
     """Throughput in samples/sec for various batch sizes."""
     batch_sizes = batch_sizes or [1, 8, 32, 64, 128, 256]
     results: dict[str, float] = {}
@@ -156,8 +160,10 @@ def main() -> int:
     # 3. Inference latency & throughput
     print("\n[3/5] Benchmarking inference...")
     latency = benchmark_inference_latency(model, X_test)
-    print(f"  Mean: {latency['mean_ms']}ms  p50: {latency['p50_ms']}ms  "
-          f"p95: {latency['p95_ms']}ms  p99: {latency['p99_ms']}ms")
+    print(
+        f"  Mean: {latency['mean_ms']}ms  p50: {latency['p50_ms']}ms  "
+        f"p95: {latency['p95_ms']}ms  p99: {latency['p99_ms']}ms"
+    )
 
     throughput = benchmark_throughput(model, X_test)
     print(f"  Throughput (batch_128): {throughput.get('batch_128', 'N/A')} samples/sec")
@@ -168,8 +174,10 @@ def main() -> int:
 
     enc_mgr = EncryptionManager()
     encryption = benchmark_encryption_overhead(enc_mgr)
-    print(f"  Encrypt mean: {encryption['encrypt_mean_ms']}ms  "
-          f"Decrypt mean: {encryption['decrypt_mean_ms']}ms")
+    print(
+        f"  Encrypt mean: {encryption['encrypt_mean_ms']}ms  "
+        f"Decrypt mean: {encryption['decrypt_mean_ms']}ms"
+    )
 
     # 5. Resource snapshot
     print("\n[5/5] Capturing resource snapshot...")
@@ -253,10 +261,14 @@ def _generate_report(results: dict) -> str:
     lines.append("## Encryption Overhead (ms)\n")
     lines.append("| Operation | Mean | p50 | p95 | p99 |")
     lines.append("|-----------|------|-----|-----|-----|")
-    lines.append(f"| Encrypt | {enc['encrypt_mean_ms']} | {enc['encrypt_p50_ms']} | "
-                 f"{enc['encrypt_p95_ms']} | {enc['encrypt_p99_ms']} |")
-    lines.append(f"| Decrypt | {enc['decrypt_mean_ms']} | {enc['decrypt_p50_ms']} | "
-                 f"{enc['decrypt_p95_ms']} | {enc['decrypt_p99_ms']} |")
+    lines.append(
+        f"| Encrypt | {enc['encrypt_mean_ms']} | {enc['encrypt_p50_ms']} | "
+        f"{enc['encrypt_p95_ms']} | {enc['encrypt_p99_ms']} |"
+    )
+    lines.append(
+        f"| Decrypt | {enc['decrypt_mean_ms']} | {enc['decrypt_p50_ms']} | "
+        f"{enc['decrypt_p95_ms']} | {enc['decrypt_p99_ms']} |"
+    )
     lines.append("")
 
     # Resources

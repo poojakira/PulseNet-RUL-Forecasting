@@ -11,20 +11,20 @@ joblib==1.5.0
 torch==2.12.0
 
 # API and security
-fastapi==0.133.1
+fastapi==0.139.0
 uvicorn[standard]==0.34.0
 pydantic==2.11.1
-python-jose[cryptography]==3.4.0
+python-jose[cryptography]==3.5.0
 bcrypt==4.3.0
-python-multipart==0.0.20
-cryptography==49.0.0
+python-multipart==0.0.32
+cryptography==48.0.1
+
+# MLOps
+mlflow==3.14.0
 
 # Dashboard
 streamlit==1.58.0
 plotly==6.0.1
-
-# MLOps
-mlflow==2.20.1
 
 # Benchmarking and profiling
 psutil==7.0.0
@@ -38,17 +38,21 @@ opentelemetry-sdk==1.31.0
 opentelemetry-instrumentation-fastapi==0.52b0
 
 # Clients
-requests==2.32.5
+requests==2.33.1
 
 # Testing
-pytest==8.3.5
-pytest-cov==6.1.1
-pytest-asyncio==0.25.3
+pytest==9.0.3
+pytest-cov==7.1.0
+pytest-asyncio==1.4.0
 httpx==0.28.1
 
 # Deployment
 gunicorn==23.0.0
-starlette==0.41.3
+starlette==0.49.3
+
+# Transitive pins hardened for security (CVE remediation)
+pyarrow==23.0.1
+pyasn1==0.6.3
 
 # Security auditing
-pip-audit==2.8.0
+pip-audit==2.10.1
