@@ -43,12 +43,42 @@ def reload_auth_system():
     yield
 
 
+CMAPSS_DIR = PROJECT_ROOT / "data" / "official"
+CMAPSS_ZIP = CMAPSS_DIR / "CMAPSSData.zip"
+
+_CMAPSS_SKIP_REASON = (
+    "C-MAPSS dataset not available. Place the NASA C-MAPSS archive at "
+    "data/official/CMAPSSData.zip (or an extracted data/official/CMAPSSData/ "
+    "directory), e.g. run `python scripts/download_data.py`."
+)
+
+
+def _cmapss_available() -> bool:
+    """Return True when the official C-MAPSS data is present locally."""
+    return CMAPSS_ZIP.exists() or (CMAPSS_DIR / "CMAPSSData").exists()
+
+
+@pytest.fixture
+def cmapss_zip() -> Path:
+    """Path to the official C-MAPSS archive, or skip if it is unavailable."""
+    if not CMAPSS_ZIP.exists():
+        pytest.skip(_CMAPSS_SKIP_REASON)
+    return CMAPSS_ZIP
+
+
 @pytest.fixture
 def official_fd001():
-    """Official NASA FD001 subset for test fixtures."""
+    """Official NASA FD001 subset for test fixtures.
+
+    Skips gracefully (rather than erroring) when the C-MAPSS dataset is not
+    present locally, so the suite is green on a fresh clone without the data.
+    """
     from pulsenet.pipeline.official_cmapss import load_official_fd001
 
-    return load_official_fd001(PROJECT_ROOT / "data" / "official", download=False)
+    try:
+        return load_official_fd001(CMAPSS_DIR, download=False)
+    except FileNotFoundError:
+        pytest.skip(_CMAPSS_SKIP_REASON)
 
 
 @pytest.fixture
@@ -89,7 +119,10 @@ def sample_y() -> np.ndarray:
     from pulsenet.pipeline.official_cmapss import load_official_fd001
     from pulsenet.pipeline.preprocessing import create_labels
 
-    fd001 = load_official_fd001(PROJECT_ROOT / "data" / "official", download=False)
+    try:
+        fd001 = load_official_fd001(CMAPSS_DIR, download=False)
+    except FileNotFoundError:
+        pytest.skip(_CMAPSS_SKIP_REASON)
     return create_labels(fd001.test, fd001.rul, failure_threshold=125)
 
 
