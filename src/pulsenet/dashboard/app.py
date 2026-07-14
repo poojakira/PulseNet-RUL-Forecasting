@@ -124,7 +124,7 @@ def load_model():
 
         for p in model_paths:
             if p.exists():
-                model.load(p)
+                model.load(p, trusted=True)
                 return model
         return None
     except Exception as e:

@@ -88,7 +88,7 @@ def run_streaming() -> None:
             print("[WARNING] No trained model found. Run --mode train first.")
             return
 
-        model.load(model_path)
+        model.load(model_path, trusted=True)
         queue = AsyncStreamQueue(max_size=1000)
         producer = SensorProducer(
             queue, data_path="data/test_features.csv", delay_ms=30

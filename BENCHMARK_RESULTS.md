@@ -21,7 +21,7 @@
 | max_ms | 4.389 |
 | samples | 500 |
 
-**Interpretation**: p99 latency under 5ms meets the <50ms target comfortably.
+**Interpretation**: In this local run, p99 latency was under 5ms against a <50ms target. This does not establish production latency under different hardware, traffic, or model configurations.
 
 ---
 
@@ -36,7 +36,7 @@
 | batch_128 | 31,424 |
 | batch_256 | 52,368 |
 
-**Interpretation**: Throughput scales nearly linearly with batch size up to 256. Production batching at 32-128 samples per request is optimal.
+**Interpretation**: In this local run, throughput increased with batch size up to 256. Batch sizes for production should be selected from deployment-specific latency, memory, and traffic tests.
 
 ---
 
@@ -47,7 +47,7 @@
 | Encrypt | 0.0185 | 0.0162 | 0.0268 | 0.0312 |
 | Decrypt | 0.0178 | 0.0159 | 0.0238 | 0.0297 |
 
-**Interpretation**: Encryption adds <0.02ms overhead per operation — negligible for production use.
+**Interpretation**: In this local run, encryption overhead was below 0.02ms per operation. Production impact should be remeasured with the deployed crypto stack and request path.
 
 ---
 
@@ -60,7 +60,7 @@
 | memory_vms_mb | 512.1 |
 | threads | 8 |
 
-**Interpretation**: Memory footprint under 250MB RSS per instance. Target 512Mi requests in K8s is appropriate.
+**Interpretation**: This run observed RSS under 250MB per instance. Kubernetes requests/limits should be sized from production-like load tests, not this snapshot alone.
 
 ---
 
