@@ -90,3 +90,4 @@ access_audit*.jsonl
 ledger_*.json
 secret.key
 secret.key.*
+.venv_check2/

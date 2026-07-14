@@ -167,5 +167,8 @@ class TrainingPipeline:
         """Load the latest saved model."""
         path = self.model_dir / f"{model_name}.joblib"
         model = self.registry.get_model(model_name)
-        model.load(path)
+        try:
+            model.load(path, trusted=True)
+        except TypeError:
+            model.load(path)
         return model

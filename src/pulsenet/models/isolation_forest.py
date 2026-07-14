@@ -10,6 +10,7 @@ from typing import Any, Optional, Union
 
 import joblib
 import numpy as np
+import skops.io as sio
 from sklearn.metrics import f1_score, roc_curve
 
 try:
@@ -102,15 +103,35 @@ class IsolationForestModel(BaseAnomalyModel):
         """Persist model, threshold and params to disk."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(
-            {"model": self.model, "threshold": self.threshold, "params": self.params},
-            path,
-        )
+        payload = {
+            "model": self.model,
+            "threshold": self.threshold,
+            "params": self.params,
+        }
+        if path.suffix == ".skops":
+            sio.dump(payload, path)
+        else:
+            joblib.dump(payload, path)
         log.info("IsolationForest saved", extra={"path": str(path)})
 
-    def load(self, path: Union[Path, str]) -> None:
+    def load(self, path: Union[Path, str], *, trusted: bool = False) -> None:
         """Load model, threshold and params from disk."""
-        data = joblib.load(path)
+        path = Path(path)
+        if path.suffix == ".skops":
+            unknown_types = sio.get_untrusted_types(file=path)
+            if unknown_types and not trusted:
+                raise ValueError(
+                    "Untrusted skops types found; pass trusted=True only for "
+                    "model artifacts you created and verified."
+                )
+            data = sio.load(path, trusted=unknown_types)
+        else:
+            if not trusted:
+                raise ValueError(
+                    "IsolationForestModel.load uses joblib for this file; pass "
+                    "trusted=True only for model artifacts you created and trust."
+                )
+            data = joblib.load(path)
         self.model = data["model"]
         self.threshold = data.get("threshold")
         self.params = data.get("params", self.params)

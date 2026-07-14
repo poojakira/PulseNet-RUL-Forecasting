@@ -142,7 +142,10 @@ class EnsembleModel(BaseAnomalyModel):
         for model in self._sub_models:
             model_path = ensemble_dir / f"{model.name}.joblib"
             if model_path.exists():
-                model.load(model_path)
+                try:
+                    model.load(model_path, trusted=True)
+                except TypeError:
+                    model.load(model_path)
                 log.info(f"Loaded ensemble member: {model.name}")
 
         log.info("Ensemble loaded", extra={"path": str(ensemble_dir)})

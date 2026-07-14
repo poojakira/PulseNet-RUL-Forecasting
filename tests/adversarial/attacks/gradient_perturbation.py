@@ -180,7 +180,7 @@ def load_trained_ensemble(model_dir: Path) -> EnsembleModel:
 def load_trained_isolation_forest(model_path: Path) -> IsolationForestModel:
     """Load trained Isolation Forest from disk."""
     model = IsolationForestModel()
-    model.load(model_path)
+    model.load(model_path, trusted=True)
     return model
 
 
