@@ -139,12 +139,12 @@ class TestIngestion:
 
 
 class TestOrchestrator:
-    def test_full_pipeline_isolation_forest(self, tmp_path):
+    def test_full_pipeline_isolation_forest(self, tmp_path, cmapss_zip):
         from pulsenet.pipeline.orchestrator import PipelineOrchestrator
 
         official = tmp_path / "official"
         official.mkdir(parents=True)
-        shutil.copy("data/official/CMAPSSData.zip", official / "CMAPSSData.zip")
+        shutil.copy(cmapss_zip, official / "CMAPSSData.zip")
 
         orch = PipelineOrchestrator(data_dir=str(tmp_path))
         orch.run_ingestion()
