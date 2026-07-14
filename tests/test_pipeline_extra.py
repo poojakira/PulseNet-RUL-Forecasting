@@ -112,7 +112,7 @@ class TestIngestion:
         from pulsenet.pipeline import ingestion
         from pulsenet.pipeline.official_cmapss import _find_file
 
-        root = Path("data/official/CMAPSSData")
+        root = Path(__file__).resolve().parents[1] / "data" / "official" / "CMAPSSData"
         train_p = _find_file(root, "train_FD001.txt")
         test_p = _find_file(root, "test_FD001.txt")
         rul_p = _find_file(root, "RUL_FD001.txt")
