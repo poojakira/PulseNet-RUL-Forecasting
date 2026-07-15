@@ -138,13 +138,15 @@ class EnsembleModel(BaseAnomalyModel):
             self.weights = config.get("weights", self.weights)
             self.threshold = config.get("threshold", self.threshold)
 
+        from pulsenet.models.isolation_forest import IsolationForestModel
+
         self._load_sub_models()
         for model in self._sub_models:
             model_path = ensemble_dir / f"{model.name}.joblib"
             if model_path.exists():
-                try:
+                if isinstance(model, IsolationForestModel):
                     model.load(model_path, trusted=True)
-                except TypeError:
+                else:
                     model.load(model_path)
                 log.info(f"Loaded ensemble member: {model.name}")
 

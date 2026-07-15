@@ -58,9 +58,9 @@ class BaseAnomalyModel(ABC):
         scores = self.score(X)
 
         metrics: dict[str, float] = {
-            "f1": float(f1_score(y_true, y_pred, zero_division=0.0)),
-            "precision": float(precision_score(y_true, y_pred, zero_division=0.0)),
-            "recall": float(recall_score(y_true, y_pred, zero_division=0.0)),
+            "f1": float(f1_score(y_true, y_pred, zero_division=0)),  # type: ignore[reportArgumentType]
+            "precision": float(precision_score(y_true, y_pred, zero_division=0)),  # type: ignore[reportArgumentType]
+            "recall": float(recall_score(y_true, y_pred, zero_division=0)),  # type: ignore[reportArgumentType]
         }
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, scores))

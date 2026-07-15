@@ -5,7 +5,7 @@ AES-256 Fernet encryption with key rotation and secure key management.
 Loads encryption key from:
   1. Environment variable  PULSENET_ENCRYPTION_KEY
   2. Local key file  .runtime/pulsenet-fernet.key
-  3. Auto-generates a new key if neither exists
+  3. Auto-generates a new key outside production only
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class EncryptionManager:
     # Key management
     # ------------------------------------------------------------------
     def _load_or_generate_key(self) -> bytes:
-        """Load key from env → file → generate new."""
+        """Load key from env or file; generate only outside production."""
         env_val = os.environ.get(self.key_env_var)
         if env_val:
             self._key_source = "environment"
@@ -63,7 +63,13 @@ class EncryptionManager:
                 )
             return key
 
-        # Generate new key
+        if os.environ.get("PULSENET_ENV") == "production":
+            raise RuntimeError(
+                f"{self.key_env_var} must be set in production; "
+                "refusing to generate a local encryption key."
+            )
+
+        ## Local/test mode may create a development key file for convenience.
         self._key_source = "generated"
         key = Fernet.generate_key()
         try:

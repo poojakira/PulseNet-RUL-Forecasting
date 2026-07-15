@@ -4,9 +4,13 @@ Unit tests for FastAPI endpoints.
 
 from __future__ import annotations
 
+import joblib
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from sklearn.preprocessing import MinMaxScaler
 
+from pulsenet.api import app as api_app
 from pulsenet.api.app import create_app
 from pulsenet.api.auth import create_token
 
@@ -33,6 +37,26 @@ def operator_token():
 @pytest.fixture
 def auth_header(admin_token):
     return {"Authorization": f"Bearer {admin_token}"}
+
+
+class TestArtifactLoading:
+    def test_scaler_artifact_loads_joblib(self, tmp_path):
+        scaler = MinMaxScaler().fit(np.array([[0.0, 1.0], [2.0, 3.0]]))
+        path = tmp_path / "scaler.joblib"
+        joblib.dump(scaler, path)
+        loaded = api_app._load_scaler_artifact(path)
+        assert isinstance(loaded, MinMaxScaler)
+
+    def test_scaler_artifact_rejects_untrusted_skops(self, tmp_path, monkeypatch):
+        path = tmp_path / "scaler.skops"
+        path.write_text("placeholder", encoding="utf-8")
+        monkeypatch.setattr(
+            api_app.sio,
+            "get_untrusted_types",
+            lambda file: ["unsafe.Type"],
+        )
+        with pytest.raises(RuntimeError, match="untrusted skops types"):
+            api_app._load_scaler_artifact(path)
 
 
 class TestHealthEndpoint:

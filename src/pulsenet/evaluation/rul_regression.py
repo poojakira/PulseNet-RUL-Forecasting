@@ -89,7 +89,11 @@ def select_feature_columns(
     # Wrap in pd.Series so static type checkers know ``.get`` is valid
     # (DataFrame.var(axis=0) returns a Series, but stubs widen it to float).
     variances = pd.Series(train[candidate].var(axis=0, numeric_only=True))
-    return [c for c in candidate if float(variances.get(c, 0.0)) > variance_threshold]
+    return [
+        c
+        for c in candidate
+        if c in variances.index and float(variances.loc[c]) > variance_threshold
+    ]
 
 
 def _add_rolling_features(

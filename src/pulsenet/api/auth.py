@@ -94,10 +94,10 @@ def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, str(_JWT_SECRET), algorithms=[_JWT_ALGORITHM])
         return payload
-    except (JWTError, Exception) as e:
+    except (JWTError, Exception):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {e}",
+            detail="Invalid token",
         )
 
 

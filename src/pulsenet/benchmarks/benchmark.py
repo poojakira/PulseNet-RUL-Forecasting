@@ -17,12 +17,12 @@ from pathlib import Path
 import numpy as np  # pyre-ignore
 import pandas as pd  # pyre-ignore
 
-from pulsenet.logger import get_logger  # pyre-ignore
 from pulsenet.evaluation.metrics import (  # pyre-ignore
     calculate_detection_metrics,
     calculate_lead_time,
     map_ground_truth_labels,
 )
+from pulsenet.logger import get_logger  # pyre-ignore
 
 log = get_logger(__name__)
 
@@ -437,10 +437,20 @@ class BenchmarkSuite:
     def generate_plots(self) -> None:
         """Generate benchmark visualization plots."""
         try:
-            import matplotlib  # pyre-ignore
+            import warnings
 
-            matplotlib.use("Agg")
-            import matplotlib.pyplot as plt  # pyre-ignore
+            from pyparsing import PyparsingDeprecationWarning  # pyre-ignore
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    category=PyparsingDeprecationWarning,
+                    module="matplotlib.*",
+                )
+                import matplotlib  # pyre-ignore
+
+                matplotlib.use("Agg")
+                import matplotlib.pyplot as plt  # pyre-ignore
 
             fig, axes = plt.subplots(2, 3, figsize=(18, 10))
             axes = axes.flatten()

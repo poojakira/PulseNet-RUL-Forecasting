@@ -11,6 +11,7 @@ secret.key.*
 # 2. DATASETS & FEATURES (LARGE FILES)
 # ==========================================
 # Exclude raw NASA datasets
+data/official/CMAPSSData.zip
 *_FD001.txt
 RUL_FD001.txt
 data/official/CMAPSSData/
@@ -84,6 +85,7 @@ outputs/benchmarks/
 benchmarks/
 results/
 models/*.joblib
+models/*.skops
 !models/.keep
 a
 access_audit*.jsonl

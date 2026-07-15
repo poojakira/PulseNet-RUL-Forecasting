@@ -48,7 +48,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx
+          pip install pytest pytest-asyncio pytest-cov httpx httpx2
       - name: Download Official NASA C-MAPSS Dataset
         # The C-MAPSS archive is not committed (large binary, gitignored). Fetch
         # the public NASA dataset and verify its SHA-256 before tests/verify run.
@@ -87,24 +87,12 @@ jobs:
       - name: Bandit SAST
         run: bandit -r src/ -ll
       - name: pip-audit
-        # NOTE: The vulnerable dependencies flagged by an earlier audit were
-        # genuinely remediated by upgrading (python-multipart, requests,
-        # python-jose, cryptography, mlflow, pyarrow, pytest, starlette 0.41->0.49).
-        # The residual advisories below have NO fix compatible with this project
-        # and are therefore explicitly accepted and documented in SECURITY.md:
-        #   CVE-2025-3000      torch 2.12  - no patched release exists
-        #   PYSEC-2026-1325    ecdsa       - no patched release (transitive via python-jose)
-        #   PYSEC-2026-161/248/249/2280/2281  starlette - fixed only in starlette 1.x,
-        #     which no released FastAPI supports (FastAPI pins starlette <0.50).
+        # NOTE: The remaining accepted advisory is from ecdsa, a transitive
+        # dependency of python-jose with no patched release available.
+        # Starlette advisories are remediated by the pinned 1.3.1 release.
         run: >
           pip-audit -r requirements.txt --skip-editable
-          --ignore-vuln CVE-2025-3000
           --ignore-vuln PYSEC-2026-1325
-          --ignore-vuln PYSEC-2026-161
-          --ignore-vuln PYSEC-2026-248
-          --ignore-vuln PYSEC-2026-249
-          --ignore-vuln PYSEC-2026-2280
-          --ignore-vuln PYSEC-2026-2281
       - name: Generate CycloneDX SBOM
         run: cyclonedx-py environment --output-format JSON --outfile sbom.json
       - name: Upload SBOM

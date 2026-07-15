@@ -74,7 +74,7 @@ class InferenceConsumer:
         if not feat_cols:
             return
 
-        X = df[feat_cols]
+        X = df[feat_cols].to_numpy(dtype=float)
         predictions = self.model.predict(X)
         scores = self.model.score(X)
 
