@@ -90,3 +90,6 @@ search_path = ["src"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2\\.5:DeprecationWarning:joblib\\.numpy_pickle",
+]

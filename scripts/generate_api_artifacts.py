@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -16,6 +19,39 @@ from pulsenet.config import cfg  # noqa: E402
 from pulsenet.models.isolation_forest import IsolationForestModel  # noqa: E402
 from pulsenet.pipeline.feature_registry import FeatureRegistry  # noqa: E402
 from pulsenet.pipeline.official_cmapss import load_official_fd001  # noqa: E402
+
+ARTIFACT_MANIFEST_KEY_ENV = "PULSENET_ARTIFACT_MANIFEST_KEY"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _artifact_signature_payload(payload: dict[str, object]) -> bytes:
+    signed_payload = {
+        "schema_version": payload.get("schema_version"),
+        "artifacts": payload.get("artifacts"),
+    }
+    return json.dumps(signed_payload, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+
+
+def _manifest_key_bytes() -> bytes:
+    key = os.environ.get(ARTIFACT_MANIFEST_KEY_ENV, "")
+    if not key:
+        raise RuntimeError(f"{ARTIFACT_MANIFEST_KEY_ENV} must be set")
+    return key.encode("utf-8")
+
+
+def _sign_manifest(payload: dict[str, object]) -> str:
+    return hmac.new(
+        _manifest_key_bytes(), _artifact_signature_payload(payload), hashlib.sha256
+    ).hexdigest()
 
 
 def main() -> int:
@@ -50,10 +86,27 @@ def main() -> int:
     joblib.dump(scaler, scaler_path)
     joblib.dump(registry.save_config(), registry_path)
 
+    manifest_path = models_dir / "api_artifacts.sha256.json"
+    artifacts = {
+        path.as_posix(): {"sha256": _sha256_file(path), "bytes": path.stat().st_size}
+        for path in (model_path, scaler_path, registry_path)
+    }
+    payload: dict[str, object] = {"schema_version": 1, "artifacts": artifacts}
+    payload["signature"] = {
+        "algorithm": "hmac-sha256",
+        "value": _sign_manifest(payload),
+    }
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
     summary = {
         "model_path": str(model_path),
         "scaler_path": str(scaler_path),
         "feature_registry_path": str(registry_path),
+        "artifact_manifest_path": str(manifest_path),
+        "manifest_signature_algorithm": "hmac-sha256",
         "features": len(feature_cols),
         "training_rows": int(len(x_train)),
         "train_seconds": round(time.perf_counter() - start, 3),

@@ -47,13 +47,21 @@ Compared to standard MLflow or AWS SageMaker endpoints, PulseNet fundamentally r
    uv run scripts/download_data.py
    ```
 
-3. **Run local verification and tests:**
+3. **Generate API artifacts and signed manifest:**
+   ```bash
+   export PULSENET_ARTIFACT_MANIFEST_KEY="replace-with-a-random-secret"
+   uv run python scripts/generate_api_artifacts.py
+   ```
+   This creates `models/isolation_forest.joblib`, `models/scaler.joblib`, `models/feature_registry.joblib`, and `models/api_artifacts.sha256.json`. The API refuses to load joblib artifacts when the manifest is missing, mismatched, unsigned, or signed with a different `PULSENET_ARTIFACT_MANIFEST_KEY`.
+
+4. **Run local verification and tests:**
    ```bash
    uv run verify.py
    uv run pytest tests/
    ```
 
-4. **Start the API Server:**
+5. **Start the API Server:**
    ```bash
+   export PULSENET_ARTIFACT_MANIFEST_KEY="same-secret-used-for-artifact-generation"
    uv run uvicorn src.pulsenet.api.app:app --host 0.0.0.0 --port 8000
    ```
