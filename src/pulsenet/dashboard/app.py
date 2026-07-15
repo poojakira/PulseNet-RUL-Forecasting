@@ -122,9 +122,14 @@ def load_model():
             Path(f"{active_name}_model.joblib"),
         ]
 
+        from pulsenet.models.isolation_forest import IsolationForestModel
+
         for p in model_paths:
             if p.exists():
-                model.load(p, trusted=True)
+                if isinstance(model, IsolationForestModel):
+                    model.load(p, trusted=True)
+                else:
+                    model.load(p)
                 return model
         return None
     except Exception as e:

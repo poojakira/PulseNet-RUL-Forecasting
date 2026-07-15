@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 ## What it is
 PulseNet is an evidence-driven predictive maintenance reference service designed to forecast the Remaining Useful Life (RUL) of aerospace turbofan engines using the NASA C-MAPSS FD001 dataset. Unlike standard notebook-based ML projects, PulseNet is wrapped in a FastAPI service with dynamic batching, RBAC, audit logging, and adversarial telemetry-filtering controls.

@@ -173,7 +173,7 @@ class IsolationForestModel(BaseAnomalyModel):
 
                     mdl.fit(X)
                     preds = np.where(mdl.predict(X) == -1, 1, 0)
-                    f1 = float(f1_score(y_true, preds, zero_division=0.0))
+                    f1 = float(f1_score(y_true, preds, zero_division=0))  # type: ignore[reportArgumentType]
                     if f1 > best_f1:
                         best_f1 = f1
                         best_params = {
