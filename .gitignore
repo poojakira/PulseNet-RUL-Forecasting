@@ -93,3 +93,4 @@ ledger_*.json
 secret.key
 secret.key.*
 .venv_check2/
+sbom.json
