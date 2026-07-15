@@ -91,6 +91,11 @@ spec:
                 secretKeyRef:
                   name: pulsenet-secrets
                   key: PULSENET_USERS
+            - name: PULSENET_ARTIFACT_MANIFEST_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pulsenet-secrets
+                  key: PULSENET_ARTIFACT_MANIFEST_KEY
           resources:
             requests:
               cpu: 500m
@@ -136,6 +141,9 @@ spec:
               mountPath: /tmp
             - name: runtime
               mountPath: /app/.runtime
+            - name: api-models
+              mountPath: /app/models
+              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -145,3 +153,6 @@ spec:
           emptyDir: {}
         - name: runtime
           emptyDir: {}
+        - name: api-models
+          persistentVolumeClaim:
+            claimName: pulsenet-api-models

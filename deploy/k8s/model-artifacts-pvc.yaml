@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pulsenet-api-models
+  namespace: pulsenet
+  labels:
+    app.kubernetes.io/name: pulsenet
+    app.kubernetes.io/component: model-artifacts
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 1Gi

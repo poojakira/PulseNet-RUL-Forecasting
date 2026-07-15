@@ -13,6 +13,9 @@ Production features:
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
+import json
 import os
 import signal
 import time
@@ -53,6 +56,8 @@ MODEL_CANDIDATES = (
 )
 SCALER_CANDIDATES = (Path("models/scaler.skops"), Path("models/scaler.joblib"))
 REGISTRY_CANDIDATES = (Path("models/feature_registry.joblib"),)
+ARTIFACT_MANIFEST_CANDIDATES = (Path("models/api_artifacts.sha256.json"),)
+ARTIFACT_MANIFEST_KEY_ENV = "PULSENET_ARTIFACT_MANIFEST_KEY"
 
 
 def _first_existing_path(candidates: tuple[Path, ...], kind: str) -> Path:
@@ -63,6 +68,91 @@ def _first_existing_path(candidates: tuple[Path, ...], kind: str) -> Path:
     raise RuntimeError(
         f"Critical error: {kind} file not found. Expected one of: {expected}"
     )
+
+
+def _artifact_manifest_key(path: Path) -> str:
+    return path.as_posix()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _artifact_signature_payload(payload: dict[str, Any]) -> bytes:
+    signed_payload = {
+        "schema_version": payload.get("schema_version"),
+        "artifacts": payload.get("artifacts"),
+    }
+    return json.dumps(signed_payload, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+
+
+def _artifact_manifest_key_bytes(signing_key: str | None = None) -> bytes:
+    key = signing_key or os.environ.get(ARTIFACT_MANIFEST_KEY_ENV, "")
+    if not key:
+        raise RuntimeError(
+            f"Critical error: {ARTIFACT_MANIFEST_KEY_ENV} is not configured"
+        )
+    return key.encode("utf-8")
+
+
+def _verify_artifact_manifest_signature(
+    payload: dict[str, Any], signing_key: str | None = None
+) -> None:
+    signature = payload.get("signature")
+    if not isinstance(signature, dict):
+        raise RuntimeError("Critical error: artifact manifest missing signature")
+
+    algorithm = signature.get("algorithm")
+    value = signature.get("value")
+    if algorithm != "hmac-sha256" or not isinstance(value, str):
+        raise RuntimeError("Critical error: invalid artifact manifest signature")
+
+    expected = hmac.new(
+        _artifact_manifest_key_bytes(signing_key),
+        _artifact_signature_payload(payload),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, value):
+        raise RuntimeError("Critical error: artifact manifest signature mismatch")
+
+
+def _verify_artifact_manifest(
+    artifact_paths: tuple[Path, ...],
+    manifest_path: Path | None = None,
+    signing_key: str | None = None,
+) -> Path:
+    manifest = manifest_path or _first_existing_path(
+        ARTIFACT_MANIFEST_CANDIDATES, "Artifact manifest"
+    )
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"Critical error: invalid artifact manifest {manifest}"
+        ) from exc
+
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise RuntimeError("Critical error: artifact manifest missing artifacts map")
+
+    _verify_artifact_manifest_signature(payload, signing_key=signing_key)
+
+    for artifact_path in artifact_paths:
+        key = _artifact_manifest_key(artifact_path)
+        entry = artifacts.get(key)
+        expected_hash = entry.get("sha256") if isinstance(entry, dict) else entry
+        if not isinstance(expected_hash, str):
+            raise RuntimeError(f"Critical error: manifest missing hash for {key}")
+        actual_hash = _sha256_file(artifact_path)
+        if actual_hash != expected_hash:
+            raise RuntimeError(f"Critical error: artifact hash mismatch for {key}")
+    return manifest
 
 
 def _load_scaler_artifact(scaler_path: Path) -> Any:
@@ -115,6 +205,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("Dynamic batcher worker started")
 
     model_path = _first_existing_path(MODEL_CANDIDATES, "Model")
+    scaler_path = _first_existing_path(SCALER_CANDIDATES, "Scaler")
+    registry_config_path = _first_existing_path(REGISTRY_CANDIDATES, "Feature registry")
+    manifest_path = _verify_artifact_manifest(
+        (model_path, scaler_path, registry_config_path)
+    )
+    log.info("API artifacts verified", extra={"manifest_path": str(manifest_path)})
     model = registry.get_model("isolation_forest")
     model_loaded = False
     feature_names: list[str] = []
@@ -132,7 +228,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.error(f"Failed to load model: {e}")
         raise RuntimeError(f"Critical error: Failed to load model {model_path}") from e
 
-    scaler_path = _first_existing_path(SCALER_CANDIDATES, "Scaler")
     try:
         scaler = _load_scaler_artifact(scaler_path)
         log.info("Scaler loaded successfully", extra={"scaler_path": str(scaler_path)})
@@ -142,7 +237,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             f"Critical error: Failed to load scaler {scaler_path}"
         ) from e
 
-    registry_config_path = _first_existing_path(REGISTRY_CANDIDATES, "Feature registry")
     try:
         feature_registry.load_config(joblib.load(registry_config_path))
         feature_registry.scaler = scaler

@@ -14,6 +14,7 @@ services:
     environment:
       - PULSENET_JWT_SECRET=${PULSENET_JWT_SECRET}
       - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
+      - PULSENET_ARTIFACT_MANIFEST_KEY=${PULSENET_ARTIFACT_MANIFEST_KEY}
       - PYTHONPATH=/app/src
     security_opt:
       - no-new-privileges:true
@@ -62,7 +63,7 @@ services:
     image: python:3.12-slim
     container_name: pulsenet-mlflow
     command: >
-      bash -c "pip install mlflow==2.19.0 && mlflow server
+      bash -c "pip install --no-cache-dir mlflow==3.14.0 pyarrow==23.0.1 && mlflow server
       --host 0.0.0.0
       --port 5000
       --backend-store-uri sqlite:////mlruns/mlflow.db

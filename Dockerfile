@@ -12,6 +12,10 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
 # System dependencies (curl for healthchecks, libgomp for numpy/torch/sklearn)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -26,7 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Add src to PYTHONPATH
-ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV PYTHONPATH="/app/src"
 
 # ============================================================
 # Test stage
