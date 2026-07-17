@@ -47,7 +47,7 @@ dependencies = [
     "starlette==1.3.1",
     # Transitive pins hardened for security (CVE remediation)
     "pyarrow==23.0.1",
-    "pyasn1==0.6.3",
+    "pyasn1==0.6.4",
     "setuptools==83.0.0",
     # Testing (required so `pip install -e .` alone can run the test suite)
     "pytest==9.0.3",
