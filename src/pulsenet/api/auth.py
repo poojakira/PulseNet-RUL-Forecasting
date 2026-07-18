@@ -1,5 +1,6 @@
 """
 JWT authentication and role-based access control.
+Production-ready with strict secret validation.
 """
 
 from __future__ import annotations
@@ -20,13 +21,20 @@ log = get_logger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
+# --- JWT Configuration ---
 _JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
 if not _JWT_SECRET or len(_JWT_SECRET) < 32:
     if os.environ.get("PULSENET_ENV") == "testing":
         _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # nosec
     else:
-        log.critical("PULSENET_JWT_SECRET is required")
-        raise RuntimeError("PULSENET_JWT_SECRET must be set.")
+        log.critical(
+            "PULSENET_JWT_SECRET is required and must be >= 32 characters. "
+            "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
+        raise RuntimeError(
+            "PULSENET_JWT_SECRET must be set and be at least 32 characters. "
+            "No default secrets allowed in production."
+        )
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
@@ -63,10 +71,10 @@ def _load_users() -> dict:
             log.error(f"Failed to parse PULSENET_USERS: {e}")
             raise RuntimeError("Invalid PULSENET_USERS JSON configuration")
 
-    # If no users JSON provided, but an admin password is, create a single fallback admin
-    admin_pw = os.environ.get("PULSENET_ADMIN_PASSWORD")
-    if admin_pw:
-        return {"admin": {"hashed_password": _hash_password(admin_pw), "role": "admin"}}
+    # If no users JSON provided, check for admin password hash
+    admin_pw_hash = os.environ.get("PULSENET_ADMIN_PASSWORD_HASH")
+    if admin_pw_hash:
+        return {"admin": {"hashed_password": admin_pw_hash, "role": "admin"}}
 
     # Final fallback: Require explicit configuration
     log.error("No users configured! Authentication will fail.")
@@ -84,7 +92,6 @@ def create_token(username: str, role: str) -> tuple[str, int]:
         "iat": int(time.time()),
         "exp": int(time.time()) + _JWT_EXPIRY_MIN * 60,
     }
-    # _JWT_SECRET is guaranteed to be a string here due to fallback above
     token = jwt.encode(payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM)
     return token, _JWT_EXPIRY_MIN
 
@@ -105,7 +112,6 @@ def authenticate_user(username: str, password: str) -> Optional[dict]:
     """Validate credentials. Returns user dict or None."""
     user = USER_DB.get(username)
     if user:
-        # Check both naming conventions (new 'hashed_password' vs old 'password_hash')
         hash_val = user.get("hashed_password") or user.get("password_hash")
         if hash_val and _verify_password(password, hash_val):
             return {"username": username, "role": user["role"]}

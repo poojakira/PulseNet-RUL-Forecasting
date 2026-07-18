@@ -1,143 +1,110 @@
-"""
-Pydantic schemas for API request/response validation.
-"""
+"""Request/Response schemas with strict validation."""
 
 from __future__ import annotations
 
-from typing import Any, Optional
-
-from pydantic import BaseModel, Field
-
-# ===== Request Models =====
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
+import math
 
 
-class SensorInput(BaseModel):
-    """Single sensor reading for prediction."""
+class SensorReading(BaseModel):
+    """Single sensor reading with validation."""
+    sensor_id: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
+    timestamp: float = Field(..., gt=0, lt=1e12)
+    value: float = Field(...)
 
-    sensor_2: float = Field(..., description="Sensor 2 reading")
-    sensor_3: float = Field(..., description="Sensor 3 reading")
-    sensor_4: float = Field(..., description="Sensor 4 reading")
-    sensor_7: float = Field(..., description="Sensor 7 reading")
-    sensor_8: float = Field(..., description="Sensor 8 reading")
-    sensor_9: float = Field(..., description="Sensor 9 reading")
-    sensor_11: float = Field(..., description="Sensor 11 reading")
-    sensor_12: float = Field(..., description="Sensor 12 reading")
-    sensor_13: float = Field(..., description="Sensor 13 reading")
-    sensor_14: float = Field(..., description="Sensor 14 reading")
-    sensor_15: float = Field(..., description="Sensor 15 reading")
-    sensor_17: float = Field(..., description="Sensor 17 reading")
-    sensor_20: float = Field(..., description="Sensor 20 reading")
-    sensor_21: float = Field(..., description="Sensor 21 reading")
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v: float) -> float:
+        if not math.isfinite(v):
+            raise ValueError("Sensor value must be finite (not NaN/inf)")
+        if abs(v) > 1e6:
+            raise ValueError(f"Sensor value out of range: {v}")
+        return v
 
-
-class BatchSensorInput(BaseModel):
-    """Batch of sensor readings."""
-
-    model_config = {"protected_namespaces": ()}
-
-    readings: list[SensorInput]
-    model_name: str = Field(default="isolation_forest", description="Model to use")
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, v: float) -> float:
+        if v <= 0 or v > 1e12:
+            raise ValueError("Invalid timestamp")
+        return v
 
 
-class TrainRequest(BaseModel):
-    """Training configuration request."""
+class PredictionRequest(BaseModel):
+    """Prediction request with validated sensor data."""
+    engine_id: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    readings: List[SensorReading] = Field(..., min_length=1, max_length=1000)
 
-    model_config = {"protected_namespaces": ()}
-
-    model_name: str = Field(default="isolation_forest")
-    tune: bool = Field(default=False, description="Run hyperparameter tuning")
-    epochs: Optional[int] = Field(
-        default=None, description="Training epochs (LSTM/Transformer)"
-    )
-
-
-class TokenRequest(BaseModel):
-    """JWT token request."""
-
-    username: str
-    password: str
-
-
-# ===== Response Models =====
+    @field_validator("readings")
+    @classmethod
+    def validate_readings(cls, v: List[SensorReading]) -> List[SensorReading]:
+        timestamps = [r.timestamp for r in v]
+        if any(timestamps[i] >= timestamps[i + 1] for i in range(len(timestamps) - 1)):
+            raise ValueError("Timestamps must be strictly increasing")
+        return v
 
 
 class PredictionResponse(BaseModel):
-    """Single prediction result."""
-
-    model_config = {"protected_namespaces": ()}
-
-    prediction: int = Field(..., description="0=Normal, 1=Anomaly")
-    health_index: float = Field(..., description="Health score 0-100%")
-    anomaly_score: float = Field(..., description="Raw anomaly score")
-    status: str = Field(..., description="OPTIMAL/WARNING/CRITICAL")
-    model_used: str
+    """Single prediction response."""
+    engine_id: str
+    rul: float = Field(..., ge=0)
+    anomaly_score: float = Field(..., ge=0, le=1)
+    is_anomaly: bool
+    timestamp: float
+    request_id: str
 
 
-class BatchPredictionResponse(BaseModel):
-    """Batch prediction results."""
-
-    model_config = {"protected_namespaces": ()}
-
-    predictions: list[PredictionResponse]
-    total: int
-    anomalies_detected: int
-    model_used: str
+class BatchPredictRequest(BaseModel):
+    """Batch prediction request."""
+    samples: List[PredictionRequest] = Field(..., min_length=1, max_length=100)
 
 
-class HealthResponse(BaseModel):
-    """System health status."""
+class BatchPredictResponse(BaseModel):
+    """Batch prediction response."""
+    results: List[PredictionResponse]
+    total_processed: int = Field(..., ge=0)
+    processing_time_ms: float = Field(..., ge=0)
 
-    model_config = {"protected_namespaces": ()}
 
-    status: str = Field(..., description="healthy/degraded/unhealthy")
-    version: str
-    model_loaded: bool
-    models_available: list[str]
-    blockchain_blocks: int
-    blockchain_valid: bool
-    uptime_seconds: float
-    gpu_devices: list[dict[str, Any]] = Field(
-        default_factory=list, description="GPU telemetry via pynvml"
-    )
-    system_resources: dict[str, Any] = Field(
-        default_factory=dict, description="CPU/memory metrics"
-    )
+class TrainRequest(BaseModel):
+    """Training request."""
+    dataset: str = Field(default="FD001", pattern=r"^FD00[1-4]$")
+    retrain: bool = False
 
 
 class TrainResponse(BaseModel):
-    """Training result."""
-
-    model_config = {"protected_namespaces": ()}
-
-    model: str
-    version: str
-    train_time_sec: float
-    samples: int
-    metrics: Optional[dict[str, float]] = None
+    """Training response."""
     status: str
+    model_version: str
+    training_time_seconds: float
+    metrics: dict
 
 
-class AuditResponse(BaseModel):
-    """Blockchain audit entry."""
+class HealthResponse(BaseModel):
+    """Health check response."""
+    status: str
+    version: str
+    model_loaded: bool
+    uptime_seconds: float
 
-    chain_length: int
-    merkle_root: Optional[str] = None
-    is_valid: bool
-    validation_message: str
-    recent_blocks: list[dict[str, Any]]
+
+class AuditEntry(BaseModel):
+    """Audit log entry."""
+    timestamp: float
+    event_type: str
+    user: Optional[str] = None
+    details: dict
+    request_id: Optional[str] = None
+
+
+class TokenRequest(BaseModel):
+    """Token request."""
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=8, max_length=100)
 
 
 class TokenResponse(BaseModel):
-    """JWT token response."""
-
+    """Token response."""
     access_token: str
-    token_type: str = "bearer"
     role: str
-    expires_in_minutes: int
-
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-
-    detail: str
-    error_code: str
+    expires_in_minutes: int = Field(..., gt=0)
