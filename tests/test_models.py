@@ -44,10 +44,32 @@ class TestIsolationForest:
         model.save(path)
 
         loaded = IsolationForestModel()
-        loaded.load(path)
+        loaded.load(path, trusted=True)
         preds_after = loaded.predict(sample_X)
 
         np.testing.assert_array_equal(preds_before, preds_after)
+
+    def test_joblib_load_requires_explicit_trust(self, temp_dir):
+        sample_X = np.random.default_rng(0).normal(size=(40, 5))
+        model = IsolationForestModel(n_estimators=20)
+        model.train(sample_X)
+        path = temp_dir / "test_model.joblib"
+        model.save(path)
+
+        loaded = IsolationForestModel()
+        with pytest.raises(ValueError, match="trusted=True"):
+            loaded.load(path)
+
+    def test_skops_roundtrip(self, temp_dir):
+        sample_X = np.random.default_rng(0).normal(size=(40, 5))
+        model = IsolationForestModel(n_estimators=20)
+        model.train(sample_X)
+        path = temp_dir / "test_model.skops"
+        model.save(path)
+
+        loaded = IsolationForestModel()
+        loaded.load(path)
+        np.testing.assert_array_equal(model.predict(sample_X), loaded.predict(sample_X))
 
     def test_evaluate(self, sample_X, sample_y):
         model = IsolationForestModel(n_estimators=50, contamination=0.1)

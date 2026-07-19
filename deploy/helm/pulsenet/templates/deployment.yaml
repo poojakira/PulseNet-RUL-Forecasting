@@ -1,0 +1,326 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pulsenet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.rollingUpdate.maxSurge }}
+  selector:
+    matchLabels:
+      {{- include "pulsenet.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "pulsenet.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: {{ .Chart.AppVersion }}
+      annotations:
+        prometheus.io/scrape: "{{ .Values.monitoring.prometheus.scrape }}"
+        prometheus.io/port: "{{ .Values.service.port }}"
+        prometheus.io/path: "/metrics"
+        vault.hashicorp.com/agent-inject: "{{ .Values.vault.inject }}"
+        vault.hashicorp.com/role: "{{ .Values.vault.role }}"
+        vault.hashicorp.com/agent-inject-secret-jwt: "{{ .Values.vault.jwtSecretPath }}"
+        vault.hashicorp.com/agent-inject-template-jwt: |
+          {{- range ,  := .Values.vault.jwtTemplate }}
+          {{  }}: {{  }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-encryption: "{{ .Values.vault.encryptionSecretPath }}"
+        vault.hashicorp.com/agent-inject-template-encryption: |
+          {{- range ,  := .Values.vault.encryptionTemplate }}
+          {{  }}: {{  }}
+          {{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups:
+          - 1000
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "pulsenet.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "pulsenet.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - {{ .Release.Name }}
+                topologyKey: kubernetes.io/hostname
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values:
+                        - api
+                topologyKey: topology.kubernetes.io/zone
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http-api
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.service.grpcPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+          env:
+            - name: PULSENET_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: PULSENET_JWT_SECRET
+            - name: PULSENET_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: PULSENET_ENCRYPTION_KEY
+            - name: PULSENET_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: PULSENET_USERS
+            - name: PULSENET_ENV
+              value: "{{ .Values.global.environment }}"
+            - name: PULSENET_MODEL_PATH
+              value: "/models/isolation_forest.skops"
+            - name: PULSENET_SCALER_PATH
+              value: "/models/scaler.skops"
+            - name: PULSENET_ARTIFACT_MANIFEST_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: PULSENET_ARTIFACT_MANIFEST_KEY
+                  optional: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http-api
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http-api
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http-api
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: runtime
+              mountPath: /app/.runtime
+            - name: models
+              mountPath: /models
+              readOnly: true
+            - name: vault-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: runtime
+          emptyDir: {}
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-models-pvc
+        - name: vault-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+                  audience: vault
+---
+{{- if .Values.shadowDeployment.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api-shadow
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pulsenet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-shadow
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: {{ .Values.shadowDeployment.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "pulsenet.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api-shadow
+  template:
+    metadata:
+      labels:
+        {{- include "pulsenet.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api-shadow
+        app.kubernetes.io/version: {{ .Chart.AppVersion }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.service.port }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "pulsenet.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api-shadow
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - {{ .Release.Name }}
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: api-shadow
+          image: "{{ .Values.shadowDeployment.image.repository }}:{{ .Values.shadowDeployment.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http-api
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+            - secretRef:
+                name: {{ .Release.Name }}-secrets
+          env:
+            - name: PULSENET_SHADOW_MODE
+              value: "true"
+            - name: PULSENET_SHADOW_TRAFFIC_PERCENTAGE
+              value: "{{ .Values.shadowDeployment.trafficPercentage }}"
+          resources:
+            {{- toYaml .Values.shadowDeployment.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http-api
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http-api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: runtime
+              mountPath: /app/.runtime
+            - name: models
+              mountPath: /models
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: runtime
+          emptyDir: {}
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-models-pvc
+{{- end }}

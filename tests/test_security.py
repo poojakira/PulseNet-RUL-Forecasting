@@ -60,6 +60,12 @@ class TestEncryptionManager:
         result = enc.decrypt_cell(val)
         assert result == 42.5
 
+    def test_production_requires_configured_encryption_key(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PULSENET_ENV", "production")
+        monkeypatch.delenv("PULSENET_ENCRYPTION_KEY", raising=False)
+        with pytest.raises(RuntimeError, match="must be set in production"):
+            EncryptionManager(key_file=str(tmp_path / "missing.key"))
+
 
 class TestBlockchain:
     """Tests for blockchain ledger."""

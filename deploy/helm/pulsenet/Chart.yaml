@@ -1,0 +1,17 @@
+﻿apiVersion: v2
+name: pulsenet
+description: Production-grade PulseNet RUL Forecasting Helm Chart
+type: application
+version: 2.1.0
+appVersion: "2.1.0"
+keywords:
+  - pulsenet
+  - rul
+  - predictive-maintenance
+  - anomaly-detection
+  - aerospace
+maintainers:
+  - name: PulseNet Team
+    email: team@pulsenet.io
+sources:
+  - https://github.com/poojakira/PulseNet-RUL-Forecasting
