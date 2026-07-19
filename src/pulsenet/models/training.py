@@ -165,7 +165,12 @@ class TrainingPipeline:
 
     def load_latest(self, model_name: str) -> BaseAnomalyModel:
         """Load the latest saved model."""
+        from pulsenet.models.isolation_forest import IsolationForestModel
+
         path = self.model_dir / f"{model_name}.joblib"
         model = self.registry.get_model(model_name)
-        model.load(path)
+        if isinstance(model, IsolationForestModel):
+            model.load(path, trusted=True)
+        else:
+            model.load(path)
         return model

@@ -1,0 +1,30 @@
+﻿apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    name: {{ .Release.Namespace }}
+    environment: {{ .Values.global.environment }}
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}-monitoring
+  labels:
+    name: {{ .Release.Namespace }}-monitoring
+    environment: {{ .Values.global.environment }}
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}-security
+  labels:
+    name: {{ .Release.Namespace }}-security
+    environment: {{ .Values.global.environment }}
+    app.kubernetes.io/part-of: pulsenet-rul-forecasting
