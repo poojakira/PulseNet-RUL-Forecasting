@@ -24,6 +24,11 @@ from pulsenet.logger import get_logger
 log = get_logger(__name__)
 
 
+def _is_production() -> bool:
+    """Check if running in production environment."""
+    return os.environ.get("PULSENET_ENV", "").lower() == "production"
+
+
 class EncryptionManager:
     """AES-256 Fernet encryption with key rotation support."""
 
@@ -47,7 +52,7 @@ class EncryptionManager:
     # Key management
     # ------------------------------------------------------------------
     def _load_or_generate_key(self) -> bytes:
-        """Load key from env → file → generate new."""
+        """Load key from env → file → generate new (not allowed in production)."""
         env_val = os.environ.get(self.key_env_var)
         if env_val:
             self._key_source = "environment"
@@ -63,7 +68,14 @@ class EncryptionManager:
                 )
             return key
 
-        # Generate new key
+        # In production, require explicit key configuration
+        if _is_production():
+            raise RuntimeError(
+                f"PULSENET_ENCRYPTION_KEY environment variable must be set in production. "
+                f"No key file found at {self.key_file}."
+            )
+
+        # Generate new key (dev/test only)
         self._key_source = "generated"
         key = Fernet.generate_key()
         try:

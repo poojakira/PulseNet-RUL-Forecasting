@@ -10,8 +10,6 @@ Production features:
 - Kubernetes probes (/healthz, /readyz)
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import signal
@@ -22,7 +20,6 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, AsyncGenerator, Optional, Union
 
-import skops.io as sio
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -103,6 +100,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scaler: Any = None
     if scaler_path.exists():
         try:
+            import skops.io as sio
+
             scaler = sio.load(trusted=True, file=scaler_path)
             log.info("MinMaxScaler loaded successfully")
         except Exception as e:

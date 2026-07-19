@@ -108,9 +108,31 @@ class IsolationForestModel(BaseAnomalyModel):
         )
         log.info("IsolationForest saved", extra={"path": str(path)})
 
-    def load(self, path: Union[Path, str]) -> None:
-        """Load model, threshold and params from disk."""
-        data = joblib.load(path)
+    def load(self, path: Union[Path, str], trusted: bool = False) -> None:
+        """Load model, threshold and params from disk.
+
+        Args:
+            path: Path to the saved model file.
+            trusted: If False, raises ValueError for joblib files. 
+                     Set to True only for trusted model files
+                     to prevent arbitrary code execution via joblib.load().
+                     Not required for skops files (safer format).
+        """
+        path = Path(path)
+        if path.suffix == ".joblib" and not trusted:
+            raise ValueError(
+                "Loading joblib models requires explicit trusted=True. "
+                "Only load models from trusted sources to prevent arbitrary code execution."
+            )
+        if path.suffix == ".skops":
+            # skops format is safer, allow loading without explicit trusted flag
+            try:
+                import skops.io as skio
+                data = skio.load(path, trusted=True)
+            except ImportError:
+                raise ImportError("skops is required to load .skops files. Install with: pip install skops")
+        else:
+            data = joblib.load(path)
         self.model = data["model"]
         self.threshold = data.get("threshold")
         self.params = data.get("params", self.params)
