@@ -60,7 +60,9 @@ class TestOfficialSplitEvaluation:
     def test_fd001_uses_official_per_unit_split(self):
         from pulsenet.pipeline.official_cmapss import load_official_subset
 
-        data = load_official_subset("FD001", PROJECT_ROOT / "data" / "official")
+        data = load_official_subset(
+            "FD001", PROJECT_ROOT / "data" / "official", max_test_rows=None
+        )
         # Official split: train and test engine-id sets are disjoint trajectories,
         # and there is one ground-truth RUL per test engine.
         assert data.rul.shape[0] == data.test["unit_number"].nunique()
