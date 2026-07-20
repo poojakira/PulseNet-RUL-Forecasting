@@ -103,3 +103,12 @@ def sample_rul(official_fd001) -> pd.Series:
 def temp_dir(tmp_path) -> Path:
     """Temporary directory for test outputs."""
     return tmp_path
+
+
+@pytest.fixture
+def cmapss_zip() -> Path:
+    """Path to the CMAPSSData.zip archive for tests that need it."""
+    archive = PROJECT_ROOT / "data" / "official" / "CMAPSSData.zip"
+    if not archive.exists():
+        pytest.skip("CMAPSSData.zip not available")
+    return archive

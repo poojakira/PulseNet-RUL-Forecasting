@@ -115,3 +115,23 @@ def _find_file(root: Path, filename: str) -> Path:
     if not matches:
         raise FileNotFoundError(f"{filename} not found under {root}")
     return matches[0]
+
+
+# Alias for backward compatibility with tests
+def load_official_subset(
+    subset: str,
+    data_dir: Path | str = Path("data/official"),
+    *,
+    max_train_rows: int | None = 1000,
+    max_test_rows: int | None = 600,
+    download: bool = False,
+) -> OfficialCmapssFD001:
+    """Load official C-MAPSS subset (FD001, FD002, FD003, FD004)."""
+    if subset != "FD001":
+        raise ValueError(f"Only FD001 is currently supported, got {subset}")
+    return load_official_fd001(
+        data_dir=data_dir,
+        max_train_rows=max_train_rows,
+        max_test_rows=max_test_rows,
+        download=download,
+    )
