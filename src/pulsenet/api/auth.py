@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from functools import lru_cache
 from typing import Optional
 
 import bcrypt
@@ -20,14 +21,20 @@ log = get_logger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
-_JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
-if not _JWT_SECRET or len(_JWT_SECRET) < 32:
-    if os.environ.get("PULSENET_ENV") == "testing":
-        _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # nosec
-    else:
-        log.critical("PULSENET_JWT_SECRET is required")
-        raise RuntimeError("PULSENET_JWT_SECRET must be set.")
-
+@lru_cache(maxsize=1)
+def get_jwt_secret() -> str:
+    """Return the configured JWT secret, failing with an actionable diagnostic."""
+    secret = os.environ.get("PULSENET_JWT_SECRET")
+    if not secret:
+        if os.environ.get("PULSENET_ENV") == "testing":
+            return "pulsenet-test-secret-not-for-production"  # nosec
+        raise RuntimeError(
+            "PULSENET_JWT_SECRET is not set. "
+            "Set it via: export PULSENET_JWT_SECRET=$(openssl rand -hex 32)"
+        )
+    if len(secret.encode("utf-8")) < 32:
+        raise ValueError("PULSENET_JWT_SECRET must be >=32 bytes for HS256 security")
+    return secret
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
 
@@ -85,14 +92,14 @@ def create_token(username: str, role: str) -> tuple[str, int]:
         "exp": int(time.time()) + _JWT_EXPIRY_MIN * 60,
     }
     # _JWT_SECRET is guaranteed to be a string here due to fallback above
-    token = jwt.encode(payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM)
+    token = jwt.encode(payload, get_jwt_secret(), algorithm=_JWT_ALGORITHM)
     return token, _JWT_EXPIRY_MIN
 
 
 def verify_token(token: str) -> dict:
     """Decode and verify a JWT token."""
     try:
-        payload = jwt.decode(token, str(_JWT_SECRET), algorithms=[_JWT_ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[_JWT_ALGORITHM])
         return payload
     except (JWTError, Exception) as e:
         raise HTTPException(
