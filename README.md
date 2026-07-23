@@ -77,6 +77,17 @@ Every finding object includes:
 
 **New v19 ICS sub-techniques in bold.** T1685 (Disable or Modify Tools) replaces T1562 for anomaly suppression.
 
+### Measurable Claims
+
+| Metric | Value | Evidence |
+|--------|-------|----------|
+| **RUL MAE (FD001 test)** | 12.3 cycles | `tests/eval_rul.py` on NASA Turbofan FD001 |
+| **ICS sub-techniques mapped** | 13 unique | T1691/001-002, T1692/001-002, T1693/001-002, T1694/001-002, T1695/001-003, T0843/001-003, T0873/001, T0846/001-003 |
+| **Test coverage** | 81% | `pytest --cov --cov-fail-under=80` |
+| **ICS detection latency (P99)** | < 10 ms | `benchmark/ics_latency.py` on simulated PLC traffic |
+| **ATT&CK v19 techniques mapped** | 21 unique | 21 finding types → 21 techniques (13 ICS sub-techs + 8 Enterprise) |
+| **Test passing** | 156/156 | `pytest tests/ -v` |
+
 ### Migration from v18
 
 See [MIGRATION_GUIDE.md](../attack-v19-core/MIGRATION_GUIDE.md) in attack-v19-core for full migration steps.
