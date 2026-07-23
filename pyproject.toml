@@ -1,89 +1,29 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pulsenet"
-version = "2.1.0"
-requires-python = ">=3.12"
+name = "PulseNet-RUL-Forecasting"
+version = "1.0.0"
+description = "RUL forecasting with ICS ATT&CK v19 detection for industrial ML pipelines"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
 dependencies = [
-    # Core
-    "pandas==2.3.3",
-    "numpy==2.4.6",
-    "scipy==1.15.2",
-    "pyyaml==6.0.2",
-    "python-dotenv==1.2.2",
-    # ML
-    "scikit-learn==1.9.0",
-    "joblib==1.5.0",
-    "torch==2.12.0",
-    # API and security
-    "fastapi==0.139.0",
-    "uvicorn[standard]==0.34.0",
-    "pydantic==2.11.1",
-    "python-jose[cryptography]==3.5.0",
-    "bcrypt==4.3.0",
-    "python-multipart==0.0.32",
-    "cryptography==48.0.1",
-    # MLOps
-    "mlflow==3.14.0",
-    # Dashboard
-    "streamlit==1.58.0",
-    "plotly==6.0.1",
-    # Benchmarking and profiling
-    "psutil==7.0.0",
-    "matplotlib==3.10.1",
-    # Monitoring and hardware
-    "prometheus-client==0.21.1",
-    "pynvml==12.0.0",
-    "opentelemetry-api==1.31.0",
-    "opentelemetry-sdk==1.31.0",
-    "opentelemetry-instrumentation-fastapi==0.52b0",
-    # Clients
-    "requests==2.33.1",
-    # Deployment
-    "gunicorn==23.0.0",
-    "starlette==0.49.3",
-    # Transitive pins hardened for security (CVE remediation)
-    "pyarrow==23.0.1",
-    "pyasn1==0.6.3",
-    # Testing (required so `pip install -e .` alone can run the test suite)
-    "pytest==9.0.3",
-    "pytest-cov==7.1.0",
-    "pytest-asyncio==1.4.0",
-    "httpx==0.28.1",
+    "attack-v19-core @ git+https://github.com/poojakira/attack-v19-core.git@1.0.0",
+    "mitreattack-python==3.0.3",
+    "stix2==3.0.1",
+    "pydantic==2.7.4",
 ]
 
 [project.optional-dependencies]
-security = [
-    "pip-audit==2.10.1",
+dev = [
+    "pytest>=8.2.1",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.pyright]
-include = ["src", "tests"]
-extraPaths = ["src"]
-pythonVersion = "3.12"
-typeCheckingMode = "off"
-
-[tool.ruff]
-line-length = 88
-target-version = "py312"
-src = ["src"]
-
-[tool.ruff.lint]
-select = ["E9", "F", "I"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["pulsenet"]
-
-[tool.pyre]
-source_directories = ["src", "tests"]
-search_path = ["src"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra"

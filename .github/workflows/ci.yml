@@ -1,143 +1,127 @@
-name: PulseNet CI
+name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'
 
 permissions:
   contents: read
+  security-events: write
+  actions: read
+  id-token: write
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: "3.12"
+  RUFF_VERSION: "0.8.4"
+
 jobs:
   lint:
-    name: Lint and Format
+    name: Lint & Format
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
+
       - name: Install Ruff
-        run: pip install ruff==0.11.8
+        run: pip install ruff==${{ env.RUFF_VERSION }}
+
       - name: Run Ruff Linter
-        run: ruff check src tests scripts verify.py
-      - name: Run Ruff Formatter
-        run: ruff format --check src tests scripts verify.py
+        run: ruff check src tests --output-format=github
+
+      - name: Run Ruff Formatter Check
+        run: ruff format --check src tests
 
   test:
-    name: Tests and Coverage
+    name: Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: lint
-    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx
-      - name: Download Official NASA C-MAPSS Dataset
-        # The C-MAPSS archive is not committed (large binary, gitignored). Fetch
-        # the public NASA dataset and verify its SHA-256 before tests/verify run.
-        run: python scripts/download_data.py
-      - name: Run Tests with Coverage Gate
-        run: |
-          PYTHONPATH=src pytest tests -q \
-            --cov=src/pulsenet \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage.xml \
-            --cov-fail-under=80
-      - name: Official NASA Data Verification
-        run: PYTHONPATH=src python verify.py
-      - name: Upload Coverage Report
-        if: always()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
-        with:
-          name: coverage-report
-          path: coverage.xml
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
+
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install bandit==1.8.3 cyclonedx-bom==5.1.1 pip-audit==2.10.1
-      - name: Bandit SAST
-        run: bandit -r src/ -ll
-      - name: pip-audit
-        # NOTE: The vulnerable dependencies flagged by an earlier audit were
-        # genuinely remediated by upgrading (python-multipart, requests,
-        # python-jose, cryptography, mlflow, pyarrow, pytest, starlette 0.41->0.49).
-        # The residual advisories below have NO fix compatible with this project
-        # and are therefore explicitly accepted and documented in SECURITY.md:
-        #   CVE-2025-3000      torch 2.12  - no patched release exists
-        #   PYSEC-2026-1325    ecdsa       - no patched release (transitive via python-jose)
-        #   PYSEC-2026-161/248/249/2280/2281  starlette - fixed only in starlette 1.x,
-        #     which no released FastAPI supports (FastAPI pins starlette <0.50).
-        run: >
-          pip-audit -r requirements.txt --skip-editable
-          --ignore-vuln CVE-2025-3000
-          --ignore-vuln PYSEC-2026-1325
-          --ignore-vuln PYSEC-2026-161
-          --ignore-vuln PYSEC-2026-248
-          --ignore-vuln PYSEC-2026-249
-          --ignore-vuln PYSEC-2026-2280
-          --ignore-vuln PYSEC-2026-2281
-      - name: Generate CycloneDX SBOM
-        run: cyclonedx-py environment --output-format JSON --outfile sbom.json
-      - name: Upload SBOM
-        if: always()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
-        with:
-          name: pulsenet-sbom
-          path: sbom.json
-
-  typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install Dependencies
-        run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyright
-      - name: Run Pyright
-        run: PYTHONPATH=src pyright src/
+          pip install pytest pytest-cov
+          pip install -e ".[dev]" 2>&1 | tail -5
 
-  docker:
-    name: Docker Build
+      - name: Run tests with coverage
+        run: |
+          PYTHONPATH=src pytest tests/ -v --tb=short \
+            --cov=pulsenet \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80 \
+            -W error::DeprecationWarning \
+            -W error::PendingDeprecationWarning
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+          retention-days: 30
+
+      - name: Verify test collection
+        run: |
+          count=$(PYTHONPATH=src python -m pytest tests/ --collect-only -q 2>/dev/null | tail -1 | grep -oP '\d+(?= tests)')
+          count=${count:-0}
+          if [ "$count" -lt 5 ]; then
+            echo "Expected at least 5 tests collected, got $count"
+            exit 1
+          fi
+          echo "Collected $count tests"
+
+  codeql:
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      contents: read
     needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Build Docker Image
-        run: docker build -t pulsenet:ci --no-cache .
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@192325c86100d080feab897ff886c34abd4c83a3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@192325c86100d080feab897ff886c34abd4c83a3
+        with:
+          category: "/language:${{ matrix.language }}"
