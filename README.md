@@ -1,100 +1,102 @@
-# PulseNet-RUL-Forecasting
+# PulseNet RUL Forecasting
 
-[![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml)
-[![Python >=3.10](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+PulseNet is a research and engineering reference implementation for remaining-useful-life forecasting, anomaly detection, and security monitoring in industrial ML pipelines.
 
-## MITRE ATT&CK v19 Coverage
+> **Current maturity:** pre-production. The repository contains useful components and tests, but it has not been independently validated on production traffic, certified for safety-critical use, or proven to meet a published service-level objective.
 
-This repository maps all security findings to [MITRE ATT&CK v19](https://attack.mitre.org/), using **ICS ATT&CK** domain for industrial/OT-specific techniques and **Enterprise ATT&CK** for IT-layer threats.
+## What is implemented
 
-**v19 ICS Breaking Changes (2026-07):** First-ever ICS sub-techniques added!
-- **13 new ICS sub-techniques**: T1691/001-002, T1692/001-002, T1693/001-002, T1694/001-002, T1695/001-003, T0843/001-003, T0873/001, T0846/001-003
+- C-MAPSS data ingestion and preprocessing
+- Isolation Forest, LSTM, Transformer, and ensemble model components
+- FastAPI inference and training endpoints
+- Authentication and role checks
+- Audit and integrity-monitoring components
+- Streaming, benchmarking, and dashboard modules
+- MITRE ATT&CK mapping metadata for security findings
 
-| Domain     | Tactics | Techniques | Sub-Techniques |
-|------------|--------:|----------:|---------------:|
-| Enterprise |      15 |       222 |            475 |
-| Mobile     |      12 |      (see ATT&CK) | (see ATT&CK) |
-| ICS        |      12 |      (see ATT&CK) | (see ATT&CK) |
+ATT&CK mappings are taxonomy metadata. They do **not** prove detection coverage, attack prevention, or operational effectiveness.
 
-### Export ATT&CK Navigator Layer
+## Install
+
+Python 3.10–3.12 is supported.
 
 ```bash
-python -m attack_mapping.reporter --output navigator_layer.json
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
 ```
 
-Open in [ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) to visualize coverage. Layers generated with Navigator v4.9 format (attack: "19").
+Install optional Torch models with:
 
-### Finding Schema
-
-Every finding object includes:
-```json
-{
-  "attack_mappings": [
-    {
-      "tactic_id":         "TA0832",
-      "tactic_name":       "Manipulate I/O",
-      "technique_id":      "T1692/001",
-      "technique_name":    "Unauthorized Message: Command Message",
-      "subtechnique_id":   "T1692/001",
-      "subtechnique_name": "Unauthorized Message: Command Message",
-      "domain":            "ics",
-      "confidence":        0.85,
-      "data_sources":      ["..."],
-      "platforms":         ["Field Controller/RTU/PLC/IED", "HMI", "Control Server"],
-      "url":               "https://attack.mitre.org/techniques/T1692/001/"
-    }
-  ]
-}
+```bash
+pip install -e ".[ml,dev]"
 ```
 
-### PulseNet RUL Forecasting Specific Mappings (v19)
+## Required production configuration
 
-| Finding Type | Techniques (v19) | Domain |
-|--------------|------------------|--------|
-| **sensor_data_tampering** | T0832, **T1692/001** | ICS |
-| **telemetry_feed_injection** | **T1691/002**, T0831 | ICS |
-| **anomaly_suppression** | T0851, **T1685** | ICS/Enterprise |
-| rul_result_manipulation | T0832, T1565.003 | ICS |
-| **unauthorized_model_update** | T1195, **T1693/002** | Enterprise, ICS |
-| **unauthorized_firmware_mod** | **T1693/001**, **T1693/002** | ICS |
-| **insecure_default_creds** | **T1694/001** | ICS |
-| **hardcoded_creds_detected** | **T1694/002** | ICS |
-| **serial_com_block** | **T1695/001** | ICS |
-| **network_block_detected** | **T1695/002**, **T1695/003** | ICS |
-| **malicious_command_message** | **T1692/001**, **T1691/001** | ICS |
-| **malicious_reporting_message** | **T1692/002**, **T1691/002** | ICS |
-| **rogue_program_download** | **T0843/001**, **T0843/002** | ICS |
-| **online_edit_detected** | **T0843/002** | ICS |
-| **project_file_infection** | **T0873/001** | ICS |
-| **ics_network_scan** | **T0846/001** | ICS |
-| **broadcast_discovery** | **T0846/002** | ICS |
-| **multicast_discovery** | **T0846/003** | ICS |
-| api_key_exfil | T1552.001 | Enterprise |
-| model_prediction_exfil | T1041, T1048 | Enterprise |
-| sabotage_via_adversarial_input | T0816, T0832 | ICS |
-| forecasting_model_poisoning | T1565, **T1693/002** | Enterprise, ICS |
+The API intentionally refuses to start without a sufficiently long JWT secret outside test mode.
 
-**New v19 ICS sub-techniques in bold.** T1685 (Disable or Modify Tools) replaces T1562 for anomaly suppression.
+```bash
+export PULSENET_ENV=production
+export PULSENET_JWT_SECRET="replace-with-at-least-32-random-characters"
+export PULSENET_USERS='{"admin":{"hashed_password":"<bcrypt-hash>","role":"admin"}}'
+export PULSENET_ENCRYPTION_KEY="<fernet-key>"
+```
 
-### Measurable Claims
+Do not use wildcard CORS origins, locally generated encryption keys, filesystem audit logs, or the in-memory rate limiter as final production controls.
 
-| Metric | Value | Evidence |
-|--------|-------|----------|
-| **RUL MAE (FD001 test)** | 12.3 cycles | `tests/eval_rul.py` on NASA Turbofan FD001 |
-| **ICS sub-techniques mapped** | 13 unique | T1691/001-002, T1692/001-002, T1693/001-002, T1694/001-002, T1695/001-003, T0843/001-003, T0873/001, T0846/001-003 |
-| **Test coverage** | 81% | `pytest --cov --cov-fail-under=80` |
-| **ICS detection latency (P99)** | < 10 ms | `benchmark/ics_latency.py` on simulated PLC traffic |
-| **ATT&CK v19 techniques mapped** | 21 unique | 21 finding types → 21 techniques (13 ICS sub-techs + 8 Enterprise) |
-| **Test passing** | 156/156 | `pytest tests/ -v` |
+## Validation
 
-### Migration from v18
+Run the checks that are reproducible from the repository:
 
-See [MIGRATION_GUIDE.md](../attack-v19-core/MIGRATION_GUIDE.md) in attack-v19-core for full migration steps.
+```bash
+ruff check src tests attack_mapping scripts
+ruff format --check src tests attack_mapping scripts
+pytest tests -ra --cov=pulsenet --cov-report=term-missing
+python -m build
+python -m twine check dist/*
+```
 
-Key remappings:
-- T1562, T1562.001, T1089, T1054 → T1685 (Disable or Modify Tools)
-- T1070.001 → T1685.005 (Clear Windows Event Logs)
-- T1070.002 → T1685.006 (Clear Linux/Mac Logs)
-- T1534 → T1684.001 (Social Engineering: Impersonation)
-- T1566.003 → T1684.002 (Social Engineering: Email Spoofing)
+The official C-MAPSS integration test runs only when the NASA archive exists at:
+
+```text
+data/official/CMAPSSData.zip
+```
+
+```bash
+pytest tests/test_rul_regression.py -ra
+```
+
+## Benchmark claim policy
+
+A numeric result belongs in this README only when all of the following are committed:
+
+1. The exact benchmark script and configuration
+2. Dataset identity, checksum, and split definition
+3. Hardware and software environment
+4. Random seeds and repetition count
+5. Machine-readable output artifact
+6. CI or release workflow that reproduces or verifies the result
+
+Earlier exact claims such as a fixed FD001 error, exact test count, exact coverage percentage, or fixed P99 security latency were removed because their cited evidence files were absent or did not establish those values.
+
+## Production blockers
+
+Before exposing PulseNet to real industrial traffic, address at least these items:
+
+- Bind tenant identity to authenticated token claims instead of trusting `X-Tenant-ID`.
+- Replace process-local rate limiting and batching state with bounded, observable infrastructure.
+- Move blocking model inference off the event loop and enforce request deadlines.
+- Use a secret manager/KMS and a versioned key ring; never auto-generate production keys.
+- Replace local hash-chain files with durable append-only storage and external integrity anchoring.
+- Apply strict numeric bounds and finite-value validation to all telemetry.
+- Authenticate or isolate operational metrics and prevent unbounded metric labels.
+- Run load, fault-injection, model-drift, rollback, disaster-recovery, and tenant-isolation tests.
+- Establish model governance: lineage, approvals, signed artifacts, canary deployment, and rollback.
+
+See `docs/SECURITY_AUDIT.md` for the initial engineering audit.
+
+## Safety boundary
+
+This software must not be the sole decision-maker for aviation, industrial-control, medical, or other safety-critical maintenance actions. Human review, independent sensors, fail-safe controls, and domain-specific certification remain necessary.
