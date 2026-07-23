@@ -22,7 +22,7 @@ dependencies = [
     "uvicorn[standard]==0.34.0",
     "pydantic==2.11.1",
     "python-jose[cryptography]==3.5.0",
-    "bcrypt==4.3.0",
+    "bcrypt==5.0.0",
     "python-multipart==0.0.32",
     "cryptography==48.0.1",
     # MLOps
