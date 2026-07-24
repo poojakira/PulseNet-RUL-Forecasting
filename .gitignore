@@ -48,6 +48,8 @@ ENV/
 .pytest_cache/
 .pyre/
 *.egg-info/
+.coverage
+test_navigator.py
 
 
 # ==========================================
