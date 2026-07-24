@@ -14,6 +14,16 @@ import numpy as np  # pyre-ignore[21]
 import pandas as pd  # pyre-ignore[21]
 import pytest  # pyre-ignore[21]
 
+# Disable PyTorch Dynamo to prevent onnxruntime import crash on Windows
+# Must be set before any torch import
+os.environ["TORCH_DYNAMO_DISABLE"] = "1"
+
+
+def pytest_configure(config):
+    """Ensure TORCH_DYNAMO_DISABLE is set before any torch import."""
+    os.environ["TORCH_DYNAMO_DISABLE"] = "1"
+
+
 # Add project src to path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
