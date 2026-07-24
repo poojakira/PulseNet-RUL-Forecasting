@@ -51,7 +51,16 @@ class EncryptionManager:
         env_val = os.environ.get(self.key_env_var)
         if env_val:
             self._key_source = "environment"
-            return env_val.encode()
+            # Validate the key format - must be 32 url-safe base64-encoded bytes
+            try:
+                key_bytes = env_val.encode()
+                Fernet(key_bytes)  # Validate
+                return key_bytes
+            except Exception:
+                log.warning(
+                    "PULSENET_ENCRYPTION_KEY is not a valid Fernet key, generating new one"
+                )
+                # Fall through to generate
 
         if self.key_file.exists():
             self._key_source = "file"
@@ -73,10 +82,6 @@ class EncryptionManager:
                 os.chmod(self.key_file, 0o600)
             except Exception:
                 log.warning("Could not set key file permissions (non-fatal on Windows)")
-            log.info(
-                "New encryption key generated and saved",
-                extra={"file": str(self.key_file)},
-            )
         except OSError as e:
             log.error(f"Failed to save generated key to {self.key_file}: {e}")
 

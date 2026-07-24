@@ -142,7 +142,9 @@ class TransformerModel(BaseAnomalyModel):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         criterion = nn.MSELoss()
         device = next(self.model.parameters()).device
-        scaler = torch.amp.GradScaler("cuda" if device.type == "cuda" else "cpu")  # type: ignore
+        # PyTorch 2.x: GradScaler is in torch.cuda.amp for CUDA
+        from torch.cuda.amp import GradScaler
+        scaler = GradScaler()  # type: ignore
 
         self.model.train()
         for epoch in range(self.epochs):
