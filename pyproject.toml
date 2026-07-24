@@ -13,7 +13,7 @@ dependencies = [
     "attack-v19-core @ git+https://github.com/poojakira/attack-v19-core.git",
     "mitreattack-python==3.0.3",
     "stix2==3.0.1",
-    "pydantic==2.7.4",
+    "pydantic==2.13.4",
     "fastapi==0.110.1",
     "uvicorn[standard]==0.29.0",
     "torch==2.3.0",
