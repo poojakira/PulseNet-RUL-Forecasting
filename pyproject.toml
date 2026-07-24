@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
-    "attack-v19-core @ git+https://github.com/poojakira/attack-v19-core.git@1.0.0",
+    "attack-v19-core @ git+https://github.com/poojakira/attack-v19-core.git",
     "mitreattack-python==3.0.3",
     "stix2==3.0.1",
     "pydantic==2.7.4",
@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2.1",
+    "pytest-asyncio>=0.23.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -27,3 +28,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+asyncio_mode = "auto"

@@ -11,10 +11,10 @@ class ATTACKEnricher:
     def __init__(self, index: ATTACKIndex):
         self.index = index
         self._rule_table = {
-            # Sensor and telemetry layer
-            "sensor_data_tampering":        ["T0832", "T1692/001"],
-            "telemetry_feed_injection":     ["T1691/002", "T0831"],
-            "anomaly_suppression":          ["T0851", "T1685"],
+# Sensor and telemetry layer
+        "sensor_data_tampering":        ["T0832", "T1692/001", "T0831"],
+        "telemetry_feed_injection":     ["T1691/002", "T0831"],
+        "anomaly_suppression":          ["T0851", "T1685", "T0800"],
 
             # Firmware and program integrity
             "unauthorized_model_update":    ["T1195", "T1693/002"],
