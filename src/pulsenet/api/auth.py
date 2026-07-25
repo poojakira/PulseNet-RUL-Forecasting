@@ -22,7 +22,7 @@ security = HTTPBearer(auto_error=False)
 _JWT_SECRET = os.environ.get("PULSENET_JWT_SECRET")
 if not _JWT_SECRET or len(_JWT_SECRET) < 32:
     if os.environ.get("PULSENET_ENV") == "testing":
-        _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # nosec
+        _JWT_SECRET = "pulsenet-test-secret-not-for-production"  # noqa: S105
     else:
         log.critical("PULSENET_JWT_SECRET is required")
         raise RuntimeError("PULSENET_JWT_SECRET must be set.")
@@ -30,7 +30,7 @@ if not _JWT_SECRET or len(_JWT_SECRET) < 32:
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
 
-# Role → allowed endpoints
+# Role -> allowed endpoints
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     "admin": {"predict", "train", "health", "audit", "verify"},
     "engineer": {"predict", "train", "health"},
@@ -60,9 +60,10 @@ def _load_users() -> dict:
             return json.loads(users_json)
         except Exception as e:
             log.error(f"Failed to parse PULSENET_USERS: {e}")
-            raise RuntimeError("Invalid PULSENET_USERS JSON configuration")
+            raise RuntimeError("Invalid PULSENET_USERS JSON configuration") from e
 
-    # If no users JSON provided, but an admin password is, create a single fallback admin
+    # If no users JSON provided, but an admin password is set,
+    # create a single fallback admin
     admin_pw = os.environ.get("PULSENET_ADMIN_PASSWORD")
     if admin_pw:
         return {"admin": {"hashed_password": _hash_password(admin_pw), "role": "admin"}}
@@ -97,7 +98,7 @@ def verify_token(token: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
-        )
+        ) from e
 
 
 def authenticate_user(username: str, password: str) -> dict | None:
@@ -131,7 +132,10 @@ def require_role(allowed_roles: set[str]):
         if user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{user['role']}' not authorized. Required: {allowed_roles}",
+                detail=(
+                    f"Role '{user['role']}' not authorized. "
+                    f"Required: {allowed_roles}"
+                ),
             )
         return user
 
@@ -146,7 +150,10 @@ def require_permission(permission: str):
         if permission not in user_perms:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission}' not granted to role '{user['role']}'",
+                detail=(
+                    f"Permission '{permission}' not granted "
+                    f"to role '{user['role']}'"
+                ),
             )
         return user
 
