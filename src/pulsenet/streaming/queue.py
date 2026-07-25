@@ -5,7 +5,7 @@ Async queue with backpressure support for sensor data streaming.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 from pulsenet.logger import get_logger
 
@@ -52,7 +52,7 @@ class AsyncStreamQueue:
             log.warning("Item dropped — queue full")
             return False
 
-    async def get(self, timeout: float = 5.0) -> Optional[Any]:
+    async def get(self, timeout: float = 5.0) -> Any | None:
         """Dequeue a single item."""
         try:
             item = await asyncio.wait_for(self._queue.get(), timeout=timeout)

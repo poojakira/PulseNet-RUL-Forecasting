@@ -15,7 +15,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -74,7 +74,7 @@ class BlackBoxLedger:
     """Cryptographic ledger recording maintenance & anomaly events."""
 
     def __init__(
-        self, base_path: Optional[str] = None, enable_merkle: bool = True, **kwargs: Any
+        self, base_path: str | None = None, enable_merkle: bool = True, **kwargs: Any
     ):
         # Use storage_path if provided (for backward compatibility with tests)
         storage_path = kwargs.get("storage_path", base_path)
@@ -244,7 +244,7 @@ class BlackBoxLedger:
             return
 
         try:
-            with open(storage_path, "r") as f:
+            with open(storage_path) as f:
                 chain_data = json.load(f)
                 self.tenants[tenant_id] = [Block(**d) for d in chain_data]
             log.info(

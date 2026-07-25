@@ -6,7 +6,7 @@ Data ingestion — loads NASA C-MAPSS data and applies AES-256 encryption.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,7 @@ CMAPSS_COLUMNS: list[str] = [
 ] + [f"sensor_{i}" for i in range(1, 22)]
 
 
-def load_raw(filepath: Union[str, Path]) -> pd.DataFrame:
+def load_raw(filepath: str | Path) -> pd.DataFrame:
     """Load raw C-MAPSS whitespace-separated file with validation."""
     path = Path(filepath)
     if not path.exists():
@@ -88,7 +88,7 @@ def load_raw(filepath: Union[str, Path]) -> pd.DataFrame:
         raise DataError(f"Failed to load raw data from {path}: {e}") from e
 
 
-def load_rul(filepath: Union[str, Path]) -> pd.Series:
+def load_rul(filepath: str | Path) -> pd.Series:
     """Load ground-truth RUL file."""
     path = Path(filepath)
     if not path.exists():
@@ -106,7 +106,7 @@ def load_rul(filepath: Union[str, Path]) -> pd.Series:
 
 def drop_noisy_columns(
     df: pd.DataFrame,
-    drop_cols: Optional[list[str]] = None,
+    drop_cols: list[str] | None = None,
 ) -> pd.DataFrame:
     """Drop constant/noisy columns."""
     cols = drop_cols or []
@@ -124,9 +124,9 @@ def drop_noisy_columns(
 
 
 def ingest(
-    train_path: Union[str, Path],
-    test_path: Union[str, Path],
-    drop_cols: Optional[list[str]] = None,
+    train_path: str | Path,
+    test_path: str | Path,
+    drop_cols: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Full ingestion: load + clean both train and test sets."""
     # Production-grade: pull from dynamic configuration if NOT provided via argument

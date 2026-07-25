@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Optional
 
 import pandas as pd
 
@@ -25,8 +24,8 @@ class InferenceConsumer:
         self,
         queue: AsyncStreamQueue,
         model: BaseAnomalyModel,
-        ledger: Optional[BlackBoxLedger] = None,
-        feature_cols: Optional[list[str]] = None,
+        ledger: BlackBoxLedger | None = None,
+        feature_cols: list[str] | None = None,
         batch_size: int = 32,
     ):
         self.queue = queue

@@ -5,8 +5,6 @@ Feature engineering & normalization for sensor data.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -42,7 +40,7 @@ def compute_rolling_features(
 def normalize(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
-    exclude_cols: Optional[list[str]] = None,
+    exclude_cols: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, MinMaxScaler]:
     """MinMax normalize features, fit on train, transform test."""
     try:

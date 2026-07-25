@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -51,7 +51,7 @@ class DynamicBatcher:
 
     async def predict_async(
         self,
-        features: Union[list[Any], dict[str, Any]],
+        features: list[Any] | dict[str, Any],
         username: str,
         role: str,
         tenant_id: str,
@@ -89,7 +89,7 @@ class DynamicBatcher:
 
     async def _run_inference_batch(self, batch):
         model = _model_cache.get("model")
-        ledger: Optional[BlackBoxLedger] = _model_cache.get("ledger")
+        ledger: BlackBoxLedger | None = _model_cache.get("ledger")
 
         if not model:
             for _, _, _, _, fut in batch:
@@ -100,7 +100,7 @@ class DynamicBatcher:
             return
 
         model_name = _model_cache.get("model_name", "isolation_forest")
-        registry: Optional[FeatureRegistry] = _model_cache.get("registry")
+        registry: FeatureRegistry | None = _model_cache.get("registry")
         shadow_model = _model_cache.get("shadow_model")
         shadow_model_name = _model_cache.get("shadow_model_name", "none")
 

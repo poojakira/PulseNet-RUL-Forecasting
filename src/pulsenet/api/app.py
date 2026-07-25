@@ -17,10 +17,11 @@ import os
 import signal
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import FrameType
-from typing import Any, AsyncGenerator, Optional, Union
+from typing import Any
 
 import skops.io as sio
 from fastapi import FastAPI, Request, Response
@@ -50,7 +51,7 @@ log = get_logger(__name__)
 _shutdown_event = asyncio.Event()
 
 
-def _signal_handler(sig: int, frame: Optional[FrameType]) -> None:
+def _signal_handler(sig: int, frame: FrameType | None) -> None:
     """Handle SIGTERM/SIGINT for clean container shutdown."""
     log.info(f"Received signal {sig}. Initiating graceful shutdown...")
     _shutdown_event.set()
@@ -216,7 +217,7 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def rate_limit_middleware(
         request: Request, call_next: Any
-    ) -> Union[Response, JSONResponse]:
+    ) -> Response | JSONResponse:
         """Enforce per-IP rate limits."""
         client_ip = request.client.host if request.client else "unknown"
         if not _rate_limiter.is_allowed(client_ip):
@@ -286,7 +287,7 @@ def create_app() -> FastAPI:
 
     # Token endpoint (no auth required)
     @app.post("/token", response_model=TokenResponse, tags=["Authentication"])
-    async def login(request_data: TokenRequest) -> Union[TokenResponse, JSONResponse]:
+    async def login(request_data: TokenRequest) -> TokenResponse | JSONResponse:
         """Authenticate and receive JWT token."""
         user = authenticate_user(request_data.username, request_data.password)
         if not user:

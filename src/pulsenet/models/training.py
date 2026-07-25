@@ -9,7 +9,7 @@ import os
 import platform
 import time
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -36,8 +36,8 @@ class TrainingPipeline:
 
     def __init__(
         self,
-        model_dir: Union[str, Path] = "./models",
-        registry: Optional[ModelRegistry] = None,
+        model_dir: str | Path = "./models",
+        registry: ModelRegistry | None = None,
     ):
         self.model_dir = Path(model_dir)
         self.registry = registry or ModelRegistry()
@@ -71,7 +71,7 @@ class TrainingPipeline:
         self,
         model_name: str,
         X_train: np.ndarray,
-        y_true: Optional[np.ndarray] = None,
+        y_true: np.ndarray | None = None,
         tune: bool = False,
     ) -> dict[str, Any]:
         """Train a single model, optionally tune, save versioned artifact."""
@@ -150,7 +150,7 @@ class TrainingPipeline:
     def train_all(
         self,
         X_train: np.ndarray,
-        y_true: Optional[np.ndarray] = None,
+        y_true: np.ndarray | None = None,
     ) -> list[dict[str, Any]]:
         """Train all registered models."""
         results: list[dict[str, Any]] = []

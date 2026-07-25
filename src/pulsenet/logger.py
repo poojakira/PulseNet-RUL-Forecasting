@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 
 class _JSONFormatter(logging.Formatter):
@@ -79,7 +79,7 @@ class _TextFormatter(logging.Formatter):
 
 
 def get_logger(
-    name: str, level: Optional[str] = None, fmt: Optional[str] = None
+    name: str, level: str | None = None, fmt: str | None = None
 ) -> logging.Logger:
     """Return a configured logger.
 
