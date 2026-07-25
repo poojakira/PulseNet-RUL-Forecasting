@@ -3,12 +3,14 @@ Gradient-based perturbation attack (white-box PGD-style for regression/time-seri
 
 Adaptation of Projected Gradient Descent (PGD) for anomaly detection regression:
 - Standard PGD: minimizes classification loss to flip discrete labels
-- This adaptation: maximizes anomaly score (regression output) to cross detection threshold
+- This adaptation: maximizes anomaly score (regression output) to cross detection
+  threshold
 - For Isolation Forest: maximizes decision_function (more negative = more anomalous)
 - For LSTM: maximizes reconstruction error
 - For Ensemble: maximizes weighted anomaly score
 
-Citation: Madry et al. "Towards Deep Learning Models Resistant to Adversarial Attacks" (ICLR 2018)
+Citation: Madry et al. "Towards Deep Learning Models Resistant to Adversarial
+Attacks" (ICLR 2018)
 Adaptation for regression/time-series anomaly detection per:
   - "Adversarial Attacks on Time Series" (Zhao et al., 2019)
   - "Adversarial Examples for Anomaly Detection" (Kravchik & Shabtai, 2021)
@@ -44,8 +46,10 @@ class GradientPerturbationAttack:
     """
     White-box PGD-style attack on sensor inputs to flip anomaly decision.
 
-    Threat model: Attacker has full model access (architecture, weights, preprocessing).
-    Goal: Minimal sensor-value perturbations that flip RUL prediction or anomaly-gate decision.
+    Threat model: Attacker has full model access (architecture,
+        weights, preprocessing).
+    Goal: Minimal sensor-value perturbations that flip RUL prediction
+        or anomaly-gate decision.
     """
 
     def __init__(
@@ -64,7 +68,8 @@ class GradientPerturbationAttack:
             step_size: PGD step size
             max_iter: Maximum PGD iterations
             norm: "l2" or "linf" perturbation constraint
-            target_score: Target anomaly score to exceed (if None, uses model's threshold)
+            target_score: Target anomaly score to exceed (if None, uses
+            model's threshold)
         """
         self.model = model
         self.epsilon = epsilon
@@ -76,7 +81,8 @@ class GradientPerturbationAttack:
     def _get_gradient(self, X: np.ndarray, target: float = 1.0) -> np.ndarray:
         """
         Compute gradient of anomaly score w.r.t. input.
-        Uses finite differences since models may not be fully differentiable (IsolationForest).
+        Uses finite differences since models may not be fully
+        differentiable (IsolationForest).
         """
         eps = 1e-4
         grad = np.zeros_like(X)

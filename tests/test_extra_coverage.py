@@ -69,12 +69,12 @@ class TestModelRegistryExtra:
             set(registry.available_models)
         )
 
-    def test_best_model(self, sample_X, sample_y):
+    def test_best_model(self, sample_x, sample_y):
         from pulsenet.models.registry import ModelRegistry
 
         registry = ModelRegistry()
-        registry.get_model("isolation_forest").train(sample_X)
-        best = registry.best_model(sample_X, sample_y, metric="f1")
+        registry.get_model("isolation_forest").train(sample_x)
+        best = registry.best_model(sample_x, sample_y, metric="f1")
         assert best == "isolation_forest"
 
 
@@ -128,11 +128,11 @@ class TestPreprocessingExtra:
 
 
 class TestTrainingPipelineTune:
-    def test_train_model_with_tuning(self, sample_X, sample_y, tmp_path):
+    def test_train_model_with_tuning(self, sample_x, sample_y, tmp_path):
         from pulsenet.models.training import TrainingPipeline
 
         pipeline = TrainingPipeline(model_dir=str(tmp_path / "models"))
-        result = pipeline.train_model("isolation_forest", sample_X, sample_y, tune=True)
+        result = pipeline.train_model("isolation_forest", sample_x, sample_y, tune=True)
         assert result["model"] == "isolation_forest"
         model = pipeline.load_latest("isolation_forest")
-        assert len(model.predict(sample_X)) == len(sample_X)
+        assert len(model.predict(sample_x)) == len(sample_x)
