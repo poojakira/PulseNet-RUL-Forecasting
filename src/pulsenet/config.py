@@ -83,7 +83,7 @@ class SecurityConfig(BaseModel):
     key_env_variable: str = "PULSENET_ENCRYPTION_KEY"
     key_file: str = ".runtime/pulsenet-fernet.key"
     key_rotation_days: int = 30
-    jwt_secret_env: str = "PULSENET_JWT_SECRET"
+    jwt_secret_env: str = "PULSENET_JWT_SECRET"  # noqa: S105
     jwt_algorithm: str = "HS256"
     jwt_expiry_minutes: int = 60
     # simplified representation of roles

@@ -159,9 +159,9 @@ class TestOrchestrator:
 
 
 class TestTrainingPipelineExtra:
-    def test_train_all(self, sample_X, tmp_path):
+    def test_train_all(self, sample_x, tmp_path):
         from pulsenet.models.training import TrainingPipeline
 
         pipeline = TrainingPipeline(model_dir=str(tmp_path / "models"))
-        results = pipeline.train_all(sample_X)
+        results = pipeline.train_all(sample_x)
         assert any(r.get("model") == "isolation_forest" for r in results)

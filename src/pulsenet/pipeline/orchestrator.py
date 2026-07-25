@@ -191,14 +191,16 @@ class PipelineOrchestrator:
 
             active_model = cfg.models.active_model
             if active_model in ("lstm", "transformer"):
-                # Warning: Evaluation mapping sequence slices to labels requires alignment.
-                # Since we predict sequence by sequence, we just chop off the first (seq_len - 1) labels per unit
+                # Warning: Evaluation mapping sequence slices to labels
+                # requires alignment. Since we predict sequence by sequence,
+                # we just chop off the first (seq_len - 1) labels per unit
                 # or we just evaluate normally using sequences and shifted labels.
                 X_test = create_sequences(
                     self.test_df, feat_cols, seq_len=cfg.models.lstm.sequence_length
                 )
 
-                # Align y_true for sequences: chop off first (seq_len - 1) cycles from y_true for each unit
+                # Align y_true for sequences: chop off first (seq_len - 1) cycles
+                # from y_true for each unit
                 y_seqs = []
                 seq_len = cfg.models.lstm.sequence_length
                 idx = 0
@@ -234,8 +236,9 @@ class PipelineOrchestrator:
                 )
                 raw_predictions = model.predict(X_infer)
 
-                # Re-align predictions back to dataframe (pad first seq_len-1 with 0 or NaN, or align indices)
-                # For simplicity in blockchain, we just pad the beginning
+                # Re-align predictions back to dataframe (pad first seq_len-1 with 0
+                # or NaN, or align indices). For simplicity in blockchain,
+                # we just pad the beginning
                 seq_len = cfg.models.lstm.sequence_length
                 padded_predictions = []
                 idx = 0

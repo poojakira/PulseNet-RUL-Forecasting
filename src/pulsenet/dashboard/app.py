@@ -20,10 +20,10 @@ import streamlit as st
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_PROJECT_ROOT / "src"))
 
-from pulsenet.config import cfg
-from pulsenet.logger import get_logger
-from pulsenet.models.registry import ModelRegistry
-from pulsenet.pipeline.preprocessing import (
+from pulsenet.config import cfg  # noqa: E402
+from pulsenet.logger import get_logger  # noqa: E402
+from pulsenet.models.registry import ModelRegistry  # noqa: E402
+from pulsenet.pipeline.preprocessing import (  # noqa: E402
     create_sequences,
 )
 from pulsenet.security.blockchain import BlackBoxLedger  # noqa: E402
@@ -53,8 +53,15 @@ st.markdown(
     [data-testid="stSidebar"] { background: #1a1c23; border-right: 1px solid #2d3038; }
 
     /* Typography: NVIDIA Green (#76b900) for headers */
-    h1, h2, h3 { color: #76b900 !important; font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 600; }
-    p, span, div { color: #e0e0e0; font-family: 'Inter', 'Segoe UI', sans-serif; }
+    h1, h2, h3 {
+        color: #76b900 !important;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+        font-weight: 600;
+    }
+    p, span, div {
+        color: #e0e0e0;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+    }
 
     /* Metric Cards: Hardware panel look */
     .stMetric > div {
@@ -65,7 +72,10 @@ st.markdown(
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .stMetric label { color: #a1aab8 !important; font-size: 0.9rem !important; }
-    .stMetric [data-testid="stMetricValue"] { color: #ffffff !important; font-weight: 700 !important; }
+    .stMetric [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
     .stMetric [data-testid="stMetricDelta"] { color: #76b900 !important; }
 
     /* Tabs styling */
@@ -292,8 +302,15 @@ with col_badge:
     st.markdown(
         f"""
     <div style="text-align:right; padding:10px;">
-        <span style="background:{badge_color}; color:#000000; padding:8px 16px;
-                     border-radius:4px; font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:1px;">
+        <span style="
+            background:{badge_color};
+            color:#000000;
+            padding:8px 16px;
+            border-radius:4px;
+            font-weight:800;
+            font-size:14px;
+            text-transform:uppercase;
+            letter-spacing:1px;">
             {badge_text}
         </span>
     </div>
@@ -455,7 +472,8 @@ with tab3:
     if is_secure:
         recent_blocks = ledger.get_recent_blocks(10, tenant_id)
         st.success(
-            f"✅ Ledger verified for {tenant_id.upper()}. Chain is cryptographically valid."
+            "✅ Ledger verified for "
+            f"{tenant_id.upper()}. Chain is cryptographically valid."
         )
         st.metric("Merkle Root", ledger.compute_merkle_root(tenant_id)[:24] + "...")
 
@@ -529,5 +547,6 @@ with tab4:
 # ===========================================================
 st.markdown("---")
 st.caption(
-    "PulseNet v2.1 — Production Predictive Maintenance Platform  |  © 2026 Pooja Kiran, Rhutvik Pachghare"
+    "PulseNet v2.1 — Production Predictive Maintenance Platform"
+    "  |  \u00a9 2026 Pooja Kiran, Rhutvik Pachghare"
 )

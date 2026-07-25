@@ -50,11 +50,11 @@ class TestIngestionValidation:
 
 
 class TestRegistryErrorBranch:
-    def test_compare_all_handles_untrained(self, sample_X, sample_y):
+    def test_compare_all_handles_untrained(self, sample_x, sample_y):
         registry = ModelRegistry()
         # isolation_forest is registered but NOT trained -> evaluate raises,
         # exercising the error-capture branch in compare_all.
-        results = registry.compare_all(sample_X, sample_y)
+        results = registry.compare_all(sample_x, sample_y)
         assert "error" in results["isolation_forest"]
 
 
