@@ -48,48 +48,48 @@ st.markdown(
 <style>
     /* Main background: Deep dark gray/black */
     .stApp { background: #0f1115; }
-    
+
     /* Sidebar: Slightly lighter gray */
     [data-testid="stSidebar"] { background: #1a1c23; border-right: 1px solid #2d3038; }
-    
+
     /* Typography: NVIDIA Green (#76b900) for headers */
     h1, h2, h3 { color: #76b900 !important; font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 600; }
     p, span, div { color: #e0e0e0; font-family: 'Inter', 'Segoe UI', sans-serif; }
-    
+
     /* Metric Cards: Hardware panel look */
-    .stMetric > div { 
-        background: #1e2129; 
+    .stMetric > div {
+        background: #1e2129;
         border: 1px solid #2d3038;
-        border-radius: 6px; 
-        padding: 16px; 
+        border-radius: 6px;
+        padding: 16px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .stMetric label { color: #a1aab8 !important; font-size: 0.9rem !important; }
     .stMetric [data-testid="stMetricValue"] { color: #ffffff !important; font-weight: 700 !important; }
     .stMetric [data-testid="stMetricDelta"] { color: #76b900 !important; }
-    
+
     /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 2px solid #2d3038; }
-    .stTabs [data-baseweb="tab"] { 
-        background: transparent; 
-        color: #a1aab8; 
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
+        color: #a1aab8;
         border: none;
         padding-bottom: 8px;
     }
-    .stTabs [aria-selected="true"] { 
-        color: #76b900 !important; 
-        border-bottom: 2px solid #76b900 !important; 
+    .stTabs [aria-selected="true"] {
+        color: #76b900 !important;
+        border-bottom: 2px solid #76b900 !important;
         background: transparent !important;
     }
-    
+
     /* Layout padding */
     .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 95%; }
-    
+
     /* Expanders */
-    div[data-testid="stExpander"] { 
+    div[data-testid="stExpander"] {
         background: #1e2129;
-        border: 1px solid #2d3038; 
-        border-radius: 6px; 
+        border: 1px solid #2d3038;
+        border-radius: 6px;
     }
     div[data-testid="stExpander"] summary { color: #76b900; }
 </style>

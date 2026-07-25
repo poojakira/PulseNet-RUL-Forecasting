@@ -28,9 +28,9 @@ class _NpEncoder(json.JSONEncoder):
     """Handle numpy types in JSON serialization."""
 
     def default(self, obj: Any) -> Any:
-        if isinstance(obj, (np.integer, np.int64, np.int32)):  # type: ignore
+        if isinstance(obj, np.integer | np.int64 | np.int32):  # type: ignore
             return int(obj)
-        if isinstance(obj, (np.floating, np.float64, np.float32)):  # type: ignore
+        if isinstance(obj, np.floating | np.float64 | np.float32):  # type: ignore
             return float(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
