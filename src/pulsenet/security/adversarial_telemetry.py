@@ -40,7 +40,7 @@ class AdversarialTelemetryGuard:
         self.max_rows_for_perturbation = max_rows_for_perturbation
 
     @classmethod
-    def from_scaler(cls, scaler: Any) -> "AdversarialTelemetryGuard":
+    def from_scaler(cls, scaler: Any) -> AdversarialTelemetryGuard:
         """Bootstrap OOD references from MinMax-like scaler bounds."""
         if scaler is None:
             return cls()

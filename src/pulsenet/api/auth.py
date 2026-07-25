@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -101,7 +100,7 @@ def verify_token(token: str) -> dict:
         )
 
 
-def authenticate_user(username: str, password: str) -> Optional[dict]:
+def authenticate_user(username: str, password: str) -> dict | None:
     """Validate credentials. Returns user dict or None."""
     user = USER_DB.get(username)
     if user:
@@ -113,7 +112,7 @@ def authenticate_user(username: str, password: str) -> Optional[dict]:
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> dict:
     """FastAPI dependency to extract current user from JWT."""
     if credentials is None:

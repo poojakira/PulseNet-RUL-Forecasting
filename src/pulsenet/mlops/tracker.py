@@ -8,7 +8,6 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -30,7 +29,7 @@ class MLOpsTracker:
         self.tracking_uri = tracking_uri
         self.drift_threshold = drift_threshold
         self._mlflow_available = False
-        self._reference_stats: Optional[dict] = None
+        self._reference_stats: dict | None = None
 
         try:
             import mlflow
@@ -57,8 +56,8 @@ class MLOpsTracker:
         self,
         params: dict,
         metrics: dict,
-        model_path: Optional[str] = None,
-        artifacts: Optional[list[str]] = None,
+        model_path: str | None = None,
+        artifacts: list[str] | None = None,
     ) -> str:
         """Log a training run to MLflow or local file."""
         if self._mlflow_available:

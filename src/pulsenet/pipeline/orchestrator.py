@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import joblib
 import numpy as np
@@ -58,9 +58,9 @@ class PipelineOrchestrator:
             rotation_days=cfg.security.key_rotation_days,
         )
         self.feature_registry = FeatureRegistry(rolling_window=cfg.data.rolling_window)
-        self.train_df: Optional[pd.DataFrame] = None
-        self.test_df: Optional[pd.DataFrame] = None
-        self.rul: Optional[pd.Series] = None
+        self.train_df: pd.DataFrame | None = None
+        self.test_df: pd.DataFrame | None = None
+        self.rul: pd.Series | None = None
         self.scaler: Any = None
 
     def run_ingestion(self) -> None:
@@ -135,7 +135,7 @@ class PipelineOrchestrator:
         except Exception as e:
             raise DataError(f"Preprocessing failed: {e}") from e
 
-    def run_training(self, model_name: Optional[str] = None) -> None:
+    def run_training(self, model_name: str | None = None) -> None:
         """Stage 3: Train model(s)."""
         try:
             log.info("Stage 3 — Training")
@@ -217,7 +217,7 @@ class PipelineOrchestrator:
         except Exception as e:
             raise ModelError(f"Evaluation failed: {e}") from e
 
-    def run_inference(self, model_name: Optional[str] = None) -> pd.DataFrame:
+    def run_inference(self, model_name: str | None = None) -> pd.DataFrame:
         """Stage 5: Run inference on test set, log to blockchain."""
         try:
             log.info("Stage 5 — Inference + Logging")

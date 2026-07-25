@@ -14,7 +14,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import pandas as pd
 from cryptography.fernet import Fernet
@@ -30,7 +30,7 @@ class EncryptionManager:
     def __init__(
         self,
         key_env_var: str = "PULSENET_ENCRYPTION_KEY",
-        key_file: Union[str, Path] = ".runtime/pulsenet-fernet.key",
+        key_file: str | Path = ".runtime/pulsenet-fernet.key",
         rotation_days: int = 30,
     ):
         self.key_env_var = key_env_var

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -90,7 +90,7 @@ class TransformerModel(BaseAnomalyModel):
         learning_rate: float = 0.0001,
         epochs: int = 50,
         batch_size: int = 64,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ):
         if not TORCH_AVAILABLE:
             raise ImportError("PyTorch is required for Transformer model")
@@ -144,6 +144,7 @@ class TransformerModel(BaseAnomalyModel):
         device = next(self.model.parameters()).device
         # PyTorch 2.x: GradScaler is in torch.cuda.amp for CUDA
         from torch.cuda.amp import GradScaler
+
         scaler = GradScaler()  # type: ignore
 
         self.model.train()

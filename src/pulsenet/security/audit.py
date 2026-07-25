@@ -10,7 +10,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from pulsenet.config import cfg
 from pulsenet.logger import get_logger
@@ -22,7 +22,7 @@ _TENANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 class AuditLogger:
     """Append-only access audit log with hash integrity."""
 
-    def __init__(self, log_file: Optional[str] = None):
+    def __init__(self, log_file: str | None = None):
         # Use config as default
         default_log = getattr(cfg.api, "audit_log", "access_audit.jsonl")
         self.log_file = Path(log_file or default_log)
@@ -43,7 +43,7 @@ class AuditLogger:
         user: str = "anonymous",
         role: str = "unknown",
         status_code: int = 200,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         tenant_id: str = "public",
     ) -> str:
         """Record an access event for a specific tenant. Returns the entry hash."""
@@ -85,7 +85,7 @@ class AuditLogger:
             return []
 
         try:
-            with open(log_path, "r") as f:
+            with open(log_path) as f:
                 lines = f.readlines()
 
             entries: list[dict[str, Any]] = []
@@ -107,7 +107,7 @@ class AuditLogger:
 
         corrupt = 0
         try:
-            with open(log_path, "r") as f:
+            with open(log_path) as f:
                 for line in f:
                     try:
                         entry = cast(dict[str, Any], json.loads(line))

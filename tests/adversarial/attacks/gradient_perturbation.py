@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -56,7 +55,7 @@ class GradientPerturbationAttack:
         step_size: float = 0.01,
         max_iter: int = 100,
         norm: str = "l2",
-        target_score: Optional[float] = None,
+        target_score: float | None = None,
     ):
         """
         Args:
