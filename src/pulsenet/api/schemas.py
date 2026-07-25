@@ -131,7 +131,7 @@ class TokenResponse(BaseModel):
     """JWT token response."""
 
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     role: str
     expires_in_minutes: int
 

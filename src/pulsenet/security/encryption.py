@@ -58,7 +58,8 @@ class EncryptionManager:
                 return key_bytes
             except Exception:
                 log.warning(
-                    "PULSENET_ENCRYPTION_KEY is not a valid Fernet key, generating new one"
+                    "PULSENET_ENCRYPTION_KEY is not a valid Fernet key, "
+                    "generating new one"
                 )
                 # Fall through to generate
 

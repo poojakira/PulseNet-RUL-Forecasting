@@ -22,7 +22,9 @@ log = get_logger(__name__)
 def calculate_detection_metrics(
     y_true: np.ndarray, y_scores: np.ndarray, threshold: float = 0.5
 ) -> dict:
-    """Calculate standard classification metrics: Precision, Recall, F1, AUC-ROC, AUC-PR."""
+    """Calculate standard classification metrics: Precision, Recall, F1,
+    AUC-ROC, AUC-PR.
+    """
     y_pred = (y_scores >= threshold).astype(int)
 
     precision = precision_score(y_true, y_pred, zero_division=0.0)  # type: ignore  # sklearn 1.9 stubs: zero_division accepts float
@@ -60,8 +62,9 @@ def calculate_lead_time(
     failure_threshold_cycles: int = 30,
 ) -> dict:
     """
-    Calculate Lead Time: average cycles from first failure prediction to actual failure (RUL=0).
-    A positive prediction for failure is defined when y_pred is 1.
+    Calculate Lead Time: average cycles from first failure prediction
+    to actual failure (RUL=0). A positive prediction for failure is
+    defined when y_pred is 1.
     """
     lead_times = []
     engine_ids = df_test["unit_number"].unique()

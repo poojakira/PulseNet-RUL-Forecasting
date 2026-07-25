@@ -165,7 +165,8 @@ class DynamicBatcher:
                     audit_meta["model_disagreement"] = bool(pred != s_pred)
                     if pred != s_pred:
                         log.info(
-                            f"Model Disagreement Detected: {model_name}={pred}, {shadow_model_name}={s_pred}"
+                            "Model Disagreement Detected: "
+                            f"{model_name}={pred}, {shadow_model_name}={s_pred}"
                         )
 
                 # Tenant-Aware Audit

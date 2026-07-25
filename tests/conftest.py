@@ -28,7 +28,7 @@ def pytest_configure(config):
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-os.environ["PULSENET_JWT_SECRET"] = "test-secret-key-not-for-production"
+os.environ["PULSENET_JWT_SECRET"] = "test-secret-key-not-for-production"  # noqa: S105
 os.environ["PULSENET_ENV"] = "testing"
 
 
@@ -118,7 +118,7 @@ def feature_columns(sample_features) -> list[str]:
 
 
 @pytest.fixture
-def sample_X(sample_features, feature_columns) -> np.ndarray:
+def sample_x(sample_features, feature_columns) -> np.ndarray:
     """Feature matrix for model testing."""
     return sample_features[feature_columns].values
 
