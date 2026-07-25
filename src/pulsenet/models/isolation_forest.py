@@ -6,7 +6,7 @@ Isolation Forest anomaly detection model with hyperparameter tuning.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import joblib
 import numpy as np
@@ -34,11 +34,11 @@ class IsolationForestModel(BaseAnomalyModel):
 
     def __init__(
         self,
-        n_estimators: Optional[int] = None,
-        contamination: Optional[float] = None,
-        max_samples: Optional[Union[float, str]] = None,
-        random_state: Optional[int] = None,
-        threshold: Optional[float] = None,
+        n_estimators: int | None = None,
+        contamination: float | None = None,
+        max_samples: float | str | None = None,
+        random_state: int | None = None,
+        threshold: float | None = None,
     ):
         from pulsenet.config import cfg
 
@@ -98,7 +98,7 @@ class IsolationForestModel(BaseAnomalyModel):
         raw: np.ndarray = self.model.decision_function(X)
         return np.clip(((raw + 0.15) / 0.3) * 100, 0, 100)
 
-    def save(self, path: Union[Path, str]) -> None:
+    def save(self, path: Path | str) -> None:
         """Persist model, threshold and params to disk."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -108,7 +108,7 @@ class IsolationForestModel(BaseAnomalyModel):
         )
         log.info("IsolationForest saved", extra={"path": str(path)})
 
-    def load(self, path: Union[Path, str]) -> None:
+    def load(self, path: Path | str) -> None:
         """Load model, threshold and params from disk."""
         data = joblib.load(path)
         self.model = data["model"]
@@ -120,9 +120,9 @@ class IsolationForestModel(BaseAnomalyModel):
         self,
         X: np.ndarray,
         y_true: np.ndarray,
-        n_estimators_list: Optional[list[int]] = None,
-        contamination_list: Optional[list[float]] = None,
-        max_samples_list: Optional[list[Union[float, str]]] = None,
+        n_estimators_list: list[int] | None = None,
+        contamination_list: list[float] | None = None,
+        max_samples_list: list[float | str] | None = None,
     ) -> dict[str, Any]:
         """Grid search for best hyperparameters. Returns best params + F1."""
         n_est_l = n_estimators_list or [100, 200, 300]

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -29,7 +29,7 @@ class EnsembleModel(BaseAnomalyModel):
     def __init__(
         self,
         strategy: str = "majority_vote",
-        weights: Optional[list[float]] = None,
+        weights: list[float] | None = None,
         threshold: float = 0.5,
     ):
         self.strategy = strategy

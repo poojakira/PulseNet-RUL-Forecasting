@@ -4,7 +4,7 @@ Pydantic schemas for API request/response validation.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -46,7 +46,7 @@ class TrainRequest(BaseModel):
 
     model_name: str = Field(default="isolation_forest")
     tune: bool = Field(default=False, description="Run hyperparameter tuning")
-    epochs: Optional[int] = Field(
+    epochs: int | None = Field(
         default=None, description="Training epochs (LSTM/Transformer)"
     )
 
@@ -113,7 +113,7 @@ class TrainResponse(BaseModel):
     version: str
     train_time_sec: float
     samples: int
-    metrics: Optional[dict[str, float]] = None
+    metrics: dict[str, float] | None = None
     status: str
 
 
@@ -121,7 +121,7 @@ class AuditResponse(BaseModel):
     """Blockchain audit entry."""
 
     chain_length: int
-    merkle_root: Optional[str] = None
+    merkle_root: str | None = None
     is_valid: bool
     validation_message: str
     recent_blocks: list[dict[str, Any]]

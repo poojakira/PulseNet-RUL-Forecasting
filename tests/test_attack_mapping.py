@@ -1,5 +1,5 @@
 import pytest
-from attack_core import ATTACKLoader, ATTACKIndex, Domain
+from attack_core import ATTACKIndex, ATTACKLoader, Domain
 from attack_mapping.enricher import ATTACKEnricher
 
 
@@ -24,7 +24,9 @@ class TestPulseNetEnricher:
         assert "T0800" in technique_ids
 
     def test_sabotage(self, enricher):
-        mappings = enricher.enrich("sabotage_via_adversarial_input", {"confidence": 0.9})
+        mappings = enricher.enrich(
+            "sabotage_via_adversarial_input", {"confidence": 0.9}
+        )
         technique_ids = [m.technique_id for m in mappings]
         assert "T0816" in technique_ids
         assert "T0832" in technique_ids

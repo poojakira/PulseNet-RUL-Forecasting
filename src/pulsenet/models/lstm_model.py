@@ -9,7 +9,7 @@ Anomaly = high reconstruction error.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -84,7 +84,7 @@ class LSTMModel(BaseAnomalyModel):
         learning_rate: float = 0.001,
         epochs: int = 50,
         batch_size: int = 64,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ):
         if not TORCH_AVAILABLE:
             raise ImportError("PyTorch is required for LSTM model")
@@ -97,9 +97,7 @@ class LSTMModel(BaseAnomalyModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.threshold = threshold
-        self.model: Optional[
-            Union[_LSTMAutoencoder, nn.parallel.DistributedDataParallel]
-        ] = None
+        self.model: _LSTMAutoencoder | nn.parallel.DistributedDataParallel | None = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._n_features: int = 0
 
@@ -144,6 +142,7 @@ class LSTMModel(BaseAnomalyModel):
         device = next(self.model.parameters()).device
         # torch.cuda.amp.GradScaler is the correct import path in newer PyTorch
         from torch.cuda.amp import GradScaler
+
         scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")  # type: ignore
 
         self.model.train()
@@ -245,7 +244,7 @@ class LSTMModel(BaseAnomalyModel):
             seqs.append(X[i : i + seq_len])
         return np.array(seqs)
 
-    def save(self, path: Union[Path, str]) -> None:
+    def save(self, path: Path | str) -> None:
         """Persist model and state to disk."""
         self._ensure_model()
         if self.model is None:
@@ -276,7 +275,7 @@ class LSTMModel(BaseAnomalyModel):
         )
         log.info("LSTM model saved", extra={"path": str(path)})
 
-    def load(self, path: Union[Path, str]) -> None:
+    def load(self, path: Path | str) -> None:
         """Load model and state from disk."""
         data = torch.load(path, map_location=self.device, weights_only=True)
         self._n_features = data["n_features"]

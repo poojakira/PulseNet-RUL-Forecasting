@@ -5,7 +5,7 @@ Provides consistent rolling features and column ordering (Staff-level Gap 1).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,7 @@ class FeatureRegistry:
     def __init__(self, rolling_window: int = 5):
         self.rolling_window = rolling_window
         self.feature_cols: list[str] = []
-        self.scaler: Optional[MinMaxScaler] = None
+        self.scaler: MinMaxScaler | None = None
         self.is_fitted = False
 
     def get_feature_names(self, raw_columns: list[str]) -> list[str]:
@@ -47,7 +47,7 @@ class FeatureRegistry:
         return df
 
     def process_online(
-        self, data: dict[str, Any], history: Optional[pd.DataFrame] = None
+        self, data: dict[str, Any], history: pd.DataFrame | None = None
     ) -> np.ndarray:
         """Process single event for inference (Online)."""
         if not self.is_fitted:
@@ -84,7 +84,7 @@ class FeatureRegistry:
         return X.to_numpy()
 
     def fit_scaler(
-        self, df: pd.DataFrame, scaler: Optional[MinMaxScaler] = None
+        self, df: pd.DataFrame, scaler: MinMaxScaler | None = None
     ) -> MinMaxScaler:
         """Fit or set the internal scaler."""
         self.feature_cols = [str(c) for c in df.columns if str(c).startswith("sensor_")]
