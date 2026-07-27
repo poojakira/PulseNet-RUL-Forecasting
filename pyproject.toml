@@ -28,7 +28,7 @@ dependencies = [
     "redis==5.0.3",
     "aiokafka==0.8.1",
     "confluent-kafka==2.3.0",
-    "onnxruntime==1.18.0",
+    "onnxruntime==1.24.3",
     "transformers==4.40.0",
     "python-jose[cryptography]==3.3.0",
     "passlib[bcrypt]==1.7.4",
