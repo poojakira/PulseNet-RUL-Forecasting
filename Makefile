@@ -1,4 +1,4 @@
-.PHONY: install lint test typecheck docker train serve dashboard benchmark clean
+.PHONY: install lint test typecheck docker train serve dashboard benchmark clean verify
 
 # ---------------------------------------------------------------------------
 # 🛠  PulseNet Makefile — common development targets
@@ -73,3 +73,6 @@ clean:
 ## help           — Show this help
 help:
 	@grep -E '^##' Makefile | sed 's/## /  /'
+
+## verify         - Run local non-destructive validation
+verify: lint typecheck test-fast
