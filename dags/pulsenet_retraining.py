@@ -1,3 +1,20 @@
+from __future__ import annotations
+
+import json
+import logging
+import subprocess
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
+
+log = logging.getLogger(__name__)
+
 """
 PulseNet Retraining Pipeline — Airflow DAG for Automated Model Retraining.
 
@@ -8,19 +25,6 @@ This DAG runs weekly to:
 4. Canary deploy with shadow traffic
 4. Promote if metrics pass thresholds
 """
-
-from __future__ import annotations
-
-import os
-from datetime import datetime, timedelta
-from pathlib import Path
-
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.models import Variable
-from airflow.utils.dates import days_ago
 
 # Default DAG arguments
 default_args = {
@@ -48,8 +52,9 @@ dag = DAG(
 def check_drift(**context) -> dict:
     """Check for data and concept drift using Evidently."""
     import pandas as pd
-    from pulsenet.monitoring.drift_detection import create_drift_monitoring
+
     from pulsenet.config import cfg
+    from pulsenet.monitoring.drift_detection import create_drift_monitoring
     
     # Load reference data (from last successful training)
     ref_path = Path(cfg.models.model_dir) / "reference_data.parquet"
@@ -113,7 +118,6 @@ def should_retrain(**context) -> str:
 
 def prepare_data(**context) -> dict:
     """Prepare training data with latest samples."""
-    from pulsenet.config import cfg
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
     
     pipeline = PipelineOrchestrator()
@@ -129,7 +133,6 @@ def prepare_data(**context) -> dict:
 def train_models(**context) -> dict:
     """Train all candidate models and select best."""
     from pulsenet.pipeline.orchestrator import PipelineOrchestrator
-    from pulsenet.config import cfg
     
     # Get data paths from previous task
     data_info = context["ti"].xcom_pull(key="return_value", task_ids="prepare_data")
@@ -156,11 +159,12 @@ def train_models(**context) -> dict:
 
 def validate_model(**context) -> dict:
     """Validate model against holdout set and check performance thresholds."""
-    from pulsenet.config import cfg
-    import pandas as pd
-    import numpy as np
     import joblib
-    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+    import numpy as np
+    import pandas as pd
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+    from pulsenet.config import cfg
     
     best_model_info = context["ti"].xcom_pull(key="best_model", task_ids="train_models")
     model_name = best_model_info["best_model"]
@@ -214,17 +218,11 @@ def validate_model(**context) -> dict:
 
 def canary_deploy(**context) -> dict:
     """Deploy model to canary with shadow traffic."""
+
     from pulsenet.config import cfg
-    import subprocess
     
     best_model_info = context["ti"].xcom_pull(key="best_model", task_ids="train_models")
     model_name = best_model_info["best_model"]
-    
-    # Deploy to canary namespace
-    canary_cmd = [
-        "kubectl", "apply", "-f", "-",
-        "-n", "pulsenet-canary",
-    ]
     
     # This would apply a canary deployment manifest
     # For now, we simulate the deployment
@@ -235,7 +233,6 @@ def canary_deploy(**context) -> dict:
     registry = {"canary": model_name, "production": "isolation_forest", "updated_at": datetime.utcnow().isoformat()}
     
     if model_registry_path.exists():
-        import json
         with open(model_registry_path) as f:
             registry = json.load(f)
     registry["canary"] = model_name
@@ -253,9 +250,6 @@ def canary_deploy(**context) -> dict:
 
 def monitor_canary(**context) -> dict:
     """Monitor canary model performance with shadow traffic."""
-    import time
-    import requests
-    from pulsenet.config import cfg
     
     # Wait for canary to stabilize
     time.sleep(300)  # 5 minutes
@@ -299,7 +293,6 @@ def monitor_canary(**context) -> dict:
 def promote_model(**context) -> dict:
     """Promote canary model to production."""
     from pulsenet.config import cfg
-    import json
     
     canary_result = context["ti"].xcom_pull(key="return_value", task_ids="canary_deploy")
     model_name = canary_result["canary_model"]
@@ -336,7 +329,6 @@ def promote_model(**context) -> dict:
 def rollback_model(**context) -> dict:
     """Rollback to previous model if canary fails."""
     from pulsenet.config import cfg
-    import json
     
     registry_path = Path(cfg.models.model_dir) / "model_registry.json"
     with open(registry_path) as f:

@@ -21,13 +21,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from pulsenet.models.base import BaseAnomalyModel
-from pulsenet.pipeline.preprocessing import compute_rolling_features, normalize, get_feature_columns
+from pulsenet.pipeline.preprocessing import (
+    compute_rolling_features,
+    get_feature_columns,
+)
 
 
 class SpoofingPattern(Enum):

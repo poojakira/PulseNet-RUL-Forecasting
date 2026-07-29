@@ -1,6 +1,5 @@
 import hashlib
 import urllib.request
-import os
 from pathlib import Path
 
 CMAPSS_URL = "https://data.nasa.gov/docs/legacy/CMAPSSData.zip"
