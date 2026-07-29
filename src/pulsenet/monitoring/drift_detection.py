@@ -11,16 +11,12 @@ Provides:
 
 from __future__ import annotations
 
-import json
-import logging
-import os
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -32,16 +28,14 @@ try:
         ColumnDriftMetric,
         DatasetDriftMetric,
         DatasetMissingValuesMetric,
-        ColumnQuantileMetric,
-        ColumnCorrelationsMetric,
     )
     from evidently.report import Report
     from evidently.test_suite import TestSuite
     from evidently.tests import (
-        TestNumberOfDriftedColumns,
-        TestShareOfDriftedColumns,
         TestColumnDrift,
         TestColumnsType,
+        TestNumberOfDriftedColumns,
+        TestShareOfDriftedColumns,
     )
     EVIDENTLY_AVAILABLE = True
 except ImportError:
@@ -512,7 +506,13 @@ class ModelPerformanceMonitor:
         preds = self.model.predict(X)
         
         # Compute metrics
-        from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, mean_squared_error, mean_absolute_error
+        from sklearn.metrics import (
+            accuracy_score,
+            f1_score,
+            mean_absolute_error,
+            mean_squared_error,
+            roc_auc_score,
+        )
         
         metrics = {}
         

@@ -1,5 +1,6 @@
-import os
 import glob
+import os
+
 import joblib
 import skops.io as sio
 
