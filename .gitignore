@@ -90,3 +90,10 @@ access_audit*.jsonl
 ledger_*.json
 secret.key
 secret.key.*
+venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+.coverage
+test_env/
+*.egg-info
