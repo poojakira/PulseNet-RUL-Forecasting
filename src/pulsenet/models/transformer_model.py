@@ -110,7 +110,8 @@ class TransformerModel(BaseAnomalyModel):
     def train(self, X: np.ndarray | Any, **kwargs) -> None:
         if X.ndim != 3:
             raise ValueError(
-                f"Transformer expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+                "Transformer expects 3D sequence tensors "
+                f"(N, seq, features), got {X.ndim}D"
             )
         self._n_features = X.shape[2]
         self.model = _TransformerAutoencoder(
@@ -205,7 +206,8 @@ class TransformerModel(BaseAnomalyModel):
     def _compute_errors(self, X: np.ndarray) -> np.ndarray:
         if X.ndim != 3:
             raise ValueError(
-                f"Transformer expects 3D sequence tensors (N, seq, features), got {X.ndim}D"
+                "Transformer expects 3D sequence tensors "
+                f"(N, seq, features), got {X.ndim}D"
             )
         self.model.eval()
         with torch.no_grad():

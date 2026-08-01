@@ -1,5 +1,5 @@
 """
-Ensemble model — combines multiple anomaly detectors via majority voting or weighted scoring.
+Ensemble model combining anomaly detectors by majority vote or weighted score.
 """
 
 from __future__ import annotations

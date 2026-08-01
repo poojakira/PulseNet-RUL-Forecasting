@@ -75,7 +75,10 @@ class _TextFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelname, "")
         ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        return f"{color}{ts} [{record.levelname:<8}]{self.RESET} {record.name}: {record.getMessage()}"
+        return (
+            f"{color}{ts} [{record.levelname:<8}]{self.RESET} "
+            f"{record.name}: {record.getMessage()}"
+        )
 
 
 def get_logger(
