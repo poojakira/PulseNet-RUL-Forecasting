@@ -33,7 +33,7 @@ ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 # ============================================================
 FROM base AS test
 
-RUN python -m pytest tests/ -v --tb=short || echo "No tests found or tests require GPU"
+RUN python -m pytest tests/ -v --tb=short
 
 # ============================================================
 # Runtime stage
