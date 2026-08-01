@@ -175,10 +175,7 @@ def create_app() -> FastAPI:
     """Factory for the FastAPI application."""
     app = FastAPI(
         title="PulseNet Predictive Maintenance API",
-        description=(
-            "Anomaly detection API for aerospace "
-            "engine health monitoring"
-        ),
+        description=("Anomaly detection API for aerospace " "engine health monitoring"),
         version="2.1.0",
         lifespan=lifespan,
     )
