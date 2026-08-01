@@ -186,9 +186,7 @@ def sensor_drift_score(unit_data: pd.DataFrame, sensor_columns: list[str]) -> fl
 def anomaly_hits(unit_data: pd.DataFrame, health_values: list[float]) -> int:
     """Count recent anomaly flags, falling back to critical health cycles."""
     if "is_anomaly" in unit_data:
-        recent_flags = pd.to_numeric(
-            unit_data["is_anomaly"].tail(20), errors="coerce"
-        )
+        recent_flags = pd.to_numeric(unit_data["is_anomaly"].tail(20), errors="coerce")
         return int(recent_flags.sum())
     return int(sum(1 for h in health_values[-20:] if h < 50.0))
 
@@ -368,6 +366,7 @@ def render_fleet_ops_3d(fleet_data: pd.DataFrame) -> go.Figure:
         },
     )
     return fig
+
 
 # ===========================================================
 # DATA LOADING
