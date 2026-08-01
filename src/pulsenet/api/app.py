@@ -176,7 +176,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="PulseNet Predictive Maintenance API",
         description=(
-            "Production-grade anomaly detection for aerospace "
+            "Anomaly detection API for aerospace "
             "engine health monitoring"
         ),
         version="2.1.0",

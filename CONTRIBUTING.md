@@ -1,7 +1,7 @@
 # Contributing
 
 ## Scope
-This project is a portfolio demonstration of ML security engineering patterns. It is maintained for hiring screen evaluation.
+This project is a research/reference implementation maintained for reproducible review of predictive-maintenance and ML-security engineering patterns.
 
 ## How to Submit Changes
 1. Fork the repository
