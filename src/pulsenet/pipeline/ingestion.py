@@ -129,7 +129,7 @@ def ingest(
     drop_cols: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Full ingestion: load + clean both train and test sets."""
-    # Production-grade: pull from dynamic configuration if NOT provided via argument
+    # Default behavior: pull from dynamic configuration if NOT provided via argument
     if drop_cols is None:
         from pulsenet.config import cfg
 
