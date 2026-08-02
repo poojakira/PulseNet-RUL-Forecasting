@@ -101,7 +101,7 @@ jobs:
 
       - name: Verify test collection
         run: |
-          count=$(PYTHONPATH=.:src:attack-v19-core python -m pytest tests/ --collect-only -q 2>/dev/null | tail -1 | grep -oP '\d+(?= tests)')
+          count=$(PYTHONPATH=.:src:attack-v19-core python -m pytest tests/ --collect-only -q 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1)
           count=${count:-0}
           if [ "$count" -lt 5 ]; then
             echo "Expected at least 5 tests collected, got $count"
