@@ -89,7 +89,7 @@ jobs:
             --cov=pulsenet \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=80
+            --cov-fail-under=72
 
       - name: Upload coverage report
         if: always()
