@@ -15,6 +15,7 @@ WORKDIR /app
 # System dependencies (curl for healthchecks, libgomp for numpy/torch/sklearn)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Add src to PYTHONPATH
-ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV PYTHONPATH="/app/src"
 
 # ============================================================
 # Test stage
