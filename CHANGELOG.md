@@ -72,4 +72,4 @@ _rule_table = {
 - Complete ICS v19 technique mapping across OT message, firmware, communications, credentials, and discovery domains
 
 ### Migration
-**CRITICAL**: This is a complete rule table rewrite. Legacy ICS rules using flat T08xx IDs must be updated to use new sub-technique IDs. See [attack-v19-core MIGRATION_GUIDE.md](../attack-v19-core/MIGRATION_GUIDE.md) for full migration steps.
+**CRITICAL**: This is a complete rule table rewrite. Legacy ICS rules using flat T08xx IDs must be updated to use new sub-technique IDs. See the [attack-v19-core migration guide](https://github.com/poojakira/attack-v19-core/blob/main/MIGRATION_GUIDE.md) for full migration steps.
