@@ -1,5 +1,7 @@
 # PulseNet — Remaining Useful Life Prediction for Turbofan Engines
 
+[![Live Dashboard](https://img.shields.io/badge/Live_Dashboard-View-blue)](https://poojakira.github.io/mlsec-dashboards/PulseNet-RUL-Forecasting/)
+
 PulseNet predicts how many operating cycles a turbofan engine has left before failure, using NASA's C-MAPSS dataset (FD001 subset). It includes a training pipeline, a FastAPI inference server, and a Streamlit dashboard.
 
 ## What It Does
