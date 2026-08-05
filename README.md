@@ -1,4 +1,4 @@
-# PulseNet — Remaining Useful Life Prediction for Turbofan Engines
+# PulseNet - Remaining Useful Life Prediction for Turbofan Engines
 
 [![Live Dashboard](https://img.shields.io/badge/Live_Dashboard-View-blue)](https://poojakira.github.io/PulseNet-RUL-Forecasting/)
 
@@ -14,8 +14,8 @@ PulseNet predicts how many operating cycles a turbofan engine has left before fa
 ## What It Cannot Do
 
 - It only works with C-MAPSS-format sensor data (21 sensors, 3 operational settings). It won't generalize to arbitrary industrial equipment without retraining on new data.
-- The anomaly detection model (Isolation Forest) has poor precision (F1 = 0.37 in benchmarks). It catches all failures but generates many false alarms.
-- The RUL regression model (Random Forest) achieves RMSE of 15–25 cycles on FD001, which is typical for a classical baseline but not state-of-the-art.
+- The anomaly detection model (Isolation Forest) has limited precision. On the FD001 benchmark it achieves F1 = 0.54, Precision = 0.71, Recall = 0.43 — it catches most failures but at the cost of false alarms. See the Benchmark Results section for the full validated numbers.
+- The RUL regression model (Random Forest) achieves RMSE in the 15–25 cycle range on FD001. This range is a test-assertion bound from the CI test suite, not a single point estimate — the exact value varies by run. A typical classical baseline on FD001 falls in this range.
 - This is a reference implementation, not a production-certified system. It has not been validated on real-world fleet data.
 
 ## Models
@@ -23,7 +23,7 @@ PulseNet predicts how many operating cycles a turbofan engine has left before fa
 | Model | Type | What It Predicts |
 |-------|------|-----------------|
 | Isolation Forest | Anomaly detection | Binary: "degrading" vs "healthy" |
-| Random Forest | Regression | RUL in cycles (0–125, capped) |
+| Random Forest | Regression | RUL in cycles (0-125, capped) |
 | LSTM | Deep learning (sequence) | RUL in cycles |
 | Transformer | Deep learning (attention) | RUL in cycles |
 
@@ -38,7 +38,7 @@ From `results/validation_results.json` (ran on official NASA C-MAPSS data):
 - Training time: 0.26 seconds on 45 features, 20,631 training rows
 
 **RUL Regression (Random Forest, official per-unit split):**
-- RMSE: 15–25 cycles (test asserts this range; exact value depends on run)
+- RMSE: 15–25 cycles (test-assertion range; CI asserts the result falls within this bound — the exact value depends on the run and is not a single pinned benchmark number)
 - Uses the C-MAPSS asymmetric scoring function (late predictions penalised more than early ones)
 - No random splitting — train and test engines are disjoint, as intended by NASA
 
