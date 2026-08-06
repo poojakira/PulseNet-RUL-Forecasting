@@ -1,84 +1,188 @@
+# PulseNet Docker Compose
+# Simulates VPC with public/private subnet isolation
+#
+# Network topology:
+#   pulsenet_external — API gateway only (reachable from host)
+#   pulsenet_internal — model service, DB, Prometheus (no external routing)
+#
+# The API service bridges both networks; all other services are internal-only.
+
 version: "3.9"
 
 services:
-  api:
-    build: .
-    container_name: pulsenet-api
-    command: python main.py --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data:ro
-      - ./models:/app/models
-      - ./mlruns:/app/mlruns
-    environment:
-      - PULSENET_JWT_SECRET=${PULSENET_JWT_SECRET}
-      - PULSENET_ENCRYPTION_KEY=${PULSENET_ENCRYPTION_KEY}
-      - PYTHONPATH=/app/src
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - pulsenet-back
-    restart: unless-stopped
 
-  dashboard:
-    build: .
-    container_name: pulsenet-dashboard
-    command: streamlit run src/pulsenet/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+  # ── API Gateway ──────────────────────────────────────────────────────────────
+  # Only service with a host-facing port. All requests route through here.
+  # Joins both networks: accepts external requests, forwards internally.
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: pulsenet-api:latest
+    container_name: pulsenet_api
     ports:
-      - "8501:8501"
-    volumes:
-      - ./data:/app/data:ro
-      - ./models:/app/models:ro
+      - "8000:8000"      # HTTP API (dev; use 8443 with mTLS in production)
+      - "8443:8443"      # HTTPS / mTLS ingestion endpoint
     environment:
-      - PYTHONPATH=/app/src
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+      - PULSENET_ENV=production
+      - JWT_ALGORITHM=RS256
+      # Key material injected via Docker secrets — never in env for production
+      - JWT_PUBLIC_KEY_FILE=/run/secrets/jwt_public_key
+      - AES_KEY_FILE=/run/secrets/aes_key
+      - DATABASE_URL=postgresql://pulsenet:pulsenet@db:5432/pulsenet
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    volumes:
+      # mTLS certificates — generated locally, gitignored
+      - ./certs/server.crt:/app/certs/server.crt:ro
+      - ./certs/server.key:/app/certs/server.key:ro
+      - ./certs/ca.crt:/app/certs/ca.crt:ro
+      # Audit log persistence
+      - audit_logs:/app/data/audit
+    secrets:
+      - jwt_public_key
+      - jwt_private_key
+      - aes_key
     depends_on:
-      api:
+      db:
         condition: service_healthy
     networks:
-      - pulsenet-front
-      - pulsenet-back
+      - pulsenet_external   # reachable from host
+      - pulsenet_internal   # can reach model service and DB
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
-  mlflow:
-    image: python:3.12-slim
-    container_name: pulsenet-mlflow
-    command: >
-      bash -c "pip install mlflow==2.19.0 && mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --backend-store-uri sqlite:////mlruns/mlflow.db
-      --default-artifact-root /mlruns/artifacts"
+  # ── Streamlit Dashboard ───────────────────────────────────────────────────────
+  # Browser-accessible dashboard. Communicates with API over internal network.
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard
+    image: pulsenet-dashboard:latest
+    container_name: pulsenet_dashboard
     ports:
-      - "5000:5000"
-    volumes:
-      - ./mlruns:/mlruns
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+      - "8501:8501"
+    environment:
+      - PULSENET_API_URL=http://api:8000   # internal hostname
+      - PULSENET_ENV=production
+    depends_on:
+      - api
     networks:
-      - pulsenet-back
+      - pulsenet_external   # reachable from browser
+      - pulsenet_internal   # communicates with API over internal network
     restart: unless-stopped
 
+  # ── PostgreSQL (time-series results store) ────────────────────────────────────
+  # Internal only — no host-facing port.
+  db:
+    image: postgres:16-alpine
+    container_name: pulsenet_db
+    environment:
+      - POSTGRES_USER=pulsenet
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+      - POSTGRES_DB=pulsenet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    secrets:
+      - db_password
+    networks:
+      - pulsenet_internal   # internal only — not reachable from external network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsenet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Prometheus ────────────────────────────────────────────────────────────────
+  # Internal only — /metrics endpoint not exposed to host.
+  # Scrapes FastAPI's /metrics on internal network.
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: pulsenet_prometheus
+    # No ports: exposed to host — internal access only via: docker exec
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    networks:
+      - pulsenet_internal   # internal only — scrapes api:8000/metrics
+    restart: unless-stopped
+
+  # ── Grafana ───────────────────────────────────────────────────────────────────
+  # Exposed on host for dashboard access. Connects to Prometheus internally.
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: pulsenet_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    secrets:
+      - grafana_password
+    depends_on:
+      - prometheus
+    networks:
+      - pulsenet_external   # reachable from browser
+      - pulsenet_internal   # queries Prometheus over internal network
+    restart: unless-stopped
+
+# ── Networks ───────────────────────────────────────────────────────────────────
+# Simulates VPC with public/private subnet isolation
 networks:
-  pulsenet-front:
-  pulsenet-back:
+  pulsenet_external:
+    # Public subnet equivalent: API gateway and dashboard only.
+    # Services on this network can be reached from the Docker host.
+    driver: bridge
+    name: pulsenet_external
+
+  pulsenet_internal:
+    # Private subnet equivalent: model service, DB, Prometheus.
+    # No host routing — services communicate by container name only.
+    driver: bridge
+    name: pulsenet_internal
+    internal: true   # Docker blocks external routing for this network
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  audit_logs:
+    # Audit log volume — persisted separately to support log export / integrity checks
+    driver: local
+
+# ── Docker Secrets ─────────────────────────────────────────────────────────────
+# In development: create secret files in ./secrets/ (gitignored).
+# In production: use Docker Swarm secrets or AWS Secrets Manager injection.
+secrets:
+  jwt_public_key:
+    file: ./secrets/jwt_public_key.pem
+  jwt_private_key:
+    file: ./secrets/jwt_private_key.pem
+  aes_key:
+    file: ./secrets/aes_key.bin
+  db_password:
+    file: ./secrets/db_password.txt
+  grafana_password:
+    file: ./secrets/grafana_password.txt
