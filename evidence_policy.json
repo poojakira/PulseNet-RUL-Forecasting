@@ -1,0 +1,22 @@
+{
+  "_note": "Template only. Git SHA and timestamps filled by CI at run time.",
+  "git_commit": "__CI_FILLED__",
+  "dataset_name": "NASA C-MAPSS FD001",
+  "dataset_hash": "__sha256_of_CMAPSSData.zip__",
+  "model_hash": "__sha256_of_trained_model__",
+  "configuration_hash": "__sha256_of_config__",
+  "random_seed": 42,
+  "dependency_versions": {},
+  "hardware": "AWS c5.4xlarge (16 vCPU, 32 GB RAM), scikit-learn 1.4.0",
+  "execution_command": "pytest tests/ -v --cov=src/pulsenet --cov-fail-under=80",
+  "started_at": "__CI_FILLED__",
+  "completed_at": "__CI_FILLED__",
+  "metrics": {
+    "isolation_forest_f1": 0.54,
+    "isolation_forest_precision": 0.71,
+    "isolation_forest_recall": 0.43,
+    "mean_inference_latency_ms": 2.7,
+    "p99_inference_latency_ms": 4.3,
+    "note": "Numbers from results/validation_results.json committed artifact"
+  }
+}
