@@ -47,7 +47,9 @@ class TestEncryptionManager:
         mgr = EncryptionManager(key_file=str(tmp_path / "k.key"))
         ct = mgr.encrypt("3.14")
         assert mgr.decrypt_cell(ct) == pytest.approx(3.14)
-        assert mgr.decrypt_cell("not-a-cipher") == 0.0
+        # Fail-closed: invalid ciphertext MUST raise, not return 0.0
+        with pytest.raises((ValueError, TypeError, Exception)):
+            mgr.decrypt_cell("not-a-cipher")
 
     def test_rotate_key(self, tmp_path):
         mgr = EncryptionManager(key_file=str(tmp_path / "k.key"))
@@ -80,30 +82,45 @@ class TestModelRegistryExtra:
 
 class TestAuditLogger:
     def test_log_and_verify(self, tmp_path):
-        logger = AuditLogger(log_file=str(tmp_path / "audit.jsonl"))
-        h = logger.log_access("/predict", "POST", user="op", role="operator")
-        assert len(h) == 64
-        recent = logger.get_recent(n=10)
-        assert len(recent) == 1
-        valid, corrupt = logger.verify_integrity()
-        assert valid is True
-        assert corrupt == 0
+        log_file = str(tmp_path / "audit.jsonl")
+        logger = AuditLogger(log_file)
+        event_id = logger.log_event("predict_request", "tenant_A", {"path": "/predict", "method": "POST"})
+        assert len(event_id) == 36  # UUID format
+        # Verify integrity of the chain
+        result = AuditLogger.verify_audit_log(log_file)
+        assert result == (True, [])
 
-    def test_tenant_isolation(self, tmp_path):
-        logger = AuditLogger(log_file=str(tmp_path / "audit.jsonl"))
-        logger.log_access("/x", "GET", tenant_id="acme")
-        assert (tmp_path / "access_audit_acme.jsonl").exists()
-        assert logger.get_recent(tenant_id="acme")
+    def test_tamper_detection(self, tmp_path):
+        import json
+        log_file = str(tmp_path / "audit.jsonl")
+        logger = AuditLogger(log_file)
+        logger.log_event("event_1", "tenant_A", {"d": "1"})
+        logger.log_event("event_2", "tenant_A", {"d": "2"})
+        logger.log_event("event_3", "tenant_B", {"d": "3"})
+        # Tamper with middle entry
+        with open(log_file, "r") as f:
+            lines = f.readlines()
+        entry = json.loads(lines[1])
+        entry["event_type"] = "TAMPERED"
+        lines[1] = json.dumps(entry) + "\n"
+        with open(log_file, "w") as f:
+            f.writelines(lines)
+        # Must raise AuditIntegrityError (fail-closed)
+        from pulsenet.security.audit import AuditIntegrityError
+        with pytest.raises(AuditIntegrityError):
+            AuditLogger.verify_audit_log(log_file)
 
-    def test_invalid_tenant_returns_failure(self, tmp_path):
-        logger = AuditLogger(log_file=str(tmp_path / "audit.jsonl"))
-        result = logger.log_access("/x", "GET", tenant_id="../escape")
-        assert result == "ACCESS_LOG_FAILURE"
+    def test_empty_log_is_valid(self, tmp_path):
+        log_file = str(tmp_path / "audit.jsonl")
+        # Create empty file
+        open(log_file, "w").close()
+        result = AuditLogger.verify_audit_log(log_file)
+        assert result == (True, [])
 
-    def test_verify_missing_tenant(self, tmp_path):
-        logger = AuditLogger(log_file=str(tmp_path / "audit.jsonl"))
-        assert logger.verify_integrity(tenant_id="ghost") == (True, 0)
-        assert logger.get_recent(tenant_id="ghost") == []
+    def test_missing_file_raises(self, tmp_path):
+        from pulsenet.security.audit import AuditIntegrityError
+        with pytest.raises(AuditIntegrityError):
+            AuditLogger.verify_audit_log(str(tmp_path / "nonexistent.jsonl"))
 
 
 class TestPreprocessingExtra:
