@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid as _uuid_mod
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -29,6 +30,12 @@ if not _JWT_SECRET or len(_JWT_SECRET) < 32:
 
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRY_MIN = 60
+
+# Issuer and audience claims are required for strict JWT validation.
+# Set PULSENET_JWT_ISSUER and PULSENET_JWT_AUDIENCE in the deployment environment.
+# Defaults are safe for development but MUST be overridden in production.
+_JWT_ISSUER: str = os.environ.get("PULSENET_JWT_ISSUER", "pulsenet-api")
+_JWT_AUDIENCE: str = os.environ.get("PULSENET_JWT_AUDIENCE", "pulsenet-clients")
 
 # Role -> allowed endpoints
 ROLE_PERMISSIONS: dict[str, set[str]] = {
@@ -77,12 +84,28 @@ USER_DB: dict[str, dict] = _load_users()
 
 
 def create_token(username: str, role: str) -> tuple[str, int]:
-    """Create a JWT token. Returns (token, expiry_minutes)."""
+    """Create a JWT token. Returns (token, expiry_minutes).
+
+    The token includes the following claims for strict validation:
+    - ``sub``: subject (username)
+    - ``role``: application-specific role claim
+    - ``iat``: issued-at timestamp
+    - ``exp``: expiry timestamp
+    - ``nbf``: not-before timestamp (same as ``iat`` — token is valid immediately)
+    - ``iss``: issuer (``PULSENET_JWT_ISSUER`` env var, default ``pulsenet-api``)
+    - ``aud``: audience (``PULSENET_JWT_AUDIENCE`` env var, default ``pulsenet-clients``)
+    - ``jti``: unique token ID (UUID4) for anti-replay tracking
+    """
+    now = int(time.time())
     payload = {
         "sub": username,
         "role": role,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + _JWT_EXPIRY_MIN * 60,
+        "iat": now,
+        "nbf": now,  # token is valid immediately; set future value to delay activation
+        "exp": now + _JWT_EXPIRY_MIN * 60,
+        "iss": _JWT_ISSUER,
+        "aud": _JWT_AUDIENCE,
+        "jti": str(_uuid_mod.uuid4()),  # unique token ID — enables per-token revocation
     }
     # _JWT_SECRET is guaranteed to be a string here due to fallback above
     token = jwt.encode(payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM)
@@ -90,11 +113,38 @@ def create_token(username: str, role: str) -> tuple[str, int]:
 
 
 def verify_token(token: str) -> dict:
-    """Decode and verify a JWT token."""
+    """Decode and verify a JWT token.
+
+    Validates all security-relevant claims:
+    - ``exp``: must not be expired (validated by python-jose automatically)
+    - ``nbf``: must not be used before the not-before time (validated by python-jose)
+    - ``iss``: must match ``_JWT_ISSUER``
+    - ``aud``: must match ``_JWT_AUDIENCE``
+
+    Raises
+    ------
+    fastapi.HTTPException
+        HTTP 401 on any validation failure.  The exception detail includes the
+        specific reason so that callers can return structured error responses.
+        Bare ``except Exception`` is intentionally avoided — only ``JWTError``
+        and its subclasses are caught here; unexpected exceptions propagate.
+    """
     try:
-        payload = jwt.decode(token, str(_JWT_SECRET), algorithms=[_JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            str(_JWT_SECRET),
+            algorithms=[_JWT_ALGORITHM],
+            audience=_JWT_AUDIENCE,
+            issuer=_JWT_ISSUER,
+            options={
+                "verify_exp": True,
+                "verify_nbf": True,
+                "verify_iss": True,
+                "verify_aud": True,
+            },
+        )
         return payload
-    except (JWTError, Exception) as e:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
