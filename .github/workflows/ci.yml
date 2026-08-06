@@ -62,7 +62,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Checkout attack-v19-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           repository: poojakira/attack-v19-core
           path: attack-v19-core
@@ -109,9 +109,12 @@ jobs:
           fi
           echo "Collected $count tests"
 
+      - name: Dependency vulnerability scan
+        run: pip install pip-audit && pip-audit --desc
+
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238  # v4
         with:
           files: coverage.xml
           fail_ci_if_error: false
