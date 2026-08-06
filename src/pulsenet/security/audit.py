@@ -1,125 +1,282 @@
-# pyright: reportGeneralTypeIssues=false
 """
-Access audit logging — tracks who accessed what endpoint, when, with what role.
+src/pulsenet/security/audit.py
+──────────────────────────────────────────────────────────────────────────────
+Append-only, SHA-256 hash-chained audit log for PulseNet.
+
+Design
+------
+Each log entry is a JSON object written as a single newline-delimited line.
+The ``previous_hash`` field contains the SHA-256 digest of the *previous*
+entry's canonical JSON representation, creating a tamper-evident chain.
+
+The first entry (index 0) carries a sentinel ``previous_hash`` of
+``"0" * 64`` (all-zero hex string), referred to as the genesis hash.
+
+Modifying, inserting, or deleting any entry breaks the chain from that
+point forward.  ``verify_audit_log()`` replays the full chain and reports
+each broken link.
+
+Thread safety
+-------------
+A module-level ``threading.Lock`` serialises concurrent writes.  Reads
+(including verification) acquire no lock and tolerate concurrent writers
+by reading a consistent snapshot of whatever is on disk at call time.
+
+No external dependencies beyond the Python standard library.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import re
-import time
+import os
+import threading
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from pulsenet.config import cfg
-from pulsenet.logger import get_logger
+# Module-level write lock — ensures atomic append on Windows (no O_APPEND guarantee).
+_WRITE_LOCK = threading.Lock()
 
-log = get_logger(__name__)
-_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+# Sentinel hash used as ``previous_hash`` for the genesis (first) entry.
+_GENESIS_HASH = "0" * 64
+
+
+def _sha256_of_entry(entry: dict[str, Any]) -> str:
+    """Return the hex SHA-256 digest of the canonical JSON form of *entry*.
+
+    Canonical form: keys sorted, no extra whitespace, UTF-8 encoded.
+    This is deterministic regardless of Python dict insertion order.
+    """
+    canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class AuditLogger:
-    """Append-only access audit log with hash integrity."""
+    """Append-only, hash-chained audit logger.
 
-    def __init__(self, log_file: str | None = None):
-        # Use config as default
-        default_log = getattr(cfg.api, "audit_log", "access_audit.jsonl")
-        self.log_file = Path(log_file or default_log)
+    Each event written to ``log_path`` is a JSON object on its own line.
+    The ``previous_hash`` field links each entry to its predecessor, forming
+    an immutable chain that detects deletion, insertion, or modification of
+    any entry.
 
-    def _get_log_path(self, tenant_id: str) -> Path:
-        """Helper to compute tenant-isolated log path."""
-        if not _TENANT_ID_RE.fullmatch(tenant_id):
-            raise ValueError("Invalid tenant identifier")
-        # Special case: if log_file is a .jsonl file, use it directly for 'public'
-        if tenant_id == "public":
-            return self.log_file
-        return self.log_file.parent / f"access_audit_{tenant_id}.jsonl"
+    Parameters
+    ----------
+    log_path:
+        Path to the NDJSON audit log file.  Parent directories are created
+        on first write if they do not exist.
+    tenant_id:
+        Optional default tenant ID (unused internally; reserved for
+        subclass convenience).
 
-    def log_access(
+    Example
+    -------
+    >>> logger = AuditLogger("/var/log/pulsenet/audit.jsonl")
+    >>> event_id = logger.log_event(
+    ...     event_type="prediction_request",
+    ...     tenant_id="acme-corp",
+    ...     details={"model": "isolation_forest", "rul_estimate": 42},
+    ... )
+    >>> is_valid, violations = AuditLogger.verify_audit_log(
+    ...     "/var/log/pulsenet/audit.jsonl"
+    ... )
+    """
+
+    def __init__(
         self,
-        endpoint: str,
-        method: str,
-        user: str = "anonymous",
-        role: str = "unknown",
-        status_code: int = 200,
-        metadata: dict[str, Any] | None = None,
-        tenant_id: str = "public",
+        log_path: str | os.PathLike[str],
+        tenant_id: str = "",
+    ) -> None:
+        self.log_path = Path(log_path)
+        self.default_tenant_id = tenant_id
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # ── Private helpers ────────────────────────────────────────────────────
+
+    def _read_entries(self) -> list[dict[str, Any]]:
+        """Read all entries from disk.  Returns empty list if file absent."""
+        if not self.log_path.exists():
+            return []
+        entries: list[dict[str, Any]] = []
+        with self.log_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+        return entries
+
+    def _last_entry_hash(self) -> str:
+        """Return SHA-256 of the last committed entry, or the genesis sentinel."""
+        entries = self._read_entries()
+        if not entries:
+            return _GENESIS_HASH
+        return _sha256_of_entry(entries[-1])
+
+    # ── Public API ─────────────────────────────────────────────────────────
+
+    def log_event(
+        self,
+        event_type: str,
+        tenant_id: str,
+        details: dict[str, Any],
     ) -> str:
-        """Record an access event for a specific tenant. Returns the entry hash."""
-        entry: dict[str, Any] = {
-            "timestamp": time.time(),
-            "endpoint": endpoint,
-            "method": method,
-            "user": user,
-            "role": role,
-            "status_code": status_code,
-            "tenant": tenant_id,
-            "metadata": metadata or {},
+        """Append a new event to the audit log and return its ``event_id``.
+
+        Parameters
+        ----------
+        event_type:
+            Short identifier for the event, e.g. ``"prediction_request"``,
+            ``"rbac_violation"``, ``"adversarial_input_blocked"``.
+        tenant_id:
+            Identifier of the tenant that triggered the event.
+        details:
+            Arbitrary JSON-serialisable key/value context.
+
+        Returns
+        -------
+        str
+            UUID4 ``event_id`` assigned to the new entry.
+
+        Raises
+        ------
+        ValueError
+            If ``event_type`` or ``tenant_id`` are empty strings.
+        TypeError
+            If ``details`` is not a ``dict``.
+        """
+        if not event_type:
+            raise ValueError("event_type must not be empty")
+        if not tenant_id:
+            raise ValueError("tenant_id must not be empty")
+        if not isinstance(details, dict):
+            raise TypeError(
+                f"details must be a dict, got {type(details).__name__}"
+            )
+
+        event_id = str(uuid.uuid4())
+        timestamp = datetime.now(tz=timezone.utc).isoformat()
+
+        with _WRITE_LOCK:
+            previous_hash = self._last_entry_hash()
+
+            entry: dict[str, Any] = {
+                "event_id": event_id,
+                "timestamp": timestamp,
+                "event_type": event_type,
+                "tenant_id": tenant_id,
+                "details": details,
+                "previous_hash": previous_hash,
+            }
+
+            line = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+            with self.log_path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+
+        return event_id
+
+    # ── Static verification ────────────────────────────────────────────────
+
+    @staticmethod
+    def verify_audit_log(
+        log_path: str | os.PathLike[str],
+    ) -> tuple[bool, list[str]]:
+        """Verify the hash-chain integrity of an audit log file.
+
+        Replays every entry, recomputing the expected ``previous_hash`` for
+        each link and comparing it to the stored value.  Also checks for
+        required fields and non-decreasing timestamps.
+
+        Parameters
+        ----------
+        log_path:
+            Path to the NDJSON audit log file to verify.
+
+        Returns
+        -------
+        tuple[bool, list[str]]
+            ``(is_valid, violations)`` where *is_valid* is ``True`` iff no
+            violations were found, and *violations* is a (possibly empty)
+            list of human-readable descriptions of each broken link or
+            missing field.
+
+        Example
+        -------
+        >>> ok, violations = AuditLogger.verify_audit_log("audit.jsonl")
+        >>> if not ok:
+        ...     for v in violations:
+        ...         print("VIOLATION:", v)
+        """
+        path = Path(log_path)
+        violations: list[str] = []
+
+        if not path.exists():
+            violations.append(f"Log file not found: {path}")
+            return False, violations
+
+        entries: list[dict[str, Any]] = []
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                for lineno, raw_line in enumerate(fh, start=1):
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError as exc:
+                        violations.append(
+                            f"Line {lineno}: JSON parse error — {exc}"
+                        )
+        except OSError as exc:
+            violations.append(f"Cannot read log file: {exc}")
+            return False, violations
+
+        if not entries:
+            return True, []  # Empty log is trivially valid.
+
+        required_fields = {
+            "event_id",
+            "timestamp",
+            "event_type",
+            "tenant_id",
+            "details",
+            "previous_hash",
         }
 
-        try:
-            entry_str = json.dumps(entry, sort_keys=True)
-            entry_hash = hashlib.sha256(entry_str.encode()).hexdigest()
-            entry["hash"] = entry_hash
+        expected_previous_hash = _GENESIS_HASH
+        previous_timestamp: str | None = None
 
-            log_path = self._get_log_path(tenant_id)
-            with open(log_path, "a") as f:
-                f.write(json.dumps(entry) + "\n")
+        for idx, entry in enumerate(entries):
+            # Field presence ---------------------------------------------------
+            missing = required_fields - set(entry.keys())
+            if missing:
+                violations.append(
+                    f"Entry {idx}: missing required fields: {sorted(missing)}"
+                )
+                # Advance expected hash to keep chain position accurate.
+                expected_previous_hash = _sha256_of_entry(entry)
+                continue
 
-            log.debug(
-                "Access logged",
-                extra={"endpoint": endpoint, "user": user, "role": role},
-            )
-            return entry_hash
-        except Exception as e:
-            log.error(f"Failed to write audit log: {e}")
-            return "ACCESS_LOG_FAILURE"
+            # Hash chain -------------------------------------------------------
+            stored = entry["previous_hash"]
+            if stored != expected_previous_hash:
+                violations.append(
+                    f"Entry {idx} (event_id={entry.get('event_id', '?')}): "
+                    f"hash chain broken — "
+                    f"expected previous_hash={expected_previous_hash[:16]}…, "
+                    f"got {stored[:16]}…"
+                )
 
-    def get_recent(
-        self, n: int = 50, tenant_id: str = "public"
-    ) -> list[dict[str, Any]]:
-        """Return the last N audit entries for a given tenant."""
-        log_path = self._get_log_path(tenant_id)
-        if not log_path.exists():
-            return []
+            # Timestamp monotonicity -------------------------------------------
+            ts = entry.get("timestamp", "")
+            if previous_timestamp is not None and ts < previous_timestamp:
+                violations.append(
+                    f"Entry {idx} (event_id={entry.get('event_id', '?')}): "
+                    f"timestamp {ts!r} is earlier than previous "
+                    f"entry {previous_timestamp!r}"
+                )
 
-        try:
-            with open(log_path) as f:
-                lines = f.readlines()
+            expected_previous_hash = _sha256_of_entry(entry)
+            previous_timestamp = ts
 
-            entries: list[dict[str, Any]] = []
-            for line in lines[-n:]:
-                try:
-                    entries.append(cast(dict[str, Any], json.loads(line)))
-                except json.JSONDecodeError:
-                    continue
-            return entries
-        except Exception as e:
-            log.warning(f"Failed to read recent audit entries for {tenant_id}: {e}")
-            return []
-
-    def verify_integrity(self, tenant_id: str = "public") -> tuple[bool, int]:
-        """Verify hash integrity of all entries for a given tenant."""
-        log_path = self._get_log_path(tenant_id)
-        if not log_path.exists():
-            return True, 0
-
-        corrupt = 0
-        try:
-            with open(log_path) as f:
-                for line in f:
-                    try:
-                        entry = cast(dict[str, Any], json.loads(line))
-                        stored_hash = entry.pop("hash", "")
-                        recomputed = hashlib.sha256(
-                            json.dumps(entry, sort_keys=True).encode()
-                        ).hexdigest()
-                        if stored_hash != recomputed:
-                            corrupt += 1
-                    except (json.JSONDecodeError, KeyError):
-                        corrupt += 1
-            return corrupt == 0, corrupt
-        except Exception as e:
-            log.error(f"Audit integrity check failed for {tenant_id}: {e}")
-            return False, -1
+        return len(violations) == 0, violations
