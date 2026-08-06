@@ -62,7 +62,7 @@ Full threat model in [THREAT_MODEL.md](THREAT_MODEL.md). Summary of the 12 ident
 | FastAPI endpoint | **Denial of Service** — flood of unauthenticated requests saturates inference workers | Rate limiter (slowapi) keyed on JWT sub + auth check before queue entry | Preventive |
 | CI/CD pipeline | **Elevation of Privilege** — malicious PR injects code bypassing RBAC | Branch protection + required CodeQL SARIF pass; pinned action versions | Preventive |
 | JWT Token | **Spoofing** — stolen token used from unauthorized client | Short-lived tokens (15 min); RS256 signed; token binding to `client_id` claim | Preventive |
-| Encryption Keys | **Information Disclosure** — key material exposed in container env vars | Keys stored in Docker secrets / AWS Secrets Manager; never in env or source | Preventive |
+| Encryption Keys | **Information Disclosure** — key material exposed in container env vars | Keys stored in Docker secrets (local) or env vars; AWS Secrets Manager integration planned but NOT yet implemented | Preventive |
 | Model Artifact | **Tampering** — model weights replaced with backdoored version | SHA-256 manifest checked at load time; artifacts in S3 with object lock | Detective |
 | Prometheus Metrics | **Information Disclosure** — `/metrics` leaks tenant count and request rates | `/metrics` restricted to internal Docker network; not on public port | Preventive |
 | Docker network | **Lateral Movement** — compromised dashboard pivots to model service | Network segmentation: `internal` network for model+DB, `external` for API only | Preventive |
