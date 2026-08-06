@@ -1,6 +1,18 @@
 # pyright: reportGeneralTypeIssues=false
 """
-AES-256 Fernet encryption with key rotation and secure key management.
+Encryption utilities for PulseNet.
+
+Two independent encryption layers are provided:
+
+1. **Module-level AES-256-GCM functions** (``encrypt`` / ``decrypt``)
+   Low-level, key-explicit primitives using AESGCM from the ``cryptography``
+   library.  These are the canonical functions for tamper-evident encryption
+   of individual payloads.  ``decrypt`` ALWAYS raises ``InvalidTag`` on any
+   authentication failure — it never returns a default value.
+
+2. **EncryptionManager class** (Fernet / AES-128-CBC + HMAC-SHA256)
+   Higher-level key-management wrapper used for DataFrame and API-payload
+   encryption.  Handles key loading, rotation, and file-permission hardening.
 
 Loads encryption key from:
   1. Environment variable  PULSENET_ENCRYPTION_KEY
@@ -17,9 +29,97 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from pulsenet.logger import get_logger
+
+# ---------------------------------------------------------------------------
+# Module-level AES-256-GCM primitives
+# ---------------------------------------------------------------------------
+# These functions are intentionally key-explicit (no hidden global state).
+# The caller is responsible for generating and protecting the 32-byte key.
+#
+# Token format:  nonce (12 bytes) || ciphertext+tag (variable)
+# The GCM authentication tag is appended to the ciphertext by AESGCM.encrypt.
+
+
+def encrypt(key: bytes, plaintext: bytes) -> bytes:
+    """Encrypt *plaintext* with AES-256-GCM.
+
+    Parameters
+    ----------
+    key:
+        32-byte (256-bit) symmetric key.  Must be generated with a CSPRNG
+        (e.g. ``os.urandom(32)``).
+    plaintext:
+        Arbitrary byte string to protect.
+
+    Returns
+    -------
+    bytes
+        ``nonce || ciphertext || gcm_tag`` — a self-contained token that
+        can be passed to :func:`decrypt`.
+
+    Raises
+    ------
+    ValueError
+        If *key* is not exactly 32 bytes.
+    """
+    if len(key) != 32:
+        raise ValueError(
+            f"AES-256 requires a 32-byte key; got {len(key)} bytes"
+        )
+    nonce = os.urandom(12)  # 96-bit nonce; NIST SP 800-38D recommended size
+    aesgcm = AESGCM(key)
+    ciphertext_and_tag = aesgcm.encrypt(nonce, plaintext, None)
+    return nonce + ciphertext_and_tag
+
+
+def decrypt(key: bytes, token: bytes) -> bytes:
+    """Decrypt a token produced by :func:`encrypt`.
+
+    This function is **fail-closed**: it ALWAYS raises ``InvalidTag`` when the
+    ciphertext has been tampered with, truncated, or encrypted under a different
+    key.  It NEVER returns a default or fallback value.
+
+    Parameters
+    ----------
+    key:
+        32-byte (256-bit) symmetric key identical to the one used to encrypt.
+    token:
+        Byte string in the format ``nonce || ciphertext || gcm_tag`` as
+        produced by :func:`encrypt`.
+
+    Returns
+    -------
+    bytes
+        The original plaintext.
+
+    Raises
+    ------
+    ValueError
+        If *key* is not exactly 32 bytes, or *token* is too short to contain
+        a valid nonce.
+    cryptography.exceptions.InvalidTag
+        If the GCM authentication tag does not match — meaning the ciphertext
+        was tampered with, truncated, or decrypted with the wrong key.
+        **This exception must never be caught and swallowed by callers.**
+    """
+    if len(key) != 32:
+        raise ValueError(
+            f"AES-256 requires a 32-byte key; got {len(key)} bytes"
+        )
+    if len(token) < 12:
+        raise ValueError(
+            f"Token too short to contain a 12-byte nonce; got {len(token)} bytes"
+        )
+    nonce, ciphertext_and_tag = token[:12], token[12:]
+    aesgcm = AESGCM(key)
+    # AESGCM.decrypt raises InvalidTag on any authentication failure.
+    # Do NOT catch InvalidTag here — let it propagate to the caller.
+    return aesgcm.decrypt(nonce, ciphertext_and_tag, None)
 
 log = get_logger(__name__)
 
@@ -167,12 +267,23 @@ class EncryptionManager:
         )
 
     def decrypt_cell(self, val: str) -> float:
-        """Decrypt a single cell to float (streaming use-case)."""
-        try:
-            return float(self.decrypt(val))
-        except (ValueError, TypeError, Exception) as e:
-            log.debug(f"Cell decryption failed: {e}")
-            return 0.0
+        """Decrypt a single encrypted cell and convert to float (streaming use-case).
+
+        Raises
+        ------
+        cryptography.fernet.InvalidToken
+            If the ciphertext is invalid or has been tampered with.  This
+            exception is **intentionally not caught** — a tampered cell must
+            never silently produce a synthetic sensor value (e.g. 0.0) that
+            could corrupt downstream ICS decisions.
+        ValueError
+            If the decrypted value cannot be converted to float.
+        """
+        # Do NOT catch cryptography.fernet.InvalidToken here.  A tampered
+        # ciphertext must propagate immediately; returning 0.0 (or any other
+        # sentinel) would allow adversarial sensor data to reach the model.
+        decrypted_str = self.decrypt(val)
+        return float(decrypted_str)
 
     # ------------------------------------------------------------------
     # API payload helpers

@@ -589,3 +589,245 @@ def test_sarif_output_valid_schema() -> None:
     reloaded = json.loads(serialized)
     violations = _validate_sarif_schema(reloaded)
     assert violations == [], "SARIF must survive JSON round-trip intact"
+
+
+
+# ===========================================================================
+# TEST 6 — AES-256-GCM: decrypt raises InvalidTag on tampered ciphertext
+# ===========================================================================
+
+def test_decrypt_raises_on_tampered_ciphertext() -> None:
+    """
+    The module-level decrypt() function must raise InvalidTag when the
+    ciphertext has been tampered with.  It must NEVER return a default
+    value (e.g. 0.0 or b'') on authentication failure.
+
+    This directly tests CRITICAL-1 from SECURITY_AUDIT.md:
+    fail-closed decryption for ICS sensor data integrity.
+    """
+    from cryptography.exceptions import InvalidTag
+
+    # Use the real module-level functions if available; inline otherwise.
+    if _USE_REAL_ENCRYPTION:
+        from pulsenet.security.encryption import decrypt as real_decrypt
+        from pulsenet.security.encryption import encrypt as real_encrypt
+        enc_fn = real_encrypt
+        dec_fn = real_decrypt
+    else:
+        enc_fn = _aes_gcm_encrypt
+        dec_fn = _aes_gcm_decrypt
+
+    key = os.urandom(32)
+    plaintext = b"sensor_rul=42"
+
+    token = enc_fn(key, plaintext)
+
+    # Tamper: flip last byte of auth tag
+    tampered = bytearray(token)
+    tampered[-1] ^= 0xFF
+    with pytest.raises(InvalidTag):
+        dec_fn(key, bytes(tampered))
+
+    # Tamper: flip first byte of ciphertext (after 12-byte nonce)
+    tampered2 = bytearray(token)
+    tampered2[12] ^= 0x01
+    with pytest.raises(InvalidTag):
+        dec_fn(key, bytes(tampered2))
+
+    # Wrong key must also raise InvalidTag
+    wrong_key = os.urandom(32)
+    with pytest.raises(InvalidTag):
+        dec_fn(wrong_key, token)
+
+    # Correct key+token must round-trip cleanly (sanity check)
+    recovered = dec_fn(key, token)
+    assert recovered == plaintext, "Clean round-trip must succeed"
+
+
+# ===========================================================================
+# TEST 7 — Audit log: verify raises AuditIntegrityError on hash chain break
+# ===========================================================================
+
+def test_audit_verify_detects_hash_chain_break() -> None:
+    """
+    AuditLogger.verify_audit_log() must raise AuditIntegrityError when the
+    middle entry of a 3-entry chain is corrupted.
+
+    This tests FINDING-6 from SECURITY_AUDIT.md: verification must be
+    fail-closed (raise) rather than returning a silently-ignorable False.
+    """
+    if _USE_REAL_AUDIT:
+        from pulsenet.security.audit import AuditIntegrityError, AuditLogger
+        _verify = AuditLogger.verify_audit_log
+        _error_cls = AuditIntegrityError
+    else:
+        # Use the inline verifier, which still returns (bool, list).
+        # Wrap it to match the fail-closed contract we're testing.
+        class _InlineAuditIntegrityError(Exception):
+            def __init__(self, violations: list[str]) -> None:
+                self.violations = violations
+                super().__init__(str(violations))
+
+        def _verify(log_path):  # type: ignore[override]
+            ok, viol = _verify_audit_log(Path(log_path))
+            if not ok:
+                raise _InlineAuditIntegrityError(viol)
+            return True, []
+
+        _error_cls = _InlineAuditIntegrityError  # type: ignore[assignment]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_path = Path(tmpdir) / "audit.jsonl"
+
+        # Write 3 clean entries
+        prev_hash = GENESIS_HASH
+        entries = []
+        for i in range(3):
+            entry = _write_audit_entry(
+                log_path,
+                event_type="prediction_request",
+                tenant_id="tenant-x",
+                details={"index": i},
+                previous_hash=prev_hash,
+            )
+            prev_hash = _sha256_of_entry(entry)
+            entries.append(entry)
+
+        # Verify clean chain passes
+        ok, violations = _verify(log_path)
+        assert ok is True
+        assert violations == []
+
+        # Corrupt middle entry (index 1)
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        mid = json.loads(lines[1])
+        mid["details"]["index"] = 999  # change content without updating hash
+        lines[1] = json.dumps(mid, sort_keys=True, separators=(",", ":"))
+        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        # verify_audit_log must raise, not return False
+        with pytest.raises(_error_cls) as exc_info:
+            _verify(log_path)
+
+        assert len(exc_info.value.violations) >= 1, (
+            "AuditIntegrityError must carry at least one violation description"
+        )
+        assert any(
+            "hash chain broken" in v or "hash" in v.lower()
+            for v in exc_info.value.violations
+        ), f"Expected hash-chain violation, got: {exc_info.value.violations}"
+
+
+# ===========================================================================
+# TEST 8 — JWT: expired token is rejected with HTTP 401
+# ===========================================================================
+
+def test_jwt_rejects_expired_token() -> None:
+    """
+    verify_token() must reject a token whose ``exp`` claim is in the past.
+    This tests that python-jose's expiry validation is active and that
+    verify_token() correctly raises HTTPException(401).
+
+    Covers CRITICAL-3 from SECURITY_AUDIT.md: JWT claim validation.
+    """
+    try:
+        from pulsenet.api.auth import _JWT_ALGORITHM, _JWT_SECRET, verify_token
+    except ImportError:
+        pytest.skip("pulsenet.api.auth not importable in this environment")
+
+    from jose import jwt as jose_jwt
+
+    # Build a token that expired 1 second ago
+    expired_payload = {
+        "sub": "test-user",
+        "role": "operator",
+        "iat": int(time.time()) - 120,
+        "nbf": int(time.time()) - 120,
+        "exp": int(time.time()) - 1,  # already expired
+        "iss": os.environ.get("PULSENET_JWT_ISSUER", "pulsenet-api"),
+        "aud": os.environ.get("PULSENET_JWT_AUDIENCE", "pulsenet-clients"),
+        "jti": "test-expired-token-id",
+    }
+    expired_token = jose_jwt.encode(
+        expired_payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM
+    )
+
+    # verify_token must raise HTTPException 401
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_token(expired_token)
+
+    assert exc_info.value.status_code == 401, (
+        f"Expected 401, got {exc_info.value.status_code}"
+    )
+
+    # Also verify that a valid (non-expired) token still works
+    valid_payload = {
+        "sub": "test-user",
+        "role": "operator",
+        "iat": int(time.time()),
+        "nbf": int(time.time()),
+        "exp": int(time.time()) + 3600,
+        "iss": os.environ.get("PULSENET_JWT_ISSUER", "pulsenet-api"),
+        "aud": os.environ.get("PULSENET_JWT_AUDIENCE", "pulsenet-clients"),
+        "jti": "test-valid-token-id",
+    }
+    valid_token = jose_jwt.encode(
+        valid_payload, str(_JWT_SECRET), algorithm=_JWT_ALGORITHM
+    )
+    result = verify_token(valid_token)
+    assert result["sub"] == "test-user", "Valid token must decode correctly"
+
+
+
+# ===========================================================================
+# TEST 9 — Audit log: verify_audit_log() detects corruption via AuditLogger
+# ===========================================================================
+
+def test_audit_log_verify_detects_corruption() -> None:
+    """
+    Write 3 entries with AuditLogger, corrupt the middle entry's details
+    field in the JSONL file, then verify that verify_audit_log() raises
+    AuditIntegrityError with at least one violation.
+
+    This test uses the real AuditLogger (if importable) so that the
+    production code path is exercised end-to-end.
+    """
+    if not _USE_REAL_AUDIT:
+        pytest.skip("pulsenet.security.audit not importable — skipping real-module test")
+
+    from pulsenet.security.audit import AuditIntegrityError, AuditLogger
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_path = Path(tmpdir) / "audit_corruption.jsonl"
+        logger = AuditLogger(log_path=log_path)
+
+        # Write 3 entries
+        logger.log_event("prediction_request", "tenant-a", {"step": 0})
+        logger.log_event("prediction_request", "tenant-a", {"step": 1})
+        logger.log_event("prediction_request", "tenant-a", {"step": 2})
+
+        # Read the JSONL file, corrupt the middle entry's details field
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 3, f"Expected 3 log lines, got {len(lines)}"
+
+        middle = json.loads(lines[1])
+        middle["details"]["step"] = 999  # tamper without updating previous_hash chain
+        lines[1] = json.dumps(middle, sort_keys=True, separators=(",", ":"))
+
+        # Write the corrupted JSONL back
+        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        # verify_audit_log() MUST raise AuditIntegrityError, never return False
+        with pytest.raises(AuditIntegrityError) as exc_info:
+            AuditLogger.verify_audit_log(log_path)
+
+        violations = exc_info.value.violations
+        assert len(violations) >= 1, (
+            "AuditIntegrityError.violations must contain at least one entry"
+        )
+        assert any(
+            "hash chain broken" in v or "hash" in v.lower()
+            for v in violations
+        ), f"Expected a hash-chain violation, got: {violations}"

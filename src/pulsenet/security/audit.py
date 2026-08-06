@@ -43,6 +43,24 @@ _WRITE_LOCK = threading.Lock()
 _GENESIS_HASH = "0" * 64
 
 
+class AuditIntegrityError(Exception):
+    """Raised when the hash-chain integrity of an audit log is violated.
+
+    Attributes
+    ----------
+    violations:
+        List of human-readable descriptions of each broken link or missing
+        field discovered during verification.
+    """
+
+    def __init__(self, violations: list[str]) -> None:
+        self.violations: list[str] = violations
+        summary = f"{len(violations)} violation(s): {violations[0]!r}" + (
+            f" (and {len(violations) - 1} more)" if len(violations) > 1 else ""
+        )
+        super().__init__(f"Audit log integrity check failed — {summary}")
+
+
 def _sha256_of_entry(entry: dict[str, Any]) -> str:
     """Return the hex SHA-256 digest of the canonical JSON form of *entry*.
 
@@ -195,16 +213,25 @@ class AuditLogger:
         Returns
         -------
         tuple[bool, list[str]]
-            ``(is_valid, violations)`` where *is_valid* is ``True`` iff no
-            violations were found, and *violations* is a (possibly empty)
-            list of human-readable descriptions of each broken link or
-            missing field.
+            ``(True, [])`` when the log is intact.  This method **never**
+            returns ``(False, violations)`` — any integrity failure raises
+            :exc:`AuditIntegrityError` immediately instead of allowing the
+            caller to silently ignore the return value.
+
+        Raises
+        ------
+        AuditIntegrityError
+            If any hash-chain link is broken, any entry is missing required
+            fields, any timestamp is non-monotonic, the file cannot be read,
+            or the file does not exist.  The ``violations`` attribute of the
+            exception contains the full list of human-readable descriptions.
 
         Example
         -------
-        >>> ok, violations = AuditLogger.verify_audit_log("audit.jsonl")
-        >>> if not ok:
-        ...     for v in violations:
+        >>> try:
+        ...     AuditLogger.verify_audit_log("audit.jsonl")
+        ... except AuditIntegrityError as exc:
+        ...     for v in exc.violations:
         ...         print("VIOLATION:", v)
         """
         path = Path(log_path)
@@ -212,7 +239,7 @@ class AuditLogger:
 
         if not path.exists():
             violations.append(f"Log file not found: {path}")
-            return False, violations
+            raise AuditIntegrityError(violations)
 
         entries: list[dict[str, Any]] = []
         try:
@@ -229,7 +256,11 @@ class AuditLogger:
                         )
         except OSError as exc:
             violations.append(f"Cannot read log file: {exc}")
-            return False, violations
+            raise AuditIntegrityError(violations) from exc
+
+        if violations:
+            # JSON parse errors already found — fail immediately.
+            raise AuditIntegrityError(violations)
 
         if not entries:
             return True, []  # Empty log is trivially valid.
@@ -279,4 +310,7 @@ class AuditLogger:
             expected_previous_hash = _sha256_of_entry(entry)
             previous_timestamp = ts
 
-        return len(violations) == 0, violations
+        if violations:
+            raise AuditIntegrityError(violations)
+
+        return True, []
