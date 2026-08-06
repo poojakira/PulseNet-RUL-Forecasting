@@ -348,7 +348,7 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
 # Run API server
-uvicorn src.pulsenet.api.main:app --reload --port 8000
+uvicorn src.pulsenet.api.main:app --host 0.0.0.0 --port 8000
 
 # Run dashboard
 streamlit run src/pulsenet/dashboard/app.py
