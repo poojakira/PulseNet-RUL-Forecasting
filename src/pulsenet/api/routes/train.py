@@ -10,11 +10,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 
 from pulsenet.api.auth import require_permission
 from pulsenet.api.schemas import TrainRequest, TrainResponse
+import os
+
 from pulsenet.logger import get_logger
 from pulsenet.security.audit import AuditLogger
 
 router = APIRouter(tags=["Training"])
-audit = AuditLogger()
+audit = AuditLogger(os.environ.get("PULSENET_AUDIT_LOG", "audit/pulsenet.jsonl"))
 log = get_logger(__name__)
 
 _pipeline_ref: dict = {}
