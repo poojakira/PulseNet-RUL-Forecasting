@@ -154,105 +154,93 @@ and surfaced via a Streamlit dashboard and Prometheus/Grafana observability stac
 
 ---
 
-### Finding 7 — JWT Token: Spoofing
+### Finding 7 — Training Pipeline: Data Poisoning (Tampering)
 
 | Field | Detail |
 |-------|--------|
-| **Component** | JWT authentication tokens |
-| **Threat category** | Spoofing |
-| **ATT&CK** | T1078 (Valid Accounts), T1539 (Steal Web Session Cookie) |
-| **Description** | An attacker obtains a valid JWT (via network interception, credential stuffing, or session hijacking) and uses it from an unauthorized client to impersonate a legitimate tenant and issue prediction requests or read results. |
-| **Impact** | High — full tenant account takeover for the token's lifetime |
-| **Likelihood** | Low-medium — depends on token exfiltration opportunity |
-| **Mitigation** | Tokens are RS256-signed (private key in Docker secret, never in env). Short-lived: 15-minute expiry enforced server-side. `client_id` claim binds the token to a registered client identifier checked on every request. HTTPS enforced; tokens never logged. |
-| **Residual risk** | 15-minute window after theft. Mitigate with token revocation list (Redis-backed blocklist) for high-privilege operations. |
-| **Control type** | Preventive |
-| **Verification** | `tests/test_security.py::test_rbac_blocks_cross_tenant_access` (expired/wrong-tenant token cases) |
+| **Component** | Model training pipeline (offline) |
+| **Threat category** | Tampering |
+| **ATT&CK** | T1685, T0868 (ICS Modify Control Logic) |
+| **Description** | Attacker injects mislabeled or adversarial samples into the C-MAPSS training dataset, causing the trained Isolation Forest to misclassify fault conditions as healthy. Poisoning 5% of training data can shift the decision boundary enough to suppress anomaly alerts. |
+| **Impact** | High |
+| **Likelihood** | Low |
+| **Mitigation** | Training data provenance tracked in data/official/CMAPSSData.zip SHA-256 manifest. Training runs in isolated CI environment with no external network access. Dataset version pinned in pyproject.toml. |
+| **Control type** | Preventive / Detective |
 
 ---
 
-### Finding 8 — Encryption Keys: Information Disclosure
+### Finding 8 — Model Checkpoint Storage: Tampering
 
 | Field | Detail |
 |-------|--------|
-| **Component** | AES-256-GCM encryption key material |
-| **Threat category** | Information Disclosure |
-| **ATT&CK** | T1552 (Unsecured Credentials), T1552.001 (Credentials in Files) |
-| **Description** | Encryption keys stored as environment variables or hardcoded in source are exposed via `docker inspect`, container logs, or source code scanning. Any attacker with read access to the container environment or the repository can decrypt stored prediction data. |
-| **Impact** | Critical — decrypts all at-rest tenant data |
-| **Likelihood** | Medium — environment variable leakage is a common misconfiguration |
-| **Mitigation** | Keys are stored exclusively in Docker secrets (mounted at `/run/secrets/`; tmpfs, never written to disk) and loaded at startup. The application reads key material from the secrets path; no key values appear in environment variables, config files, or application logs. In production, secrets are sourced from AWS Secrets Manager via the ECS secrets injection mechanism. |
-| **Residual risk** | Docker secrets are readable by processes in the same container. Mitigate with read-once key loading and in-memory zeroing after use. |
-| **Control type** | Preventive |
-| **Verification** | `tests/test_security.py::test_aes_gcm_encryption_decryption`; secret scanning CI step |
-
----
-
-### Finding 9 — Model Artifact: Tampering
-
-| Field | Detail |
-|-------|--------|
-| **Component** | Serialized model artifact (.joblib / .pt files) |
+| **Component** | Serialized model artifacts (.joblib files) |
 | **Threat category** | Tampering |
 | **ATT&CK** | T1683.001 (ML Supply Chain — Model Tampering), T0843 (ICS Program Download) |
-| **Description** | A backdoored model artifact is substituted for the legitimate trained model, either in the artifact store (S3 bucket) or during the container build. The backdoored model produces "healthy" predictions for specific sensor patterns chosen by the attacker. |
-| **Impact** | Critical — silent prediction manipulation affecting all tenants using the model |
-| **Likelihood** | Low — requires write access to artifact store or CI pipeline |
-| **Mitigation** | SHA-256 digest of each model artifact is recorded in `models/manifest.json` at train time. `src/pulsenet/models/registry.py` recomputes the digest on load and raises `ModelIntegrityError` if it does not match. S3 bucket has Object Lock (WORM) enabled; no direct write access from the inference container. |
-| **Residual risk** | Compromise of the manifest itself. Mitigate by signing the manifest with a hardware key (AWS KMS asymmetric key). |
+| **Description** | A backdoored model checkpoint is substituted in the artifact store between training and serving. The backdoored model produces healthy predictions for specific sensor signatures chosen by the attacker. |
+| **Impact** | Critical |
+| **Likelihood** | Low |
+| **Mitigation** | SHA-256 digest of each artifact committed to models/manifest.json at train time. Registry verifies digest on load, raises ModelIntegrityError on mismatch. S3 Object Lock (WORM) in production. |
 | **Control type** | Detective |
-| **Verification** | `tests/test_models.py::test_model_artifact_hash_verified_on_load` |
 
 ---
 
-### Finding 10 — Prometheus Metrics: Information Disclosure
+### Finding 9 — Feature Engineering Pipeline: Tampering
 
 | Field | Detail |
 |-------|--------|
-| **Component** | Prometheus `/metrics` endpoint |
+| **Component** | Feature extraction and normalization pipeline |
+| **Threat category** | Tampering |
+| **ATT&CK** | T1565 (Data Manipulation) |
+| **Description** | If a compromised upstream service can inject values into the feature pipeline (e.g. via a poisoned Kafka topic), normalised features could shift the Isolation Forest score silently without triggering input validation. |
+| **Impact** | Medium |
+| **Likelihood** | Low |
+| **Mitigation** | Feature pipeline inputs validated against training-distribution statistics (mean ± 5σ). Pipeline runs in isolated container with no external write access post-deployment. |
+| **Control type** | Preventive |
+
+---
+
+### Finding 10 — CI/CD Pipeline Integrity: Elevation of Privilege
+
+| Field | Detail |
+|-------|--------|
+| **Component** | GitHub Actions CI/CD pipeline |
+| **Threat category** | Elevation of Privilege |
+| **ATT&CK** | T1195.001 (Supply Chain Compromise), T0873 (ICS Project File Infection) |
+| **Description** | A malicious PR injects code that weakens the adversarial guard threshold or disables RBAC checks, then is merged via a compromised reviewer account or bypassed branch protection. |
+| **Impact** | Critical |
+| **Likelihood** | Low |
+| **Mitigation** | Branch protection: min 2 reviewers, no self-approval. CodeQL SARIF required status check. GitHub Actions pinned by SHA. CODEOWNERS enforced. |
+| **Control type** | Preventive |
+
+---
+
+### Finding 11 — Data Lineage Store: Information Disclosure
+
+| Field | Detail |
+|-------|--------|
+| **Component** | Data lineage metadata store (docs/DATA_LINEAGE.md + provenance.json) |
 | **Threat category** | Information Disclosure |
-| **ATT&CK** | T1083 (File and Directory Discovery), T1046 (Network Service Discovery) |
-| **Description** | The `/metrics` endpoint exposes tenant count, per-tenant request rates, adversarial detection counts, and RBAC violation rates. If reachable externally, an attacker can enumerate active tenants, infer usage patterns, and time attacks around low-activity periods. |
-| **Impact** | Low-medium — metadata leakage; no direct data access |
-| **Likelihood** | Medium — misconfigured port exposure is common |
-| **Mitigation** | The `/metrics` endpoint is served on the internal Docker network (`pulsenet_internal`) only. The docker-compose.yml Prometheus service has no `ports:` mapping to the host. The FastAPI route sets `include_in_schema=False` to prevent OpenAPI exposure. Network policy enforced at the Docker driver level (`internal: true` on the network). |
-| **Residual risk** | Misconfiguration in future deployments. Mitigate with an automated network exposure test in CI. |
+| **ATT&CK** | T1083 (File and Directory Discovery), T1213 (Data from Information Repositories) |
+| **Description** | Lineage metadata reveals training dataset versions, pipeline configurations, and model genealogy. If exposed externally, this helps an attacker fingerprint the model architecture and craft more targeted adversarial inputs. |
+| **Impact** | Low-Medium |
+| **Likelihood** | Low |
+| **Mitigation** | Lineage metadata stored in internal-only paths, not served via the public API. Prometheus /metrics endpoint (which could expose model version) is internal-network only. |
 | **Control type** | Preventive |
-| **Verification** | Docker Compose network config; `tests/test_api.py::test_metrics_not_on_external_port` |
 
 ---
 
-### Finding 11 — Docker Network: Lateral Movement
+### Finding 12 — Admin Interface: Elevation of Privilege
 
 | Field | Detail |
 |-------|--------|
-| **Component** | Docker network topology |
-| **Threat category** | Lateral Movement (Defense Evasion / TA0005) |
-| **ATT&CK** | T1691 (ICS Lateral Movement), T1021 (Remote Services) |
-| **Description** | A compromised Streamlit dashboard container (e.g. via a malicious Python dependency) uses its network access to pivot directly to the PostgreSQL database or model inference service, bypassing the API gateway and its auth controls entirely. |
-| **Impact** | High — direct DB access allows reading or modifying all tenant data |
-| **Likelihood** | Low — requires dashboard container compromise |
-| **Mitigation** | Network segmentation: `pulsenet_internal` network has `internal: true` (Docker blocks any external routing). The dashboard is on `pulsenet_external` and communicates with the API on `pulsenet_internal` only via the API service's internal hostname. PostgreSQL and the model service have no interface on `pulsenet_external`. The API is the only bridge between networks and enforces auth on every call. |
-| **Residual risk** | Container escape to host. Out of scope for Docker Compose; mitigate with Kubernetes Network Policies and seccomp profiles in production. |
+| **Component** | Administrative interface (model retraining trigger, tenant management) |
+| **Threat category** | Elevation of Privilege |
+| **ATT&CK** | T1078 (Valid Accounts), T1548 (Abuse Elevation Control Mechanism) |
+| **Description** | The admin API endpoints (train trigger, tenant CRUD) require elevated JWT role. If an analyst-role JWT is accepted by an admin endpoint due to missing role check, a tenant could trigger arbitrary model retraining. |
+| **Impact** | High |
+| **Likelihood** | Low-Medium |
+| **Mitigation** | Admin endpoints require role=admin claim in JWT. Role hierarchy enforced in RBAC middleware: viewer < analyst < operator < admin. Unit tests assert analyst JWT rejected by admin routes. |
 | **Control type** | Preventive |
-| **Verification** | `docker-compose.yml` network definitions; `internal: true` on `pulsenet_internal` |
-
----
-
-### Finding 12 — Rate Limiter Bypass: Denial of Service
-
-| Field | Detail |
-|-------|--------|
-| **Component** | API rate limiter (slowapi) |
-| **Threat category** | Denial of Service |
-| **ATT&CK** | T1499.004 (Application or System Exploitation) |
-| **Description** | A per-IP rate limiter is trivially bypassed by rotating source IPs (e.g. from a botnet or cloud provider IP range). The attacker sustains a high request volume against the inference endpoint, exhausting worker capacity without triggering the per-IP threshold. |
-| **Impact** | Medium — service degradation for legitimate tenants |
-| **Likelihood** | Medium — IP rotation is straightforward with cloud infrastructure |
-| **Mitigation** | Rate limiting is keyed on the JWT `sub` claim (tenant identity) when the request is authenticated, making IP rotation ineffective for authenticated DoS. For unauthenticated requests, a circuit breaker pattern drops connections once the unauthenticated request queue depth exceeds a threshold. Prometheus alert fires at >1 adversarial detection per second (proxy for abnormal request patterns). |
-| **Residual risk** | Anonymous request flood before auth rejection. Recommend AWS WAF managed rule group for bot control at the load balancer layer. |
-| **Control type** | Preventive |
-| **Verification** | `tests/test_api.py::test_rate_limiter_keyed_on_jwt_sub` |
 
 ---
 
@@ -266,12 +254,12 @@ and surfaced via a Streamlit dashboard and Prometheus/Grafana observability stac
 | 4 — Tenant Data Disclosure | Info Disclosure | High | Low | Low (JWT theft window) | Mitigated |
 | 5 — API DoS | DoS | Medium | Medium | Low-Med (no WAF) | Partially mitigated |
 | 6 — CI/CD Privilege Escalation | Elevation | Critical | Low | Low (account compromise) | Mitigated |
-| 7 — JWT Spoofing | Spoofing | High | Low-Med | Low (no revocation list) | Mitigated |
-| 8 — Key Disclosure | Info Disclosure | Critical | Medium | Low (Docker secrets) | Mitigated |
-| 9 — Model Tampering | Tampering | Critical | Low | Low (manifest signing recommended) | Mitigated |
-| 10 — Metrics Disclosure | Info Disclosure | Low-Med | Medium | Low | Mitigated |
-| 11 — Lateral Movement | Lateral Movement | High | Low | Low (no K8s policies) | Mitigated |
-| 12 — Rate Limit Bypass DoS | DoS | Medium | Medium | Low-Med (no WAF) | Partially mitigated |
+| 7 — Training Data Poisoning | Tampering | High | Low | Low (pinned dataset, isolated CI) | Mitigated |
+| 8 — Model Checkpoint Tampering | Tampering | Critical | Low | Low (manifest + WORM) | Mitigated |
+| 9 — Feature Pipeline Tampering | Tampering | Medium | Low | Low (distribution validation) | Mitigated |
+| 10 — CI/CD Pipeline Integrity | Elevation | Critical | Low | Low (branch protection + SHA pins) | Mitigated |
+| 11 — Data Lineage Disclosure | Info Disclosure | Low-Med | Low | Low (internal-only paths) | Mitigated |
+| 12 — Admin Interface EoP | Elevation | High | Low-Med | Low (RBAC role hierarchy) | Mitigated |
 
 ---
 
