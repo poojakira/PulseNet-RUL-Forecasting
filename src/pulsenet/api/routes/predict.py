@@ -20,6 +20,8 @@ from pulsenet.api.schemas import (
     SensorInput,
 )
 from pulsenet.logger import get_logger
+import os
+
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.security.audit import AuditLogger
 from pulsenet.security.blockchain import BlackBoxLedger
@@ -27,7 +29,7 @@ from pulsenet.security.blockchain import BlackBoxLedger
 log = get_logger(__name__)
 
 router = APIRouter(tags=["Inference"])
-audit = AuditLogger()
+audit = AuditLogger(os.environ.get("PULSENET_AUDIT_LOG", "audit/pulsenet.jsonl"))
 
 # Module-level model cache (set during app lifespan)
 _model_cache: dict = {}

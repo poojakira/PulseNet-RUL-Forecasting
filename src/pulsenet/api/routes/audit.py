@@ -4,6 +4,8 @@ GET /audit, GET /verify-chain — Blockchain audit endpoints.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, Request
 
 from pulsenet.api.auth import require_permission
@@ -11,7 +13,7 @@ from pulsenet.api.schemas import AuditResponse
 from pulsenet.security.audit import AuditLogger
 
 router = APIRouter(tags=["Audit"])
-audit = AuditLogger()
+audit = AuditLogger(os.environ.get("PULSENET_AUDIT_LOG", "audit/pulsenet.jsonl"))
 
 _audit_refs: dict = {}
 
