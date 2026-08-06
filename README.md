@@ -1,6 +1,6 @@
 # PulseNet — Secure MLOps for Industrial Predictive Maintenance
 
-[![CI](https://img.shields.io/github/actions/workflow/status/poojakira/PulseNet-RUL-Forecasting/ci.yml?label=CI&logo=github)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/poojakira/PulseNet-RUL-Forecasting/ci.yml?branch=main&label=CI)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python)](https://www.python.org/downloads/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![STRIDE Threat Modeled](https://img.shields.io/badge/STRIDE-threat--modeled-orange)](THREAT_MODEL.md)
@@ -148,6 +148,8 @@ Security posture is monitored continuously via Prometheus metrics and Grafana da
 fire on: adversarial input detection, RBAC violation attempts, audit log tampering, model drift
 above threshold.
 
+The /metrics endpoint is implemented in src/pulsenet/api/metrics.py and served on the internal Docker network only (not exposed on public port 8000).
+
 **Prometheus metrics exposed at `/metrics` (internal network only):**
 
 | Metric | Type | Description |
@@ -204,6 +206,8 @@ Recall=0.43.**
 > value here is demonstrating secure pipeline architecture around a realistic (imperfect) model,
 > not claiming state-of-the-art detection.
 
+Note on adversarial guard false-positive rate: The statistical guard (z-score threshold=4.0σ) is tuned for high recall over precision. Operators can set ADVERSARIAL_GUARD_THRESHOLD=6.0 to reduce false alerts at the cost of missing more attacks. This is a deliberate tradeoff for safety-critical anomaly detection.
+
 | Metric | Value | Dataset | Evidence |
 |--------|-------|---------|----------|
 | Isolation Forest F1 | 0.54 | NASA C-MAPSS FD001 | `results/validation_results.json` |
@@ -212,6 +216,8 @@ Recall=0.43.**
 | Mean inference latency | 2.7ms | FD001 test set, batch=32 | `benchmark/latency_results.json` |
 | P99 inference latency | 4.3ms | FD001 test set, batch=32 | `benchmark/latency_results.json` |
 | Throughput | ~13,400 samples/sec | batch=32, single process | `benchmark/latency_results.json` |
+
+Hardware: AWS c5.4xlarge (16 vCPU, 32 GB RAM), single process, batch size 32, Python 3.11, scikit-learn 1.4.0.
 
 ---
 
