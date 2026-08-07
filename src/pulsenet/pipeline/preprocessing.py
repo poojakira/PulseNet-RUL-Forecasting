@@ -20,17 +20,30 @@ def compute_rolling_features(
     window: int = 5,
     sensor_prefix: str = "sensor_",
 ) -> pd.DataFrame:
-    """Add rolling mean features for every sensor column."""
+    """Add rolling mean, std, and rate-of-change features for every sensor column."""
     try:
         sensor_cols = [c for c in df.columns if str(c).startswith(sensor_prefix)]
         for col in sensor_cols:
-            # Explicitly cast to Series for type safety
-            df[f"{col}_rolling_mean"] = df.groupby("unit_number")[col].transform(
+            grouped = df.groupby("unit_number")[col]
+
+            # Rolling mean
+            df[f"{col}_rolling_mean"] = grouped.transform(
                 lambda s: s.rolling(window=window, min_periods=1).mean()
             )
+
+            # Rolling standard deviation — captures volatility/degradation signal
+            df[f"{col}_rolling_std"] = grouped.transform(
+                lambda s: s.rolling(window=window, min_periods=1).std().fillna(0)
+            )
+
+            # Rate of change (first difference) — captures trend direction
+            df[f"{col}_rate_of_change"] = grouped.transform(
+                lambda s: s.diff().fillna(0)
+            )
+
         log.info(
             "Rolling features computed",
-            extra={"window": window, "sensors": len(sensor_cols)},
+            extra={"window": window, "sensors": len(sensor_cols), "feature_types": 3},
         )
         return df
     except Exception as e:

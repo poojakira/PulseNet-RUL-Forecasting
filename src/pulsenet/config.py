@@ -34,8 +34,8 @@ class SystemConfig(BaseModel):
 
 
 class IsolationForestConfig(BaseModel):
-    n_estimators: int = 100
-    contamination: float = 0.12  # Tuned for NASA C-MAPSS FD001 (positive_rate=0.39)
+    n_estimators: int = 200  # Increased from 100 for better ensemble diversity
+    contamination: float = 0.05  # Tuned lower — previous 0.12 over-flagged healthy samples
     max_samples: float = 0.8
     random_state: int = 42
 
