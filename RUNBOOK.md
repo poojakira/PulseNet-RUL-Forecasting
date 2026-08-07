@@ -68,7 +68,22 @@ This will:
 3. Train the Isolation Forest model
 4. Print evaluation metrics
 
-Expected output: model metrics for each configured model, training completes in under 30 seconds on a laptop.
+**Note:** `main_pipeline.py` uses default parameters optimized for high recall (safety-first). The metrics it prints (F1 ~0.25, Recall ~0.99) differ from the benchmark result (F1=0.54) because the benchmark uses a tuned contamination threshold.
+
+## 4b. Reproduce the Benchmark Result (F1=0.54)
+
+To reproduce the exact metrics in `docs/evidence/validation_results.json`:
+
+```bash
+python scripts/run_validation.py
+```
+
+This script uses the same parameters (contamination=auto, failure_rul_threshold=125, 45 features) that produced the committed evidence. Output is saved to `docs/evidence/validation_results.json`.
+
+| Script | Purpose | Expected F1 |
+|--------|---------|-------------|
+| `main_pipeline.py --mode full` | Training with safety-first defaults (high recall) | ~0.25 |
+| `scripts/run_validation.py` | Reproduce committed benchmark evidence | **0.54** |
 
 ## 5. Run Tests
 
