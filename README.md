@@ -1,3 +1,6 @@
+> ℹ️ **REFERENCE ARCHITECTURE — The value here is the security architecture (STRIDE threat model, hash-chained audit, adversarial guards), not the ML performance. The Isolation Forest achieves F1=0.54 on NASA C-MAPSS FD001, which is not production-viable for maintenance scheduling. This is a secure MLOps reference implementation, not a predictive maintenance product.**
+
+---
 # PulseNet — Secure MLOps for Industrial Predictive Maintenance
 
 [![CI](https://img.shields.io/github/actions/workflow/status/poojakira/PulseNet-RUL-Forecasting/ci.yml?branch=main&label=CI)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
