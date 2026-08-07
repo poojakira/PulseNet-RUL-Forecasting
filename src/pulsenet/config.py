@@ -34,8 +34,8 @@ class SystemConfig(BaseModel):
 
 
 class IsolationForestConfig(BaseModel):
-    n_estimators: int = 200
-    contamination: float = 0.05
+    n_estimators: int = 100
+    contamination: float = 0.12  # Tuned for NASA C-MAPSS FD001 (positive_rate=0.39)
     max_samples: float = 0.8
     random_state: int = 42
 
@@ -114,7 +114,7 @@ class DataConfig(BaseModel):
     drop_settings: list[str] = Field(default_factory=list)
     rolling_window: int = 5
     healthy_cycle_limit: int = 50
-    failure_rul_threshold: int = 30
+    failure_rul_threshold: int = 125  # Cycles before failure to label as "degrading" — tuned for FD001
 
 
 class BlockchainConfig(BaseModel):
