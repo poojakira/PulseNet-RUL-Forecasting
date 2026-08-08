@@ -110,8 +110,7 @@ def _verify_audit_log(log_path: Path) -> tuple[bool, list[str]]:
     for idx, entry in enumerate(entries):
         if entry.get("previous_hash") != expected:
             violations.append(
-                f"Entry {idx}: hash chain broken "
-                f"(expected {expected[:16]}…, got {entry.get('previous_hash', '?')[:16]}…)"
+                f"Entry {idx}: hash chain broken " f"(expected {expected[:16]}..., got "  # noqa: E501
             )
         expected = _sha256_of_entry(entry)
 
