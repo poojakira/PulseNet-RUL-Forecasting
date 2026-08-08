@@ -120,14 +120,14 @@ def _verify_audit_log(log_path: Path) -> tuple[bool, list[str]]:
 
 # ── Try to import real modules (graceful fallback) ──────────────────────────
 try:
-    from pulsenet.security.audit import AuditLogger
+    from pulsenet.security.audit import AuditLogger  # noqa: F401
 
     _USE_REAL_AUDIT = True
 except ImportError:
     _USE_REAL_AUDIT = False
 
 try:
-    from pulsenet.security.encryption import decrypt, encrypt
+    from pulsenet.security.encryption import decrypt, encrypt  # noqa: F401
 
     _USE_REAL_ENCRYPTION = True
 except ImportError:
@@ -242,7 +242,7 @@ def test_aes_gcm_encryption_decryption() -> None:
 # TEST 3 — Adversarial input guard: recall=1 on out-of-distribution inputs
 # ===========================================================================
 
-import numpy as np
+import numpy as np  # noqa: E402
 
 
 class _AdversarialGuard:
@@ -399,7 +399,7 @@ def test_audit_log_hash_chain_integrity() -> None:
         ), f"Expected 'hash chain broken' in violations, got: {violations}"
 
         # ── Deletion: remove entry 1 (middle of chain) ────────────────────
-        lines_intact = log_path.read_text(encoding="utf-8").splitlines()
+        lines_intact = log_path.read_text(encoding="utf-8").splitlines()  # noqa: F841
         # Restore original content first
         original_lines = [
             json.dumps(e, sort_keys=True, separators=(",", ":"))
