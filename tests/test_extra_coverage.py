@@ -84,7 +84,9 @@ class TestAuditLogger:
     def test_log_and_verify(self, tmp_path):
         log_file = str(tmp_path / "audit.jsonl")
         logger = AuditLogger(log_file)
-        event_id = logger.log_event("predict_request", "tenant_A", {"path": "/predict", "method": "POST"})
+        event_id = logger.log_event(
+            "predict_request", "tenant_A", {"path": "/predict", "method": "POST"}
+        )
         assert len(event_id) == 36  # UUID format
         # Verify integrity of the chain
         result = AuditLogger.verify_audit_log(log_file)
@@ -92,13 +94,14 @@ class TestAuditLogger:
 
     def test_tamper_detection(self, tmp_path):
         import json
+
         log_file = str(tmp_path / "audit.jsonl")
         logger = AuditLogger(log_file)
         logger.log_event("event_1", "tenant_A", {"d": "1"})
         logger.log_event("event_2", "tenant_A", {"d": "2"})
         logger.log_event("event_3", "tenant_B", {"d": "3"})
         # Tamper with middle entry
-        with open(log_file, "r") as f:
+        with open(log_file) as f:
             lines = f.readlines()
         entry = json.loads(lines[1])
         entry["event_type"] = "TAMPERED"
@@ -107,6 +110,7 @@ class TestAuditLogger:
             f.writelines(lines)
         # Must raise AuditIntegrityError (fail-closed)
         from pulsenet.security.audit import AuditIntegrityError
+
         with pytest.raises(AuditIntegrityError):
             AuditLogger.verify_audit_log(log_file)
 
@@ -119,6 +123,7 @@ class TestAuditLogger:
 
     def test_missing_file_raises(self, tmp_path):
         from pulsenet.security.audit import AuditIntegrityError
+
         with pytest.raises(AuditIntegrityError):
             AuditLogger.verify_audit_log(str(tmp_path / "nonexistent.jsonl"))
 

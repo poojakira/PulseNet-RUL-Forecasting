@@ -6,6 +6,7 @@ POST /predict — Real-time inference endpoint.
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from typing import Any
 
@@ -20,8 +21,6 @@ from pulsenet.api.schemas import (
     SensorInput,
 )
 from pulsenet.logger import get_logger
-import os
-
 from pulsenet.pipeline.feature_registry import FeatureRegistry
 from pulsenet.security.audit import AuditLogger
 from pulsenet.security.blockchain import BlackBoxLedger

@@ -27,7 +27,7 @@ Then instrument handlers:
 from __future__ import annotations
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import APIRouter, Request, Response
 from prometheus_client import (
@@ -86,17 +86,17 @@ INFERENCE_LATENCY: Histogram = Histogram(
     ),
     labelnames=["model"],
     buckets=(
-        0.001,   # 1ms
-        0.002,   # 2ms
-        0.003,   # 3ms
-        0.005,   # 5ms
-        0.010,   # 10ms
-        0.025,   # 25ms
-        0.050,   # 50ms
-        0.100,   # 100ms
-        0.250,   # 250ms
-        0.500,   # 500ms
-        1.000,   # 1s
+        0.001,  # 1ms
+        0.002,  # 2ms
+        0.003,  # 3ms
+        0.005,  # 5ms
+        0.010,  # 10ms
+        0.025,  # 25ms
+        0.050,  # 50ms
+        0.100,  # 100ms
+        0.250,  # 250ms
+        0.500,  # 500ms
+        1.000,  # 1s
     ),
 )
 
@@ -162,6 +162,7 @@ async def metrics_endpoint() -> Response:
 
 # ── Request timing middleware ──────────────────────────────────────────────────
 
+
 def make_metrics_middleware() -> Callable:
     """Return a Starlette-compatible middleware that records REQUEST_DURATION.
 
@@ -172,6 +173,7 @@ def make_metrics_middleware() -> Callable:
     The middleware records per-route, per-method, per-status-code duration so
     you can build per-endpoint SLO dashboards in Grafana.
     """
+
     async def middleware(request: Request, call_next: Callable) -> Response:
         start = time.perf_counter()
         response = await call_next(request)
@@ -193,6 +195,7 @@ def make_metrics_middleware() -> Callable:
 
 
 # ── Convenience helpers called from route handlers ─────────────────────────────
+
 
 def record_prediction(tenant_id: str, model: str, latency_seconds: float) -> None:
     """Increment prediction counter and record inference latency.

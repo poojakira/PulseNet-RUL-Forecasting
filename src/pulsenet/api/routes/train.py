@@ -4,14 +4,13 @@ POST /train — Model retraining endpoint.
 
 from __future__ import annotations
 
+import os
 import time
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from pulsenet.api.auth import require_permission
 from pulsenet.api.schemas import TrainRequest, TrainResponse
-import os
-
 from pulsenet.logger import get_logger
 from pulsenet.security.audit import AuditLogger
 

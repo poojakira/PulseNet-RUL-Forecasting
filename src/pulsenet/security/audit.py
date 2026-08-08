@@ -168,9 +168,7 @@ class AuditLogger:
         if not tenant_id:
             raise ValueError("tenant_id must not be empty")
         if not isinstance(details, dict):
-            raise TypeError(
-                f"details must be a dict, got {type(details).__name__}"
-            )
+            raise TypeError(f"details must be a dict, got {type(details).__name__}")
 
         event_id = str(uuid.uuid4())
         timestamp = datetime.now(tz=timezone.utc).isoformat()
@@ -251,9 +249,7 @@ class AuditLogger:
                     try:
                         entries.append(json.loads(line))
                     except json.JSONDecodeError as exc:
-                        violations.append(
-                            f"Line {lineno}: JSON parse error — {exc}"
-                        )
+                        violations.append(f"Line {lineno}: JSON parse error — {exc}")
         except OSError as exc:
             violations.append(f"Cannot read log file: {exc}")
             raise AuditIntegrityError(violations) from exc
