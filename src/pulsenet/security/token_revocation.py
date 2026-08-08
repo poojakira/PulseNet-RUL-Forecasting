@@ -123,7 +123,7 @@ def _create_blocklist() -> InMemoryBlocklist | RedisBlocklist:
     if redis_url:
         try:
             return RedisBlocklist(redis_url)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     return InMemoryBlocklist()
 
