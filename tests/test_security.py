@@ -18,7 +18,6 @@ Coverage targets:
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import os
@@ -26,7 +25,6 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -34,7 +32,6 @@ import pytest
 # Minimal inline implementations used when the real module is not yet wired.
 # Tests import from the real src path when available, falling back to these.
 # ---------------------------------------------------------------------------
-
 # ── Inline AES-256-GCM (no external deps) ──────────────────────────────────
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -61,6 +58,7 @@ def _aes_gcm_decrypt(key: bytes, token: bytes) -> bytes:
 # ── Inline audit log helpers ────────────────────────────────────────────────
 # Mirrors the real AuditLogger API so tests pass whether or not the module
 # import succeeds.
+
 
 def _sha256_of_entry(entry: dict[str, Any]) -> str:
     canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
@@ -123,12 +121,14 @@ def _verify_audit_log(log_path: Path) -> tuple[bool, list[str]]:
 # ── Try to import real modules (graceful fallback) ──────────────────────────
 try:
     from pulsenet.security.audit import AuditLogger
+
     _USE_REAL_AUDIT = True
 except ImportError:
     _USE_REAL_AUDIT = False
 
 try:
     from pulsenet.security.encryption import decrypt, encrypt
+
     _USE_REAL_ENCRYPTION = True
 except ImportError:
     _USE_REAL_ENCRYPTION = False
@@ -137,8 +137,10 @@ except ImportError:
 # TEST 1 — RBAC cross-tenant access blocked
 # ===========================================================================
 
+
 class _FakeJWTPayload:
     """Minimal JWT payload stand-in."""
+
     def __init__(self, sub: str, tenant_id: str, role: str = "analyst") -> None:
         self.sub = sub
         self.tenant_id = tenant_id
@@ -152,7 +154,9 @@ class _SimpleRBAC:
     resource's tenant_id.
     """
 
-    def verify_tenant_access(self, token: _FakeJWTPayload, resource_tenant_id: str) -> None:
+    def verify_tenant_access(
+        self, token: _FakeJWTPayload, resource_tenant_id: str
+    ) -> None:
         if token.tenant_id != resource_tenant_id:
             raise PermissionError(
                 f"Cross-tenant access denied: token tenant={token.tenant_id!r}, "
@@ -193,6 +197,7 @@ def test_rbac_blocks_cross_tenant_access() -> None:
 # TEST 2 — AES-256-GCM encrypt / decrypt round-trip and tamper detection
 # ===========================================================================
 
+
 def test_aes_gcm_encryption_decryption() -> None:
     """
     AES-256-GCM must:
@@ -202,7 +207,9 @@ def test_aes_gcm_encryption_decryption() -> None:
     Covers STRIDE Finding 8 — Encryption Keys / Information Disclosure.
     """
     key = os.urandom(32)  # 256-bit key
-    plaintext = b'{"tenant_id": "acme", "rul_estimate": 42, "model": "isolation_forest"}'
+    plaintext = (
+        b'{"tenant_id": "acme", "rul_estimate": 42, "model": "isolation_forest"}'
+    )
 
     # Round-trip
     token = _aes_gcm_encrypt(key, plaintext)
@@ -217,6 +224,7 @@ def test_aes_gcm_encryption_decryption() -> None:
     tampered = bytearray(token)
     tampered[-1] ^= 0xFF  # flip last byte of GCM auth tag
     from cryptography.exceptions import InvalidTag
+
     with pytest.raises(InvalidTag):
         _aes_gcm_decrypt(key, bytes(tampered))
 
@@ -253,7 +261,7 @@ class _AdversarialGuard:
         self._mean: np.ndarray | None = None
         self._std: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "_AdversarialGuard":
+    def fit(self, X: np.ndarray) -> _AdversarialGuard:
         """Compute per-feature mean and std from training data."""
         self._mean = X.mean(axis=0)
         self._std = X.std(axis=0)
@@ -305,9 +313,9 @@ def test_adversarial_input_flagged_with_recall_1() -> None:
         if flagged:
             false_positives += 1
     # At 4σ threshold, virtually no clean sample should be flagged
-    assert false_positives == 0, (
-        f"Guard flagged {false_positives}/50 clean inputs (false positives)"
-    )
+    assert (
+        false_positives == 0
+    ), f"Guard flagged {false_positives}/50 clean inputs (false positives)"
 
     # ── Out-of-distribution adversarial inputs must ALL be flagged (Recall=1) ─
     adversarial_inputs = []
@@ -342,6 +350,7 @@ def test_adversarial_input_flagged_with_recall_1() -> None:
 # ===========================================================================
 # TEST 4 — Audit log hash-chain integrity
 # ===========================================================================
+
 
 def test_audit_log_hash_chain_integrity() -> None:
     """
@@ -385,9 +394,9 @@ def test_audit_log_hash_chain_integrity() -> None:
         is_valid, violations = _verify_audit_log(log_path)
         assert not is_valid, "Tampered chain should fail verification"
         assert len(violations) >= 1, "Should report at least one violation"
-        assert any("hash chain broken" in v for v in violations), (
-            f"Expected 'hash chain broken' in violations, got: {violations}"
-        )
+        assert any(
+            "hash chain broken" in v for v in violations
+        ), f"Expected 'hash chain broken' in violations, got: {violations}"
 
         # ── Deletion: remove entry 1 (middle of chain) ────────────────────
         lines_intact = log_path.read_text(encoding="utf-8").splitlines()
@@ -405,7 +414,6 @@ def test_audit_log_hash_chain_integrity() -> None:
         is_valid, violations = _verify_audit_log(log_path)
         assert not is_valid, "Chain with deleted entry should fail verification"
         assert len(violations) >= 1
-
 
 
 # ===========================================================================
@@ -432,7 +440,9 @@ def _make_minimal_sarif(
             {
                 "id": "py/sql-injection",
                 "name": "SqlInjection",
-                "shortDescription": {"text": "SQL query built from user-controlled sources."},
+                "shortDescription": {
+                    "text": "SQL query built from user-controlled sources."
+                },
                 "properties": {"severity": "error"},
             }
         ]
@@ -491,7 +501,9 @@ def _validate_sarif_schema(sarif: dict[str, Any]) -> list[str]:
         tool = run.get("tool", {})
         missing_tool = _REQUIRED_TOOL_FIELDS - set(tool.keys())
         if missing_tool:
-            violations.append(f"Run {run_idx}.tool: missing fields {sorted(missing_tool)}")
+            violations.append(
+                f"Run {run_idx}.tool: missing fields {sorted(missing_tool)}"
+            )
             continue
 
         driver = tool.get("driver", {})
@@ -541,7 +553,9 @@ def test_sarif_output_valid_schema() -> None:
         results=[
             {
                 "ruleId": "py/sql-injection",
-                "message": {"text": "SQL query built from user-controlled source at line 42."},
+                "message": {
+                    "text": "SQL query built from user-controlled source at line 42."
+                },
                 "locations": [
                     {
                         "physicalLocation": {
@@ -555,7 +569,9 @@ def test_sarif_output_valid_schema() -> None:
         ]
     )
     violations = _validate_sarif_schema(sarif_with_findings)
-    assert violations == [], f"SARIF with findings should still pass schema: {violations}"
+    assert (
+        violations == []
+    ), f"SARIF with findings should still pass schema: {violations}"
     # Verify we can extract the finding details
     result = sarif_with_findings["runs"][0]["results"][0]
     assert result["ruleId"] == "py/sql-injection"
@@ -565,16 +581,16 @@ def test_sarif_output_valid_schema() -> None:
     bad_version = _make_minimal_sarif()
     bad_version["version"] = "1.0.0"
     violations = _validate_sarif_schema(bad_version)
-    assert any("version" in v for v in violations), (
-        f"Wrong version should be flagged. Got: {violations}"
-    )
+    assert any(
+        "version" in v for v in violations
+    ), f"Wrong version should be flagged. Got: {violations}"
 
     # ── Scenario 4: malformed SARIF — missing 'runs' ───────────────────────
     no_runs = {"version": _SARIF_VERSION}
     violations = _validate_sarif_schema(no_runs)
-    assert any("runs" in v for v in violations), (
-        f"Missing 'runs' should be flagged. Got: {violations}"
-    )
+    assert any(
+        "runs" in v for v in violations
+    ), f"Missing 'runs' should be flagged. Got: {violations}"
 
     # ── Scenario 5: result missing required fields ─────────────────────────
     bad_result_sarif = _make_minimal_sarif(
@@ -591,10 +607,10 @@ def test_sarif_output_valid_schema() -> None:
     assert violations == [], "SARIF must survive JSON round-trip intact"
 
 
-
 # ===========================================================================
 # TEST 6 — AES-256-GCM: decrypt raises InvalidTag on tampered ciphertext
 # ===========================================================================
+
 
 def test_decrypt_raises_on_tampered_ciphertext() -> None:
     """
@@ -611,6 +627,7 @@ def test_decrypt_raises_on_tampered_ciphertext() -> None:
     if _USE_REAL_ENCRYPTION:
         from pulsenet.security.encryption import decrypt as real_decrypt
         from pulsenet.security.encryption import encrypt as real_encrypt
+
         enc_fn = real_encrypt
         dec_fn = real_decrypt
     else:
@@ -648,6 +665,7 @@ def test_decrypt_raises_on_tampered_ciphertext() -> None:
 # TEST 7 — Audit log: verify raises AuditIntegrityError on hash chain break
 # ===========================================================================
 
+
 def test_audit_verify_detects_hash_chain_break() -> None:
     """
     AuditLogger.verify_audit_log() must raise AuditIntegrityError when the
@@ -658,6 +676,7 @@ def test_audit_verify_detects_hash_chain_break() -> None:
     """
     if _USE_REAL_AUDIT:
         from pulsenet.security.audit import AuditIntegrityError, AuditLogger
+
         _verify = AuditLogger.verify_audit_log
         _error_cls = AuditIntegrityError
     else:
@@ -709,9 +728,9 @@ def test_audit_verify_detects_hash_chain_break() -> None:
         with pytest.raises(_error_cls) as exc_info:
             _verify(log_path)
 
-        assert len(exc_info.value.violations) >= 1, (
-            "AuditIntegrityError must carry at least one violation description"
-        )
+        assert (
+            len(exc_info.value.violations) >= 1
+        ), "AuditIntegrityError must carry at least one violation description"
         assert any(
             "hash chain broken" in v or "hash" in v.lower()
             for v in exc_info.value.violations
@@ -721,6 +740,7 @@ def test_audit_verify_detects_hash_chain_break() -> None:
 # ===========================================================================
 # TEST 8 — JWT: expired token is rejected with HTTP 401
 # ===========================================================================
+
 
 def test_jwt_rejects_expired_token() -> None:
     """
@@ -758,9 +778,9 @@ def test_jwt_rejects_expired_token() -> None:
     with pytest.raises(HTTPException) as exc_info:
         verify_token(expired_token)
 
-    assert exc_info.value.status_code == 401, (
-        f"Expected 401, got {exc_info.value.status_code}"
-    )
+    assert (
+        exc_info.value.status_code == 401
+    ), f"Expected 401, got {exc_info.value.status_code}"
 
     # Also verify that a valid (non-expired) token still works
     valid_payload = {
@@ -780,10 +800,10 @@ def test_jwt_rejects_expired_token() -> None:
     assert result["sub"] == "test-user", "Valid token must decode correctly"
 
 
-
 # ===========================================================================
 # TEST 9 — Audit log: verify_audit_log() detects corruption via AuditLogger
 # ===========================================================================
+
 
 def test_audit_log_verify_detects_corruption() -> None:
     """
@@ -795,7 +815,9 @@ def test_audit_log_verify_detects_corruption() -> None:
     production code path is exercised end-to-end.
     """
     if not _USE_REAL_AUDIT:
-        pytest.skip("pulsenet.security.audit not importable — skipping real-module test")
+        pytest.skip(
+            "pulsenet.security.audit not importable — skipping real-module test"
+        )
 
     from pulsenet.security.audit import AuditIntegrityError, AuditLogger
 
@@ -824,10 +846,9 @@ def test_audit_log_verify_detects_corruption() -> None:
             AuditLogger.verify_audit_log(log_path)
 
         violations = exc_info.value.violations
-        assert len(violations) >= 1, (
-            "AuditIntegrityError.violations must contain at least one entry"
-        )
+        assert (
+            len(violations) >= 1
+        ), "AuditIntegrityError.violations must contain at least one entry"
         assert any(
-            "hash chain broken" in v or "hash" in v.lower()
-            for v in violations
+            "hash chain broken" in v or "hash" in v.lower() for v in violations
         ), f"Expected a hash-chain violation, got: {violations}"

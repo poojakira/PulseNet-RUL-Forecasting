@@ -35,7 +35,9 @@ class SystemConfig(BaseModel):
 
 class IsolationForestConfig(BaseModel):
     n_estimators: int = 200  # Increased from 100 for better ensemble diversity
-    contamination: float = 0.05  # Tuned lower — previous 0.12 over-flagged healthy samples
+    contamination: float = (
+        0.05  # Tuned lower — previous 0.12 over-flagged healthy samples
+    )
     max_samples: float = 0.8
     random_state: int = 42
 
@@ -114,7 +116,9 @@ class DataConfig(BaseModel):
     drop_settings: list[str] = Field(default_factory=list)
     rolling_window: int = 5
     healthy_cycle_limit: int = 50
-    failure_rul_threshold: int = 125  # Cycles before failure to label as "degrading" — tuned for FD001
+    failure_rul_threshold: int = (
+        125  # Cycles before failure to label as "degrading" — tuned for FD001
+    )
 
 
 class BlockchainConfig(BaseModel):

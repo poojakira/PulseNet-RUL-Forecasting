@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -68,9 +67,7 @@ def encrypt(key: bytes, plaintext: bytes) -> bytes:
         If *key* is not exactly 32 bytes.
     """
     if len(key) != 32:
-        raise ValueError(
-            f"AES-256 requires a 32-byte key; got {len(key)} bytes"
-        )
+        raise ValueError(f"AES-256 requires a 32-byte key; got {len(key)} bytes")
     nonce = os.urandom(12)  # 96-bit nonce; NIST SP 800-38D recommended size
     aesgcm = AESGCM(key)
     ciphertext_and_tag = aesgcm.encrypt(nonce, plaintext, None)
@@ -108,9 +105,7 @@ def decrypt(key: bytes, token: bytes) -> bytes:
         **This exception must never be caught and swallowed by callers.**
     """
     if len(key) != 32:
-        raise ValueError(
-            f"AES-256 requires a 32-byte key; got {len(key)} bytes"
-        )
+        raise ValueError(f"AES-256 requires a 32-byte key; got {len(key)} bytes")
     if len(token) < 12:
         raise ValueError(
             f"Token too short to contain a 12-byte nonce; got {len(token)} bytes"
@@ -120,6 +115,7 @@ def decrypt(key: bytes, token: bytes) -> bytes:
     # AESGCM.decrypt raises InvalidTag on any authentication failure.
     # Do NOT catch InvalidTag here — let it propagate to the caller.
     return aesgcm.decrypt(nonce, ciphertext_and_tag, None)
+
 
 log = get_logger(__name__)
 

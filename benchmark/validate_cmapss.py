@@ -17,7 +17,6 @@ for Aircraft Engine Run-to-Failure Simulation", NASA Prognostics CoE.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -67,15 +66,21 @@ def load_fd001() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     for p in (train_path, test_path, rul_path):
         if not p.exists():
             print(f"ERROR: Required data file not found: {p}")
-            print("Please ensure NASA C-MAPSS data is extracted to data/official/CMAPSSData/")
+            print(
+                "Please ensure NASA C-MAPSS data is extracted to data/official/CMAPSSData/"
+            )
             sys.exit(1)
 
     train_df = pd.read_csv(train_path, sep=r"\s+", header=None, names=COLUMN_NAMES)
     test_df = pd.read_csv(test_path, sep=r"\s+", header=None, names=COLUMN_NAMES)
     rul_series = pd.read_csv(rul_path, sep=r"\s+", header=None, names=["rul"])["rul"]
 
-    print(f"Loaded train_FD001: {len(train_df)} rows, {train_df['unit_id'].nunique()} engines")
-    print(f"Loaded test_FD001:  {len(test_df)} rows, {test_df['unit_id'].nunique()} engines")
+    print(
+        f"Loaded train_FD001: {len(train_df)} rows, {train_df['unit_id'].nunique()} engines"
+    )
+    print(
+        f"Loaded test_FD001:  {len(test_df)} rows, {test_df['unit_id'].nunique()} engines"
+    )
     print(f"Loaded RUL_FD001:   {len(rul_series)} entries")
 
     return train_df, test_df, rul_series
@@ -96,7 +101,9 @@ def add_rul_labels(df: pd.DataFrame, clip: int = RUL_CLIP) -> pd.DataFrame:
     return df
 
 
-def add_test_rul(test_df: pd.DataFrame, rul_series: pd.Series, clip: int = RUL_CLIP) -> pd.DataFrame:
+def add_test_rul(
+    test_df: pd.DataFrame, rul_series: pd.Series, clip: int = RUL_CLIP
+) -> pd.DataFrame:
     """Add RUL labels to test data using the provided ground truth RUL values."""
     test_df = test_df.copy()
 
@@ -107,7 +114,7 @@ def add_test_rul(test_df: pd.DataFrame, rul_series: pd.Series, clip: int = RUL_C
 
     # Map ground truth RUL (indexed 0-based) to unit_ids (1-based)
     unit_ids = sorted(test_df["unit_id"].unique())
-    rul_map = dict(zip(unit_ids, rul_series.values))
+    rul_map = dict(zip(unit_ids, rul_series.values, strict=False))
 
     test_df = test_df.merge(max_cycles, on="unit_id")
     test_df["rul_at_end"] = test_df["unit_id"].map(rul_map)
@@ -347,7 +354,11 @@ def main() -> None:
 
     # Full classification report
     print("Classification Report:")
-    print(classification_report(y_test, results["y_pred"], target_names=["Normal", "Degraded"]))
+    print(
+        classification_report(
+            y_test, results["y_pred"], target_names=["Normal", "Degraded"]
+        )
+    )
 
     # 7. Save results
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
