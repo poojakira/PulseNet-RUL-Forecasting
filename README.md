@@ -341,57 +341,128 @@ Python 3.10+ required.
 
 ## Installation and Running
 
-### Local development
+### Prerequisites
+- Python 3.10 or newer
+- pip (comes with Python)
+- Git
+- Docker & Docker Compose (optional, for full-stack deployment)
+- OpenSSL (optional, for mTLS certificate generation)
+- Key dependencies (installed automatically): FastAPI, PyTorch, scikit-learn, pandas, numpy, prometheus-client, cryptography, python-jose
 
-```bash
-git clone https://github.com/poojakira/PulseNet-RUL-Forecasting
+### Install from source
+
+```powershell
+# Windows PowerShell
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting.git
 cd PulseNet-RUL-Forecasting
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-
-# Run API server
-uvicorn src.pulsenet.api.main:app --host 0.0.0.0 --port 8000
-
-# Run dashboard
-streamlit run src/pulsenet/dashboard/app.py
+py -m venv .venv
+.venv\Scripts\activate
+py -m pip install -e ".[dev]"
 ```
 
-### Docker Compose (full stack with VPC simulation)
+```bash
+# Linux / Mac
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting.git
+cd PulseNet-RUL-Forecasting
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Verify installation
+
+```powershell
+# Windows PowerShell
+py -c "from pulsenet.security.rbac import *; from pulsenet.security.encryption import *; from pulsenet.security.audit import *; print('OK')"
+```
 
 ```bash
-# Generate dev certs first (see mTLS Setup above)
-# Create secrets directory
-mkdir secrets
-echo "supersecretdbpassword" > secrets/db_password.txt
-echo "supersecretgrafana" > secrets/grafana_password.txt
-openssl rand -base64 32 > secrets/aes_key.bin
-# Generate JWT keypair into secrets/
-openssl genrsa -out secrets/jwt_private_key.pem 2048
-openssl rsa -in secrets/jwt_private_key.pem -pubout -out secrets/jwt_public_key.pem
+# Linux / Mac
+python -c "from pulsenet.security.rbac import *; from pulsenet.security.encryption import *; from pulsenet.security.audit import *; print('OK')"
+```
 
-docker compose up --build
+### Run the API server (local development)
 
-# Services:
-#   API:        http://localhost:8000
-#   Dashboard:  http://localhost:8501
-#   Grafana:    http://localhost:3000
-#   Prometheus: internal only (docker exec pulsenet_prometheus wget -qO- localhost:9090/metrics)
+```powershell
+# Windows PowerShell
+py -m uvicorn src.pulsenet.api.main:app --host 0.0.0.0 --port 8000
+```
+
+```bash
+# Linux / Mac
+uvicorn src.pulsenet.api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Run the dashboard
+
+```powershell
+# Windows PowerShell
+py -m streamlit run src/pulsenet/dashboard/app.py
+```
+
+```bash
+# Linux / Mac
+streamlit run src/pulsenet/dashboard/app.py
 ```
 
 ### Run tests
 
+```powershell
+# Windows PowerShell
+py -m pytest tests/ -v --cov=src/pulsenet --cov-fail-under=80
+# Expected: all tests passed, coverage >= 80%
+```
+
 ```bash
+# Linux / Mac
 pytest tests/ -v --cov=src/pulsenet --cov-fail-under=80
+# Expected: all tests passed, coverage >= 80%
 ```
 
-### Run security scan (CodeQL)
+### Docker Compose (full stack with VPC simulation)
+
+```powershell
+# Windows PowerShell — generate secrets first
+mkdir secrets
+"supersecretdbpassword" | Out-File -Encoding ascii secrets/db_password.txt
+"supersecretgrafana" | Out-File -Encoding ascii secrets/grafana_password.txt
+openssl rand -base64 32 | Out-File -Encoding ascii secrets/aes_key.bin
+openssl genrsa -out secrets/jwt_private_key.pem 2048
+openssl rsa -in secrets/jwt_private_key.pem -pubout -out secrets/jwt_public_key.pem
+
+docker compose up --build
+```
 
 ```bash
-codeql database create codeql-db --language=python --source-root=src/
-codeql database analyze codeql-db python-security-and-quality.qls \
-  --format=sarif-latest --output=results/security.sarif
+# Linux / Mac
+mkdir -p secrets
+echo "supersecretdbpassword" > secrets/db_password.txt
+echo "supersecretgrafana" > secrets/grafana_password.txt
+openssl rand -base64 32 > secrets/aes_key.bin
+openssl genrsa -out secrets/jwt_private_key.pem 2048
+openssl rsa -in secrets/jwt_private_key.pem -pubout -out secrets/jwt_public_key.pem
+
+docker compose up --build
 ```
+
+Services after Docker start:
+- API: http://localhost:8000
+- Dashboard: http://localhost:8501
+- Grafana: http://localhost:3000
+- Prometheus: internal only (`docker exec pulsenet_prometheus wget -qO- localhost:9090/metrics`)
+
+### Common issues
+
+| Problem | Fix |
+|---------|-----|
+| `py` not recognized (Windows) | Use `python` instead, or install Python from python.org and ensure it's on PATH |
+| PyTorch install fails / takes forever | Install PyTorch separately first: `py -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu` |
+| `ModuleNotFoundError: No module named 'pulsenet'` | Ensure you ran `pip install -e ".[dev]"` from the repo root |
+| Permission denied on install | Use a virtual environment (see steps above) |
+| Docker build fails on secrets | Ensure the `secrets/` directory exists with all required files before running `docker compose up` |
+| `cryptography` fails to build on Windows | Install Visual C++ Build Tools or use `py -m pip install --only-binary :all: cryptography` |
+| Port 8000 already in use | Change port: `py -m uvicorn src.pulsenet.api.main:app --port 8001` |
+| `openssl` not found on Windows | Install OpenSSL via `winget install ShiningLight.OpenSSL` or use Git Bash which includes OpenSSL |
 
 ---
 
