@@ -93,7 +93,8 @@ def create_token(username: str, role: str) -> tuple[str, int]:
     - ``exp``: expiry timestamp
     - ``nbf``: not-before timestamp (same as ``iat`` — token is valid immediately)
     - ``iss``: issuer (``PULSENET_JWT_ISSUER`` env var, default ``pulsenet-api``)
-    - ``aud``: audience (``PULSENET_JWT_AUDIENCE`` env var, default ``pulsenet-clients``)
+    - ``aud``: audience (``PULSENET_JWT_AUDIENCE`` env var,
+      default ``pulsenet-clients``)
     - ``jti``: unique token ID (UUID4) for anti-replay tracking
     """
     now = int(time.time())

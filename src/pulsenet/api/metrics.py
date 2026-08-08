@@ -62,7 +62,7 @@ RBAC_VIOLATIONS: Counter = Counter(
     name="rbac_violations_total",
     documentation=(
         "Number of authorization failures. "
-        "Labeled by violation_type: expired_token, wrong_tenant, insufficient_role, etc."
+        "Labeled by violation_type: expired_token, wrong_tenant, insufficient_role, etc."  # noqa: E501
     ),
     labelnames=["violation_type"],
 )
@@ -81,7 +81,7 @@ AUDIT_LOG_EVENTS: Counter = Counter(
 INFERENCE_LATENCY: Histogram = Histogram(
     name="inference_latency_seconds",
     documentation=(
-        "Model inference wall-clock time in seconds (excludes network and auth overhead). "
+        "Model inference wall-clock time in seconds (excludes network and auth overhead). "  # noqa: E501
         "Benchmarked baseline: mean=0.0027s, P99=0.0043s on NASA C-MAPSS FD001."
     ),
     labelnames=["model"],
@@ -103,7 +103,7 @@ INFERENCE_LATENCY: Histogram = Histogram(
 REQUEST_DURATION: Histogram = Histogram(
     name="request_duration_seconds",
     documentation=(
-        "Total FastAPI request duration in seconds (includes auth, preprocessing, inference, "
+        "Total FastAPI request duration in seconds (includes auth, preprocessing, inference, "  # noqa: E501
         "and response serialization). Use this for SLO tracking."
     ),
     labelnames=["method", "endpoint", "status_code"],
@@ -115,7 +115,7 @@ REQUEST_DURATION: Histogram = Histogram(
 MODEL_DRIFT_SCORE: Gauge = Gauge(
     name="model_drift_score",
     documentation=(
-        "Current distribution drift score between live inference inputs and the training "
+        "Current distribution drift score between live inference inputs and the training "  # noqa: E501
         "distribution. Computed via KL-divergence on feature histograms. "
         "Alert threshold: 0.15 (see monitoring/alert_rules.yml)."
     ),
@@ -140,8 +140,8 @@ metrics_router = APIRouter(tags=["observability"])
     response_class=Response,
     summary="Prometheus metrics scrape endpoint",
     description=(
-        "Exposes all registered Prometheus metrics in the Prometheus text exposition format. "
-        "This endpoint is restricted to the internal Docker network (pulsenet_internal) and "
+        "Exposes all registered Prometheus metrics in the Prometheus text exposition format. "  # noqa: E501
+        "This endpoint is restricted to the internal Docker network (pulsenet_internal) and "  # noqa: E501
         "must NOT be exposed on the public-facing port. "
         "Prometheus scrapes this endpoint every 15 seconds."
     ),
