@@ -11,9 +11,11 @@ secret.key.*
 # 2. DATASETS & FEATURES (LARGE FILES)
 # ==========================================
 # Exclude raw NASA datasets
-*_FD001.txt
-RUL_FD001.txt
-data/official/CMAPSSData/
+data/official/CMAPSSData/*
+!data/official/CMAPSSData/train_FD001.txt
+!data/official/CMAPSSData/test_FD001.txt
+!data/official/CMAPSSData/RUL_FD001.txt
+!data/official/CMAPSSData/readme.txt
 data/official/__MACOSX/
 
 # Exclude generated CSVs (Original and Encrypted)
