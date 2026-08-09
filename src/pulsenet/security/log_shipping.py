@@ -14,6 +14,7 @@ In production, configure at least ONE external destination. The local
 hash-chain remains as a fast verification mechanism, but the external
 copy is the source of truth for forensics.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,9 +48,7 @@ class CloudWatchShipper:
         self._log_group = os.environ.get(
             "PULSENET_CW_LOG_GROUP", "/pulsenet/security-audit"
         )
-        self._log_stream = os.environ.get(
-            "PULSENET_CW_LOG_STREAM", "audit-trail"
-        )
+        self._log_stream = os.environ.get("PULSENET_CW_LOG_STREAM", "audit-trail")
         self._sequence_token: str | None = None
 
     def ship(self, entry: dict[str, Any]) -> bool:
@@ -89,9 +88,7 @@ class S3WORMShipper:
         import boto3
 
         self._client = boto3.client("s3")
-        self._bucket = os.environ.get(
-            "PULSENET_S3_AUDIT_BUCKET", "pulsenet-audit-worm"
-        )
+        self._bucket = os.environ.get("PULSENET_S3_AUDIT_BUCKET", "pulsenet-audit-worm")
 
     def ship(self, entry: dict[str, Any]) -> bool:
         """Ship one entry as an S3 object with Object Lock retention."""
@@ -124,7 +121,9 @@ class StdoutShipper:
 
     def ship(self, entry: dict[str, Any]) -> bool:
         """Print structured JSON to stdout."""
-        print(json.dumps({"_source": "pulsenet-audit", **entry}, default=str), flush=True)
+        print(
+            json.dumps({"_source": "pulsenet-audit", **entry}, default=str), flush=True
+        )
         return True
 
 
