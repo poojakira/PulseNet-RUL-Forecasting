@@ -1,10 +1,10 @@
-> **Predictive maintenance that ships a real forecast.** The 1D-CNN RUL model
-> achieves **RMSE 13.19 on NASA C-MAPSS FD001** — beating the RandomForest
+> **Predictive maintenance that actually forecasts.** The 1D-CNN model scores
+> **RMSE 13.19 on NASA C-MAPSS FD001**. For reference, that beats a RandomForest
 > baseline (18.25), the Babu 2016 CNN (18.45), and the Zheng 2017 LSTM (16.14),
-> and within 0.6 of the Li 2018 DCNN (12.61). Trained on CPU in ~60s from the
-> committed real dataset. Every RUL prediction drives a concrete maintenance
-> action (immediate / plan / monitor / healthy) via the scheduler. Evidence:
-> [`docs/evidence/deep_rul_fd001.json`](docs/evidence/deep_rul_fd001.json).
+> and sits within 0.6 of the Li 2018 DCNN (12.61). It trains on CPU in about a
+> minute from the dataset committed in this repo, and every prediction maps to a
+> maintenance decision (immediate / plan / monitor / healthy). Reproduce it:
+> `python benchmark/deep_rul_benchmark.py`. Numbers: [`docs/evidence/deep_rul_fd001.json`](docs/evidence/deep_rul_fd001.json).
 
 ---
 # PulseNet — Secure MLOps for Industrial Predictive Maintenance
@@ -18,9 +18,15 @@
 
 ---
 
-PulseNet is a secure MLOps pipeline for industrial predictive maintenance (NASA C-MAPSS dataset)
-demonstrating how security controls — threat modeling, RBAC, encryption, audit logging, and
-adversarial guards — can be integrated across the full ML lifecycle without sacrificing performance.
+PulseNet predicts how many operating cycles a turbofan engine has left (its
+Remaining Useful Life) and turns that into a maintenance action. It's built on
+the NASA C-MAPSS dataset. The reason it exists: most RUL demos stop at a model,
+but a real deployment has to answer "who can call this, what happens if the
+input is adversarial, and can I prove what the model decided six months later?"
+So the pipeline carries the security controls a maintenance team would actually
+need in production — RBAC, encryption at rest, a tamper-evident audit log, an
+adversarial input guard, and JWT revocation — around a model that hits a
+competitive RMSE.
 
 ---
 
