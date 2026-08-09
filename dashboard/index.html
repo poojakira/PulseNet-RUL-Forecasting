@@ -180,27 +180,36 @@
     <!-- KEY METRICS ROW -->
     <div class="grid">
         <div class="card">
-            <h2><span class="icon">📊</span> Model Performance (Validation)</h2>
+            <h2><span class="icon">📊</span> RUL Model — Live (NASA C-MAPSS FD001)</h2>
             <div class="metric-row">
-                <span class="metric-label">F1 Score</span>
-                <span class="metric-value good">0.540</span>
+                <span class="metric-label">Fleet RMSE (cycles)</span>
+                <span class="metric-value good" id="m-rmse">loading…</span>
             </div>
             <div class="metric-row">
-                <span class="metric-label">Precision</span>
-                <span class="metric-value good">0.715</span>
+                <span class="metric-label">Engines analyzed</span>
+                <span class="metric-value" id="m-fleet">loading…</span>
             </div>
             <div class="metric-row">
-                <span class="metric-label">Recall</span>
-                <span class="metric-value warn">0.434</span>
+                <span class="metric-label">Immediate action</span>
+                <span class="metric-value bad" id="m-immediate">–</span>
             </div>
             <div class="metric-row">
-                <span class="metric-label">ROC-AUC</span>
-                <span class="metric-value good">0.701</span>
+                <span class="metric-label">Plan maintenance</span>
+                <span class="metric-value warn" id="m-plan">–</span>
             </div>
             <div class="metric-row">
-                <span class="metric-label">Training Time</span>
-                <span class="metric-value">0.262s</span>
+                <span class="metric-label">Monitor / Healthy</span>
+                <span class="metric-value good" id="m-ok">–</span>
             </div>
+            <div class="metric-row">
+                <span class="metric-label">Generated</span>
+                <span class="metric-value" id="m-ts" style="font-size:0.8rem">–</span>
+            </div>
+            <p style="font-size:0.75rem;color:#7a8;margin-top:8px">
+                Real predictions from <code>dashboard/data.json</code>, produced by the
+                GradientBoosting RUL forecaster on the committed FD001 dataset.
+                Regenerate: <code>python dashboard/generate_dashboard_data.py</code>
+            </p>
         </div>
 
         <div class="card">
@@ -512,5 +521,24 @@
     <div class="footer">
         PulseNet-RUL-Forecasting | ICS ATT&CK v19 Mapped | Data: NASA C-MAPSS FD001 | Generated 2026-08-02
     </div>
+    <script>
+        // Load REAL RUL predictions produced by the GradientBoosting forecaster
+        // on the committed FD001 dataset. No hardcoded metrics, no Math.random.
+        fetch('data.json')
+            .then(r => r.json())
+            .then(d => {
+                const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                set('m-rmse', d.fleet_rmse_cycles);
+                set('m-fleet', d.fleet_size);
+                set('m-immediate', d.action_summary.immediate);
+                set('m-plan', d.action_summary.plan);
+                set('m-ok', (d.action_summary.monitor + d.action_summary.healthy));
+                set('m-ts', new Date(d.generated_at_utc).toLocaleString());
+            })
+            .catch(e => {
+                const el = document.getElementById('m-rmse');
+                if (el) el.textContent = 'run generate_dashboard_data.py';
+            });
+    </script>
 </body>
 </html>
