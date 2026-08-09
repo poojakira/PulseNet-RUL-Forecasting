@@ -1,0 +1,30 @@
+{
+  "schema_version": "deep-rul-fd001-v1",
+  "generated_at_utc": "2026-08-09T02:17:48.170579+00:00",
+  "dataset": "NASA C-MAPSS FD001 (official per-unit train/test split)",
+  "data_source": "data/official/CMAPSSData (committed, real)",
+  "model": "1D-CNN (Li et al. 2018 architecture)",
+  "window": 30,
+  "epochs": 40,
+  "seed": 42,
+  "rmse": 13.194,
+  "cmapss_score": 326.2,
+  "n_test_engines": 100,
+  "train_seconds_cpu": 60.4,
+  "published_baselines_rmse": {
+    "RandomForest (classical, this repo)": 18.25,
+    "CNN - Babu et al. 2016": 18.45,
+    "LSTM - Zheng et al. 2017": 16.14,
+    "DCNN - Li et al. 2018": 12.61
+  },
+  "beats_baselines": [
+    "RandomForest (classical, this repo)",
+    "CNN - Babu et al. 2016",
+    "LSTM - Zheng et al. 2017"
+  ],
+  "methodology": "Sliding 30-cycle windows over 14 informative sensors, min-max scaled on train only. Piecewise-linear RUL target capped at 125. Evaluated on the last window of each test engine vs RUL_FD001. No random split, no temporal leakage. All values measured on this machine.",
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0"
+  }
+}
