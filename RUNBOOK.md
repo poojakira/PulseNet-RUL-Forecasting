@@ -111,18 +111,47 @@ curl http://localhost:8000/health
 
 API documentation: http://localhost:8000/docs
 
-## 7. Start the Dashboard (Optional)
+## 7. Start the Dashboard
+
+PulseNet ships two dashboards. Both show real numbers, not placeholders.
+
+### 7a. Operations dashboard (static, real RUL forecasts)
+
+This one renders the fleet RUL forecast and maintenance actions the model
+actually produced. First regenerate the data from the model, then serve the
+folder over HTTP (it fetches `data.json`, so opening the file directly with
+`file://` will not work — browsers block `fetch` on local files):
+
+```bash
+# 1. Produce real forecasts from the trained model
+python dashboard/generate_dashboard_data.py
+#    -> writes dashboard/data.json (100 engines, RMSE, maintenance actions)
+
+# 2. Serve it
+cd dashboard
+python -m http.server 8899
+```
+
+Open http://localhost:8899/index.html. You should see the fleet RMSE, engine
+count, and the immediate/plan/monitor/healthy breakdown pulled live from
+`data.json`. Re-run step 1 anytime to refresh from the model.
+
+### 7b. Interactive Streamlit dashboard (sensor trends, live inference)
 
 ```bash
 pip install streamlit plotly
 streamlit run src/pulsenet/dashboard/app.py
 ```
 
-Opens in browser at http://localhost:8501.
+Opens at http://localhost:8501.
 
 ## 8. Run Benchmarks
 
 ```bash
+# Deep RUL model — trains the 1D-CNN and reports RMSE on FD001 (~60s CPU)
+python benchmark/deep_rul_benchmark.py
+#    -> RMSE ~13.2, writes docs/evidence/deep_rul_fd001.json
+
 python scripts/run_benchmark.py
 ```
 
