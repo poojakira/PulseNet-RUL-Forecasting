@@ -16,6 +16,7 @@ Usage:
     if revocation_list.is_revoked(token_jti):
         raise HTTPException(401, "Token has been revoked")
 """
+
 from __future__ import annotations
 
 import os
@@ -99,7 +100,9 @@ class RedisBlocklist:
     def __init__(self, redis_url: str | None = None) -> None:
         import redis
 
-        url = redis_url or os.environ.get("PULSENET_REDIS_URL", "redis://localhost:6379/1")
+        url = redis_url or os.environ.get(
+            "PULSENET_REDIS_URL", "redis://localhost:6379/1"
+        )
         self._redis = redis.from_url(url, decode_responses=True)
         self._prefix = "pulsenet:revoked:"
 
