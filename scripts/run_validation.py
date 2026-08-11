@@ -1,4 +1,4 @@
-"""Produce validation metrics from official NASA C-MAPSS FD001 data."""
+"""Produce local validation metrics from NASA C-MAPSS FD001 simulator data."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from pulsenet.pipeline.preprocessing import (  # noqa: E402
 
 
 def write_metric_chart(chart_metrics: dict[str, float], path: Path) -> None:
-    """Write a small SVG chart from measured official-data metrics."""
+    """Write a small SVG chart from local simulator-data metrics."""
     width = 720
     height = 260
     margin_left = 120
@@ -55,7 +55,7 @@ def write_metric_chart(chart_metrics: dict[str, float], path: Path) -> None:
     path.write_text(svg, encoding="utf-8")
 
 
-def run_validation() -> dict[str, Any]:
+def run_validation(output_dir: Path = Path("results") / "validation") -> dict[str, Any]:
     fd001 = load_official_fd001(
         "data/official", max_train_rows=None, max_test_rows=None
     )
@@ -96,13 +96,8 @@ def run_validation() -> dict[str, Any]:
         },
     }
 
-    Path("results").mkdir(exist_ok=True)
-    Path("results/validation_results.json").write_text(
-        json.dumps(results, indent=2), encoding="utf-8"
-    )
-    evidence_dir = Path("docs/evidence")
-    evidence_dir.mkdir(parents=True, exist_ok=True)
-    (evidence_dir / "validation_results.json").write_text(
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "validation_results.json").write_text(
         json.dumps(results, indent=2), encoding="utf-8"
     )
     write_metric_chart(
@@ -112,17 +107,26 @@ def run_validation() -> dict[str, Any]:
             "Recall": float(metrics["recall"]),
             "ROC AUC": float(metrics["roc_auc"]),
         },
-        evidence_dir / "validation_metrics.svg",
+        output_dir / "validation_metrics.svg",
     )
     return results
 
 
 def main() -> None:
-    results = run_validation()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("results") / "validation",
+        help="Local output directory for ad hoc validation artifacts.",
+    )
+    args = parser.parse_args()
+    results = run_validation(args.output_dir)
     print(json.dumps(results, indent=2))
-    print("Saved to results/validation_results.json")
-    print("Saved to docs/evidence/validation_results.json")
-    print("Saved to docs/evidence/validation_metrics.svg")
+    print(f"Saved to {args.output_dir / 'validation_results.json'}")
+    print(f"Saved to {args.output_dir / 'validation_metrics.svg'}")
 
 
 if __name__ == "__main__":

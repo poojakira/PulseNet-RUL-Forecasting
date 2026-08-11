@@ -143,7 +143,7 @@ class LSTMModel(BaseAnomalyModel):
         # torch.cuda.amp.GradScaler is the correct import path in newer PyTorch
         from torch.cuda.amp import GradScaler
 
-        scaler = GradScaler("cuda" if device.type == "cuda" else "cpu")  # type: ignore
+        scaler = GradScaler(enabled=device.type == "cuda")
 
         self.model.train()
         for epoch in range(self.epochs):

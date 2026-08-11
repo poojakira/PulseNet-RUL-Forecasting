@@ -1,13 +1,12 @@
 """
 src/pulsenet/api/metrics.py
 ──────────────────────────────────────────────────────────────────────────────
-Prometheus metrics definitions and /metrics endpoint for PulseNet FastAPI.
+Historical Prometheus metrics definitions and /metrics endpoint for PulseNet.
 
 All metrics are defined as module-level singletons so they can be imported
 and incremented from anywhere in the application without risk of double-
-registration.  The /metrics route is designed to be registered on the
-internal-only network interface; the docker-compose.yml ensures this endpoint
-is NOT exposed on the public-facing port.
+registration. The archived repository does not provide a supported deployment
+topology or route-level authentication boundary for this endpoint.
 
 Usage (in main.py / app factory):
     from pulsenet.api.metrics import metrics_router

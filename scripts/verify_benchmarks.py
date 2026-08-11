@@ -1,8 +1,9 @@
 """Compatibility wrapper for official NASA FD001 validation.
 
-This script intentionally does not use generated benchmark fixtures. It delegates
-to `scripts/run_validation.py`, which verifies the checked-in NASA C-MAPSS
-archive and writes measured JSON/SVG evidence.
+This script intentionally does not use generated benchmark fixtures. It
+delegates to `scripts/run_validation.py`, which verifies the checked-in NASA
+C-MAPSS archive and writes local JSON/SVG results outside documentation evidence
+paths.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """
 Tests for RUL forecasting and maintenance scheduling.
 
-These are fast unit tests (no 40-epoch training). The full deep-model RMSE
-benchmark lives in benchmark/deep_rul_benchmark.py and writes committed
-evidence to docs/evidence/deep_rul_fd001.json (RMSE 13.19 on FD001).
+These are fast unit tests that use a small synthetic fixture for code-path
+correctness. They are not product performance evidence. The deep-model benchmark
+is an archived local script in benchmark/deep_rul_benchmark.py.
 """
 
 import numpy as np
@@ -125,9 +125,9 @@ class TestMaintenanceScheduler:
             unit_number=4, predicted_rul=55.0, lower_rul=38.0, confidence_margin=17.0
         )
         d = s.decide(fc)
-        assert (
-            d.action == MaintenanceAction.PLAN
-        ), "must use conservative RUL, not point estimate"
+        assert d.action == MaintenanceAction.PLAN, (
+            "must use conservative RUL, not point estimate"
+        )
 
     def test_decision_serializes(self):
         s = MaintenanceScheduler()

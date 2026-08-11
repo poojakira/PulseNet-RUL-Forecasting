@@ -1,6 +1,6 @@
 """
-Enhanced Streamlit Dashboard — real-time anomaly monitoring, sensor trends,
-blockchain status, system metrics, and multi-engine support.
+Archived Streamlit dashboard for local source review of anomaly-monitoring
+experiments. This module is not a supported operations dashboard.
 """
 
 from __future__ import annotations

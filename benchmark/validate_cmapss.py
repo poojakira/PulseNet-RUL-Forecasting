@@ -1,8 +1,8 @@
 """
-Validate PulseNet anomaly detection against the NASA C-MAPSS FD001 dataset.
+Validate historical PulseNet anomaly detection against NASA C-MAPSS FD001.
 
 Methodology:
-- Uses REAL NASA C-MAPSS FD001 turbofan engine degradation data
+- Uses NASA C-MAPSS FD001 turbofan engine degradation simulation data
 - Proper train/test split: train on train_FD001.txt, evaluate on test_FD001.txt
 - No data leakage: normalization statistics computed ONLY from training data
 - Piecewise linear RUL labeling with clip at 125 cycles
@@ -43,7 +43,7 @@ RANDOM_STATE = 42
 N_BOOTSTRAP = 1000  # Bootstrap iterations for confidence intervals
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "official" / "CMAPSSData"
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "docs" / "evidence"
+OUTPUT_DIR = Path("results") / "validation"
 
 COLUMN_NAMES = (
     ["unit_id", "cycle"]
@@ -370,7 +370,7 @@ def main() -> None:
             "test_FD001.txt (100 engines, partial trajectories) with RUL_FD001.txt ground truth",
             "preprocessing": "MinMaxScaler fitted on training data only, applied to both train and test",
             "rul_labeling": f"Piecewise linear degradation, clipped at {RUL_CLIP} cycles",
-            "degradation_threshold": f"Final {int(DEGRADED_PERCENTILE*100)}% of engine life classified as degraded",
+            "degradation_threshold": f"Final {int(DEGRADED_PERCENTILE * 100)}% of engine life classified as degraded",
             "window_size": WINDOW_SIZE,
             "features_per_sample": int(X_train.shape[1]),
         },

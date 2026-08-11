@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Run the honest RUL regression benchmark on official NASA C-MAPSS FD001-FD004.
+"""Run an archived RUL regression benchmark on NASA C-MAPSS FD001-FD004.
 
 Produces RMSE and the NASA C-MAPSS asymmetric scoring value for every subset,
 using the official per-unit (chronological) train/test split. Emits a JSON file
-and a RESULTS.md report to the requested output directory.
+and a RESULTS.md report to the requested local output directory.
 
 Usage:
     python scripts/run_rul_benchmark.py --output-dir <dir> [--data-dir data/official]
 
-Fails closed: if the verified NASA archive is not present it aborts with an
-error rather than fabricating data.
+Fails closed: if the verified NASA archive is not present it aborts. Results are
+experimental simulator-data measurements, not real-world fleet evidence.
 """
 
 from __future__ import annotations
@@ -33,14 +33,6 @@ from pulsenet.pipeline.official_cmapss import (  # noqa: E402
 )
 
 SUBSETS = ("FD001", "FD002", "FD003", "FD004")
-
-# Published classical-baseline reference band (RMSE) for context only.
-PUBLISHED_BASELINES = {
-    "FD001": "~15-25 (classical baselines, e.g. RF/SVR/MLP; piecewise-linear RUL cap)",
-    "FD002": "~25-35 (harder: 6 operating conditions)",
-    "FD003": "~15-30 (2 fault modes)",
-    "FD004": "~28-40 (hardest: 6 conditions x 2 fault modes)",
-}
 
 
 def main() -> int:
@@ -72,7 +64,6 @@ def main() -> int:
         elapsed = time.perf_counter() - t0
         row = r.to_dict()
         row["fit_eval_seconds"] = round(elapsed, 2)
-        row["published_rmse_reference"] = PUBLISHED_BASELINES[subset]
         results.append(row)
         print(
             f"{subset}: RMSE={row['rmse']}  C-MAPSS score={row['cmapss_score']}  "
@@ -81,6 +72,7 @@ def main() -> int:
 
     payload = {
         "generated_utc": now.isoformat(),
+        "readiness": "local experimental result; not production evidence",
         "task": "NASA C-MAPSS Remaining-Useful-Life regression",
         "model": {
             "type": "RandomForestRegressor",
@@ -132,20 +124,21 @@ def main() -> int:
 def _render_markdown(p: dict) -> str:
     ds = p["dataset"]
     lines = [
-        "# PulseNet RUL Forecasting - Honest Benchmark (NASA C-MAPSS)",
+        "# PulseNet RUL Forecasting - Archived Local Benchmark",
         "",
         f"- Generated (UTC): {p['generated_utc']}",
         f"- Platform: {p['environment']['platform']} / Python {p['environment']['python']}",
+        f"- Readiness: {p['readiness']}",
         "",
         "## Result summary",
         "",
-        "| Subset | RMSE (cycles) | C-MAPSS score | Test engines | Published RMSE reference |",
-        "|--------|--------------:|--------------:|-------------:|--------------------------|",
+        "| Subset | RMSE (cycles) | C-MAPSS score | Test engines |",
+        "|--------|--------------:|--------------:|-------------:|",
     ]
     for r in p["results"]:
         lines.append(
             f"| {r['subset']} | {r['rmse']} | {r['cmapss_score']} | "
-            f"{r['n_test_engines']} | {r['published_rmse_reference']} |"
+            f"{r['n_test_engines']} |"
         )
     lines += [
         "",
@@ -180,35 +173,20 @@ def _render_markdown(p: dict) -> str:
         f"- Size: {ds['archive_bytes']} bytes",
         f"- Retrieved (UTC): {ds['retrieved_utc']}",
         "",
-        "## Comparison to published classical baselines",
-        "",
-        "Published classical RUL baselines report roughly 15-25 RMSE on FD001 "
-        "(e.g. Random Forest / SVR / shallow MLP with a piecewise-linear RUL "
-        "cap). This baseline lands within that band on FD001, confirming the "
-        "evaluation is honest and correctly wired. FD002 and FD004 use six "
-        "operating conditions and are materially harder; a condition-agnostic "
-        "model like this one is expected to score worse (much larger C-MAPSS "
-        "score) than condition-aware or deep sequence models.",
-        "",
         "## Honest gaps and caveats",
         "",
-        "- The repository name is *RUL Forecasting*, but before this work the "
-        "codebase contained **no RUL regressor** - only a binary Isolation-Forest "
-        "anomaly detector. The README's claim of \"baseline RMSE on C-MAPSS "
-        'FD001" and a "RUL Regressor" was unsupported by any code. This '
-        "benchmark adds the missing regression capability.",
-        "- This is a **classical baseline**, not a state-of-the-art model. Deep "
-        "sequence models (CNN/LSTM/Transformer with per-condition normalization) "
-        "report lower RMSE and much lower C-MAPSS scores, especially on "
-        "FD002/FD004.",
+        "- This is a classical experimental baseline on simulator data, not a "
+        "field-validated maintenance model.",
+        "- No comparison to published papers is made here because preprocessing, "
+        "target construction, split semantics, and scoring must be reconciled "
+        "before any external benchmark comparison is valid.",
         "- No per-operating-condition normalization is applied; FD002/FD004 "
         "would benefit from it. The RandomForest partially compensates by "
         "splitting on the operating-setting features.",
         "- RUL is capped at 125 for both training targets and reported metrics, "
         "following common C-MAPSS practice; absolute numbers depend on this cap.",
-        "- The pre-existing anomaly-detection pipeline already used the official "
-        "per-unit split (not a random split), so no train/test leakage was "
-        "present there; the gap was the absence of RUL regression entirely.",
+        "- These numbers must not be published as product performance without a "
+        "new, independently reviewed evaluation protocol.",
     ]
     return "\n".join(lines) + "\n"
 

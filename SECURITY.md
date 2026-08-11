@@ -1,38 +1,44 @@
 # Security Policy
 
-## Reporting a Vulnerability
-Report vulnerabilities to: poojakiranbhardwaj@gmail.com
+## Status
 
-## Response Timeline
-- **48 hours**: Acknowledgment of receipt
-- **5 days**: Initial assessment and severity classification
-- **30 days**: Fix deployed or mitigation plan communicated
+This repository is archived and has no supported deployment or production
+version. Historical source remains public for review, but no security maintenance
+or response-time SLA is promised.
 
-## Dependency Vulnerability Management
+## Reporting
 
-The CI `Security Audit` job runs `pip-audit` against `requirements.txt` on every
-push. The following advisories were **remediated by upgrading** the affected
-dependencies to patched releases:
+Use GitHub's private vulnerability reporting feature if it is enabled for this
+repository. Otherwise, open a GitHub issue containing no exploit details or
+sensitive data and request a private contact channel.
 
-- `python-multipart` 0.0.20 → 0.0.32
-- `requests` 2.32.5 → 2.33.1
-- `python-jose` 3.4.0 → 3.5.0 (unlocks `pyasn1` 0.6.3, fixing PYSEC-2026-2263)
-- `cryptography` 49.0.0 → 48.0.1 (compatible with the mlflow 3.x bound)
-- `mlflow` 2.20.1 → 3.14.0 (clears ~37 advisories)
-- `pyarrow` 18.1.0 → 23.0.1
-- `pytest` 8.3.5 → 9.0.3
-- `starlette` 0.41.3 → 0.49.3 (highest release the pinned FastAPI supports)
+Do not test against systems you do not own or have explicit permission to test.
+Do not deploy attacks, use credentials, or connect this code to equipment.
 
-### Accepted residual advisories (no compatible fix available)
+## Known dependency risk
 
-These are explicitly ignored in the `pip-audit` CI step (with justification) and
-tracked here. Each has **no patched release that is compatible** with the project:
+A `pip-audit 2.10.1` scan of the Python 3.12 locked runtime graph on 2026-08-11
+reported known advisories in the following packages:
 
-| ID | Package | Reason accepted |
-|----|---------|-----------------|
-| CVE-2025-3000 | torch 2.12.0 | No patched release published upstream. |
-| PYSEC-2026-1325 | ecdsa 0.19.2 | No patched release; pure transitive dependency of `python-jose[cryptography]`. |
-| PYSEC-2026-161, -248, -249, -2280, -2281 | starlette 0.49.3 | Fixed only in starlette 1.x, which no released FastAPI version supports (FastAPI pins `starlette <0.50`). Upgrading requires a FastAPI major migration and is tracked separately. |
+- `ecdsa 0.19.2`
+- `starlette 0.37.2`
+- `mlflow 2.14.1`
+- `protobuf 4.25.9`
+- `pyarrow 15.0.2`
+- `python-dotenv 1.0.1`
+- `python-jose 3.3.0`
+- `python-multipart 0.0.6`
+- `torch 2.3.0`
+- `transformers 4.40.0`
 
-These will be re-evaluated whenever a compatible upstream fix becomes available.
+Some advisories had patched versions; others did not list one in the audit
+output. None is waived or represented as remediated. The dependency stack is
+retained only to preserve historical reproducibility and must not be treated as
+safe for deployment.
 
+## Safe review boundary
+
+Prefer static source review. If execution is necessary, use a disposable,
+unprivileged environment with no secrets, no production data, no mounted home
+directory, and outbound networking disabled after dependencies are obtained.
+Destroy the environment after use.
