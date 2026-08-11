@@ -1,11 +1,10 @@
-# Portfolio note
+# Portfolio Status
 
-**Role in profile:** Secure MLOps reference on official NASA C-MAPSS FD001—not the primary ML Security flagship.
+**ARCHIVED on 2026-08-11.**
 
-**Metrics:** Only in `docs/evidence/validation_results.json` and `docs/evidence/validation_metrics.svg` after:
+PulseNet is excluded from the active ML-security product portfolio. It is an
+experimental predictive-maintenance reference using simulated NASA C-MAPSS data,
+not a production security control or validated maintenance product. Do not cite
+historical benchmark files as real-world operational performance.
 
-```bash
-python scripts/run_validation.py
-```
-
-Do not cite numbers from the README; see [EVIDENCE_POLICY.md](EVIDENCE_POLICY.md).
+Decision evidence: [ARCHIVE.md](ARCHIVE.md).

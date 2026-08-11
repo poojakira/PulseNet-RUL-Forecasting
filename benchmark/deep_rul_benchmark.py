@@ -1,17 +1,18 @@
 """
-Production RUL benchmark: 1D-CNN on NASA C-MAPSS FD001.
+Archived experimental RUL benchmark: 1D-CNN on NASA C-MAPSS FD001.
 
-Trains the deep sequence model on the official per-unit split and writes a
-committed evidence file with RMSE + NASA C-MAPSS score, alongside published
-baselines for context. Every number here is measured on this machine from the
-real dataset shipped in data/official/CMAPSSData - no synthetic values.
+Trains the deep sequence model on the NASA simulator dataset and writes a local
+JSON result file. The output is not release evidence and must not be compared to
+published papers unless preprocessing, target construction, split, and scoring
+are independently reconciled.
 
 Run:
-    python benchmark/deep_rul_benchmark.py
+    python benchmark/deep_rul_benchmark.py --output /tmp/pulsenet-fd001.json
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 import sys
@@ -34,19 +35,19 @@ COLS = (
     + [f"sensor_{i}" for i in range(1, 22)]
 )
 
-# Published FD001 RMSE, for honest context (not our numbers).
-PUBLISHED = {
-    "RandomForest (classical, this repo)": 18.25,
-    "CNN - Babu et al. 2016": 18.45,
-    "LSTM - Zheng et al. 2017": 16.14,
-    "DCNN - Li et al. 2018": 12.61,
-}
-
 
 def _load(name: str) -> pd.DataFrame:
     df = pd.read_csv(DATA / name, sep=r"\s+", header=None, engine="python")
     df.columns = COLS[: df.shape[1]]
     return df
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def main() -> int:
@@ -58,9 +59,13 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=REPO / "docs" / "evidence" / "deep_rul_fd001.json",
+        required=True,
+        help="Local JSON output path. Use /tmp or another non-committed location.",
     )
+    parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    if args.output.exists() and not args.overwrite:
+        raise SystemExit(f"Refusing to overwrite existing output: {args.output}")
 
     train = _load("train_FD001.txt")
     test = _load("test_FD001.txt")
@@ -70,16 +75,20 @@ def main() -> int:
     res = train_and_evaluate(train, test, rul, epochs=args.epochs, seed=args.seed)
     elapsed = round(time.perf_counter() - t0, 1)
 
-    beats = [name for name, val in PUBLISHED.items() if res.rmse < val]
-
     print(f"1D-CNN RUL  RMSE = {res.rmse}  |  C-MAPSS score = {res.cmapss_score}")
-    print(f"Trained in {elapsed}s on CPU. Beats: {', '.join(beats)}")
+    print(f"Trained in {elapsed}s on CPU.")
 
     evidence = {
-        "schema_version": "deep-rul-fd001-v1",
+        "schema_version": "deep-rul-fd001-local-v1",
         "generated_at_utc": datetime.now(UTC).isoformat(),
-        "dataset": "NASA C-MAPSS FD001 (official per-unit train/test split)",
-        "data_source": "data/official/CMAPSSData (committed, real)",
+        "readiness": "local experimental result; not production evidence",
+        "dataset": "NASA C-MAPSS FD001 simulator data",
+        "data_source": "data/official/CMAPSSData",
+        "data_sha256": {
+            "train_FD001.txt": _sha256(DATA / "train_FD001.txt"),
+            "test_FD001.txt": _sha256(DATA / "test_FD001.txt"),
+            "RUL_FD001.txt": _sha256(DATA / "RUL_FD001.txt"),
+        },
         "model": res.model,
         "window": res.window,
         "epochs": res.epochs,
@@ -88,13 +97,11 @@ def main() -> int:
         "cmapss_score": res.cmapss_score,
         "n_test_engines": res.n_test_engines,
         "train_seconds_cpu": elapsed,
-        "published_baselines_rmse": PUBLISHED,
-        "beats_baselines": beats,
         "methodology": (
             "Sliding 30-cycle windows over 14 informative sensors, min-max scaled "
             "on train only. Piecewise-linear RUL target capped at 125. Evaluated on "
             "the last window of each test engine vs RUL_FD001. No random split, no "
-            "temporal leakage. All values measured on this machine."
+            "published-baseline comparison is made by this script."
         ),
         "environment": {
             "python": sys.version.split()[0],

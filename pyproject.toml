@@ -4,15 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "PulseNet-RUL-Forecasting"
-version = "1.0.0"
-description = "RUL forecasting with ICS ATT&CK v19 detection for industrial ML pipelines"
+version = "0.0.0"
+description = "Archived experimental C-MAPSS remaining-useful-life forecasting reference"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.13"
 license = {text = "Apache-2.0"}
 dependencies = [
-    "attack-v19-core @ git+https://github.com/poojakira/attack-v19-core.git",
-    "mitreattack-python==3.0.3",
-    "stix2==3.0.1",
     "pydantic==2.7.4",
     "fastapi==0.110.1",
     "uvicorn[standard]==0.29.0",
@@ -78,4 +75,3 @@ python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
-
