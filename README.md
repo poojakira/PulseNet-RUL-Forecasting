@@ -1,3 +1,10 @@
+> **⚠ ARCHIVED — Experimental Research Prototype**
+> This repository is an archived NASA C-MAPSS RUL prediction research prototype.
+> It is **NOT production-ready**, **NOT an active project**, and **NOT a security product**.
+> Archived: 2026-08-12. Kept for reference only.
+
+---
+
 # PulseNet RUL Forecasting
 
 [![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
