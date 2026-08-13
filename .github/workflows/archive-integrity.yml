@@ -1,0 +1,29 @@
+name: Archive integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: archive-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Verify archive boundaries
+        run: python scripts/verify_archive.py
+      - name: Compile retained Python sources
+        run: python -m compileall -q src benchmark scripts
