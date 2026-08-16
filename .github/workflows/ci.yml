@@ -79,7 +79,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install bandit==1.8.3 cyclonedx-bom==5.1.1 pip-audit==2.8.2
+          pip install bandit==1.8.3 cyclonedx-bom==5.1.1 pip-audit==2.10.1
       - name: Bandit SAST
         run: bandit -r src/ -ll
       - name: pip-audit
