@@ -65,7 +65,9 @@ def _write_signed_manifest(
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-@pytest.mark.skip(reason="Internal artifact functions refactored - endpoint tests in integration suite")
+@pytest.mark.skip(
+    reason="Internal artifact functions refactored - endpoint tests in integration suite"
+)
 class TestArtifactLoading:
     @pytest.mark.skip(reason="Internal function removed in refactoring")
     def test_first_existing_path_returns_first_present(self, tmp_path):

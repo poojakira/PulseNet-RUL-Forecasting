@@ -62,7 +62,9 @@ class TestIsolationForest:
         with pytest.raises(ValueError, match="trusted=True"):
             loaded.load(path)
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="skops triggers torch DLL issues on Windows")
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="skops triggers torch DLL issues on Windows"
+    )
     def test_skops_roundtrip(self, temp_dir):
         sample_X = np.random.default_rng(0).normal(size=(40, 5))
         model = IsolationForestModel(n_estimators=20)

@@ -113,7 +113,7 @@ class IsolationForestModel(BaseAnomalyModel):
 
         Args:
             path: Path to the saved model file.
-            trusted: If False, raises ValueError for joblib files. 
+            trusted: If False, raises ValueError for joblib files.
                      Set to True only for trusted model files
                      to prevent arbitrary code execution via joblib.load().
                      Not required for skops files (safer format).
@@ -128,9 +128,12 @@ class IsolationForestModel(BaseAnomalyModel):
             # skops format is safer, allow loading without explicit trusted flag
             try:
                 import skops.io as skio
+
                 data = skio.load(path, trusted=True)
             except ImportError:
-                raise ImportError("skops is required to load .skops files. Install with: pip install skops")
+                raise ImportError(
+                    "skops is required to load .skops files. Install with: pip install skops"
+                )
         else:
             data = joblib.load(path)
         self.model = data["model"]
