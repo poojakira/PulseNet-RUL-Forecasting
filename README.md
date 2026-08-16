@@ -1,66 +1,34 @@
-> **⚠ ARCHIVED — Experimental Research Prototype**
-> This repository is an archived NASA C-MAPSS RUL prediction research prototype.
-> It is **NOT production-ready**, **NOT an active project**, and **NOT a security product**.
-> Archived: 2026-08-12. Kept for reference only.
-
----
+> **ARCHIVED - Experimental Research Prototype**
+>
+> This repository is archived, not production-ready, not an active project, and not a security product. It is retained only as a historical NASA C-MAPSS RUL forecasting reference.
 
 # PulseNet RUL Forecasting
 
-[![CI](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/poojakira/PulseNet-RUL-Forecasting/actions)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+PulseNet contains experimental code for Remaining Useful Life forecasting on the NASA C-MAPSS simulated turbofan dataset. Previous production, deployment, security-product, and benchmark-readiness claims are withdrawn.
 
-## What it is
-PulseNet is an evidence-driven, production-grade predictive maintenance service designed to forecast the Remaining Useful Life (RUL) of aerospace turbofan engines using the NASA C-MAPSS FD001 dataset. Unlike standard notebook-based ML projects, PulseNet is wrapped in a hardened FastAPI service featuring dynamic batching, strict RBAC, audit logging, and most importantly, adversarial threat mitigation.
+## Current Status
 
-## Motivation
-Traditional ML deployments for predictive maintenance operate under the assumption that sensor telemetry is benign. In reality, industrial control systems are prime targets for sensor spoofing and False Data Injection Attacks (FDIA). An adversary manipulating temperature or vibration telemetry could force the ML model to predict an imminent failure, shutting down critical infrastructure.
+- Status: archived reference.
+- Dataset: NASA C-MAPSS simulated engine-degradation data.
+- Runtime support: none promised.
+- Deployment support: withdrawn.
+- Metrics: do not cite README numbers; reproduce any local result from code and data in a fresh environment.
 
-## Objective
-The objective is to provide a defensible, secure ML architecture that explicitly filters malicious telemetry *before* inference. PulseNet proves that a predictive maintenance model can be deployed safely into a zero-trust environment with full data lineage, reproducible anomaly filtering, and tenant traceability.
+## What Remains
 
-## Data Flow
-1. **Secure Ingestion**: `scripts/download_data.py` securely downloads the NASA dataset and cryptographically verifies its SHA-256 hash in memory.
-2. **Anomaly Filtering**: Incoming telemetry streams pass through an Isolation Forest anomaly detector. Out-of-distribution or spoofed payloads are dropped and logged.
-3. **Inference**: Clean telemetry is routed to the RUL Regressor to calculate the Remaining Useful Life.
-4. **API Layer**: All endpoints are protected via JWT authentication and RBAC. `X-Tenant-ID` is propagated into response headers.
-5. **Audit**: All actions (predictions, access events) are recorded in a hash-chained audit ledger to detect tampering.
+- Model and pipeline source retained for historical review.
+- Tests retained as regression and behavior examples.
+- `ARCHIVE.md` records the archive decision, evidence, limitations, and reopening criteria.
 
-## Technology Used
-- **Core ML**: Scikit-Learn (Isolation Forest), Pandas, NumPy.
-- **API & Security**: Python 3.12, FastAPI, JWT (JSON Web Tokens), Role-Based Access Control (RBAC).
-- **Supply Chain**: Cryptographically pinned GitHub Actions, `uv.lock` / `requirements.lock` for absolute dependency immutability.
-- **Testing**: Pytest for unit and adversarial testing.
+## Verification
 
-## Benchmarks
-*(Honest & Skeptic)*
-- **Performance**: Achieves baseline RMSE on the C-MAPSS FD001 turbofan degradation path. This is an architectural security reference, not a state-of-the-art foundation model. 
-- **Security**: The `FDIADetector` actively drops synthetic spoofed payloads with a 99% true-positive rate.
-- **Resilience**: The API operates in a "fail-fast" paradigm; if underlying model weights are missing or corrupted, it safely crashes (`RuntimeError`) rather than serving anomalous predictions.
+```bash
+python scripts/verify_archive.py
+python -m compileall -q src benchmark scripts
+```
 
-## Market Comparison
-Compared to standard MLflow or AWS SageMaker endpoints, PulseNet fundamentally rejects the "trusted network" fallacy. It forces strict anomaly boundary checks at inference time. While commercial tools focus heavily on drift, PulseNet focuses on active adversarial sensor injection.
+Broader tests may require installing the pinned project dependencies and are not evidence of production readiness.
 
-## How to Run
+## Reopening
 
-1. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
-
-2. **Download and verify official data:**
-   ```bash
-   uv run scripts/download_data.py
-   ```
-
-3. **Run local verification and tests:**
-   ```bash
-   uv run verify.py
-   uv run pytest tests/
-   ```
-
-4. **Start the API Server:**
-   ```bash
-   uv run uvicorn src.pulsenet.api.app:app --host 0.0.0.0 --port 8000
-   ```
+Do not restore deployment files, generated evidence artifacts, dashboards, SBOM/SARIF outputs, or production claims unless every reopening criterion in `ARCHIVE.md` is satisfied and independently reviewed.
