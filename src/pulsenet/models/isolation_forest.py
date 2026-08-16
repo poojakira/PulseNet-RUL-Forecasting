@@ -102,7 +102,11 @@ class IsolationForestModel(BaseAnomalyModel):
         """Persist model, threshold and params to disk."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"model": self.model, "threshold": self.threshold, "params": self.params}
+        payload = {
+            "model": self.model,
+            "threshold": self.threshold,
+            "params": self.params,
+        }
         if path.suffix == ".skops":
             try:
                 import skops.io as skio
