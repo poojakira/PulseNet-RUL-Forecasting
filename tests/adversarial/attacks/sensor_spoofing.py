@@ -34,10 +34,11 @@ from pulsenet.pipeline.preprocessing import (
 
 class SpoofingPattern(Enum):
     """Physically-realizable sensor spoofing patterns."""
-    GRADUAL_DRIFT = "gradual_drift"      # Linear calibration drift
-    STEP_CHANGE = "step_change"          # Sudden offset (loose connection)
-    SPIKE_BURST = "spike_burst"          # Transient spikes (EMI/noise)
-    STUCK_AT = "stuck_at"                # Frozen sensor value
+
+    GRADUAL_DRIFT = "gradual_drift"  # Linear calibration drift
+    STEP_CHANGE = "step_change"  # Sudden offset (loose connection)
+    SPIKE_BURST = "spike_burst"  # Transient spikes (EMI/noise)
+    STUCK_AT = "stuck_at"  # Frozen sensor value
     NOISE_INJECTION = "noise_injection"  # Increased variance
     CORRELATION_BREAK = "correlation_break"  # Break inter-sensor correlations
 
@@ -45,6 +46,7 @@ class SpoofingPattern(Enum):
 @dataclass(frozen=True)
 class SpoofingResult:
     """Result of a sensor-spoofing attack trial."""
+
     success: bool
     pattern: SpoofingPattern
     original_score: float
@@ -112,7 +114,9 @@ class SensorSpoofingAttack:
             n_spikes = max(1, int(n * 0.02 * intensity))  # 2% of points
             spike_indices = np.random.choice(n, n_spikes, replace=False)
             spike_magnitude = intensity * 5.0  # 5 sigma spikes
-            df[sensor].iloc[spike_indices] += np.random.choice([-1, 1], n_spikes) * spike_magnitude
+            df[sensor].iloc[spike_indices] += (
+                np.random.choice([-1, 1], n_spikes) * spike_magnitude
+            )
 
         elif pattern == SpoofingPattern.STUCK_AT:
             # Sensor frozen at a value (stuck at mean or extreme)
@@ -241,7 +245,12 @@ class SensorSpoofingAttack:
                                 return result  # Early exit on success
 
         return best_result or SpoofingResult(
-            success=False, pattern=patterns[0], original_score=0, perturbed_score=0,
-            sensor_modified=sensors[0], max_deviation=0, validation_passed=False,
-            detection_score=0
+            success=False,
+            pattern=patterns[0],
+            original_score=0,
+            perturbed_score=0,
+            sensor_modified=sensors[0],
+            max_deviation=0,
+            validation_passed=False,
+            detection_score=0,
         )

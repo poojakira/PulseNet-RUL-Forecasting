@@ -80,7 +80,6 @@ if TORCH_AVAILABLE:
             decoded, _ = self.decoder(decoder_input, (hidden, cell))
             return self.output_layer(decoded)
 
-
     class LSTMModel(BaseAnomalyModel):
         """LSTM autoencoder anomaly detector."""
 
