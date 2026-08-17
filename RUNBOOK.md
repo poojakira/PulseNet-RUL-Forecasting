@@ -4,6 +4,26 @@
 > No maintenance, updates, or support should be expected. Use only for local
 > source review and offline reproduction.
 
+## Prerequisites
+
+- Python 3.12+ (`py --version` on Windows, `python3 --version` on Linux)
+- Git
+- ~200MB disk (for dependencies including torch)
+
+## Clone
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting.git
+cd PulseNet-RUL-Forecasting
+```
+
+**Linux/macOS:**
+```bash
+git clone https://github.com/poojakira/PulseNet-RUL-Forecasting.git
+cd PulseNet-RUL-Forecasting
+```
+
 ## Supported operation
 
 There is no supported service operation or deployment. The only supported use is
