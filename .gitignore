@@ -34,6 +34,9 @@ mlruns/
 *.joblib
 *.pkl
 *.h5
+# Keep only the latest reference model (isolation_forest.skops, scaler.skops, feature_registry.skops)
+# Versioned training snapshots must NOT be committed
+models/isolation_forest_v*.skops
 
 # ==========================================
 # 5. PYTHON & ENVIRONMENT
