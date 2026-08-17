@@ -29,50 +29,52 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 
-class _PositionalEncoding(nn.Module):
-    def __init__(self, d_model: int, max_len: int = 500):
-        super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        if d_model > 1:
-            pe[:, 1::2] = torch.cos(position * div_term[: d_model // 2])
-        self.register_buffer("pe", pe.unsqueeze(0))
+if TORCH_AVAILABLE:
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.pe[:, : x.size(1)]  # type: ignore
+    class _PositionalEncoding(nn.Module):
+        def __init__(self, d_model: int, max_len: int = 500):
+            super().__init__()
+            pe = torch.zeros(max_len, d_model)
+            position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float()
+                * (-math.log(10000.0) / d_model)
+            )
+            pe[:, 0::2] = torch.sin(position * div_term)
+            if d_model > 1:
+                pe[:, 1::2] = torch.cos(position * div_term[: d_model // 2])
+            self.register_buffer("pe", pe.unsqueeze(0))
 
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return x + self.pe[:, : x.size(1)]  # type: ignore
 
-class _TransformerAutoencoder(nn.Module):
-    def __init__(
-        self,
-        n_features: int,
-        d_model: int = 64,
-        nhead: int = 4,
-        num_layers: int = 2,
-        dropout: float = 0.1,
-    ):
-        super().__init__()
-        self.input_proj = nn.Linear(n_features, d_model)
-        self.pos_enc = _PositionalEncoding(d_model)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dropout=dropout,
-            dim_feedforward=d_model * 4,
-            batch_first=True,
-        )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.decoder = nn.Linear(d_model, n_features)
+    class _TransformerAutoencoder(nn.Module):
+        def __init__(
+            self,
+            n_features: int,
+            d_model: int = 64,
+            nhead: int = 4,
+            num_layers: int = 2,
+            dropout: float = 0.1,
+        ):
+            super().__init__()
+            self.input_proj = nn.Linear(n_features, d_model)
+            self.pos_enc = _PositionalEncoding(d_model)
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dropout=dropout,
+                dim_feedforward=d_model * 4,
+                batch_first=True,
+            )
+            self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+            self.decoder = nn.Linear(d_model, n_features)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.input_proj(x)
-        h = self.pos_enc(h)
-        h = self.encoder(h)
-        return self.decoder(h)
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            h = self.input_proj(x)
+            h = self.pos_enc(h)
+            h = self.encoder(h)
+            return self.decoder(h)
 
 
 class TransformerModel(BaseAnomalyModel):

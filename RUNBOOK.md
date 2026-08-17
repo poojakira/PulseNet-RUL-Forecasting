@@ -1,48 +1,138 @@
 # Archived Repository Runbook
 
+> **⚠️ ARCHIVED PROJECT** — This repository is not under active development.
+> No maintenance, updates, or support should be expected. Use only for local
+> source review and offline reproduction.
+
 ## Supported operation
 
 There is no supported service operation or deployment. The only supported use is
 local, isolated reproduction for source review. Do not expose the API to a
 network or connect the code to operational equipment.
 
-## Environment
+## Environment setup
 
-Use Python 3.11 or 3.12 with the committed lockfile:
+Requires **Python 3.12+**. Use the committed `requirements.txt` for
+installation (the `pyproject.toml` does not declare runtime dependencies).
+
+### Linux / macOS
 
 ```bash
-uv sync --locked --extra dev
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Do not bypass a stale lock with an unconstrained install. The 2026-08-11 audit
-found known vulnerabilities in the historical dependency graph; use a disposable
-unprivileged environment with no secrets, production data, equipment access, or
-network exposure after installation. Review [SECURITY.md](SECURITY.md).
+### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### Security note
+
+The 2026-08-11 audit found known vulnerabilities in the historical dependency
+graph. Use a disposable, unprivileged environment with no secrets, production
+data, equipment access, or network exposure after installation. Review
+[SECURITY.md](SECURITY.md).
 
 ## Verification
 
+### Running tests
+
+The full test command, skipping adversarial tests that require additional setup:
+
+**Linux / macOS:**
+
 ```bash
-uv run python scripts/verify_archive.py
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run pytest \
-  -p pytest_asyncio.plugin -q -o addopts='' --ignore=tests/test_api.py
-uv run ruff check src tests benchmark scripts
+pytest tests/ -v --ignore=tests/adversarial
 ```
 
-Record failures and skips exactly. Async tests that skip because their plugin is
-missing are not passing tests. API requests that hang are release blockers, not
-performance results.
+**Windows (PowerShell):**
+
+```powershell
+pytest tests/ -v --ignore=tests/adversarial
+```
+
+To run only fast unit tests (no torch dependency required):
+
+**Linux / macOS:**
+
+```bash
+pytest tests/ -v --ignore=tests/adversarial --ignore=tests/test_api.py -k "not transformer"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+pytest tests/ -v --ignore=tests/adversarial --ignore=tests/test_api.py -k "not transformer"
+```
+
+### Linting
+
+**Linux / macOS:**
+
+```bash
+ruff check src tests benchmark scripts
+```
+
+**Windows (PowerShell):**
+
+```powershell
+ruff check src tests benchmark scripts
+```
+
+### Archive verification script
+
+**Linux / macOS:**
+
+```bash
+python scripts/verify_archive.py
+```
+
+**Windows (PowerShell):**
+
+```powershell
+python scripts/verify_archive.py
+```
 
 ## Benchmark reproduction
 
+**Linux / macOS:**
+
 ```bash
-uv run python benchmark/deep_rul_benchmark.py \
+python benchmark/deep_rul_benchmark.py \
   --output /tmp/pulsenet-fd001.json --overwrite
+```
+
+**Windows (PowerShell):**
+
+```powershell
+python benchmark/deep_rul_benchmark.py `
+  --output $env:TEMP\pulsenet-fd001.json --overwrite
 ```
 
 Keep generated results outside the repository until an independent reviewer has
 checked data hashes, code commit, package lock, hardware, seed, train/test
 construction, target construction, and scoring. A result on C-MAPSS remains a
 simulator-dataset result and must not be relabeled as field performance.
+
+## Known issues
+
+1. **`transformer_model.py` torch import guard** — The `_PositionalEncoding` and
+   `_TransformerAutoencoder` classes require PyTorch. They are guarded behind an
+   `if TORCH_AVAILABLE:` block. If torch is not installed, importing the module
+   will not fail, but instantiating `TransformerModel` will raise `ImportError`.
+
+2. **Async test configuration** — Tests use `pytest-asyncio` with
+   `asyncio_mode = "auto"`. If `pytest-asyncio` is not installed, async tests
+   will be collected but skip or error. This is expected in minimal environments.
+
+3. **`pyproject.toml` has no extras** — The `pyproject.toml` declares no
+   `[project.optional-dependencies]`. Commands like `uv sync --extra dev` will
+   fail. Use `pip install -r requirements.txt` instead.
 
 ## Failure handling
 
