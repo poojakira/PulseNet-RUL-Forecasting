@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+torch = pytest.importorskip("torch", reason="PyTorch not available or broken on this platform")
+
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.models.ensemble import EnsembleModel
 from pulsenet.models.lstm_model import LSTMModel

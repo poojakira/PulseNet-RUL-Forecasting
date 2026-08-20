@@ -25,7 +25,7 @@ try:
     from torch.utils.data import DataLoader, TensorDataset
 
     TORCH_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError, Exception):
     TORCH_AVAILABLE = False
 
 
@@ -249,3 +249,38 @@ class TransformerModel(BaseAnomalyModel):
         ).to(self.device)
         self.model.load_state_dict(data["state_dict"])
         self.threshold = data["threshold"]
+
+
+if not TORCH_AVAILABLE:
+
+    class TransformerModel(BaseAnomalyModel):  # type: ignore[no-redef]
+        """Stub when PyTorch is unavailable."""
+
+        name = "transformer"
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def _no_torch(self):
+            raise ImportError("PyTorch is required for Transformer model")
+
+        def train(self, X, **kwargs):
+            self._no_torch()
+
+        def predict(self, X):
+            self._no_torch()
+
+        def score(self, X):
+            self._no_torch()
+
+        def decision_function(self, X):
+            self._no_torch()
+
+        def health_index(self, X):
+            self._no_torch()
+
+        def save(self, path):
+            self._no_torch()
+
+        def load(self, path, **kwargs):
+            self._no_torch()

@@ -13,15 +13,21 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
-try:
-    import torch
-    import torch.distributed as dist
+import importlib
 
-    # Quick verification that torch actually loads (avoids AV on broken installs)
-    _ = torch.tensor([1.0])
-    TORCH_AVAILABLE = True
-except Exception:
-    TORCH_AVAILABLE = False
+TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
+
+
+def _get_torch():
+    """Lazy torch import — only called when torch is actually needed."""
+    import torch
+    return torch
+
+
+def _get_dist():
+    """Lazy torch.distributed import."""
+    import torch.distributed as dist
+    return dist
 
 from pulsenet.config import cfg
 from pulsenet.logger import get_logger
@@ -52,20 +58,23 @@ class TrainingPipeline:
 
     def _init_distributed(self) -> None:
         """Initialize PyTorch DDP process group if running via torchrun."""
-        if TORCH_AVAILABLE and torch.cuda.is_available():
-            if "LOCAL_RANK" in os.environ:
-                if not dist.is_initialized():
-                    # NCCL is Linux-only; use Gloo for Windows stability
-                    backend = "nccl" if platform.system() != "Windows" else "gloo"
-                    dist.init_process_group(backend=backend)
-                    log.info(f"Initialized DDP environment (backend: {backend})")
+        if TORCH_AVAILABLE:
+            torch = _get_torch()
+            if torch.cuda.is_available():
+                if "LOCAL_RANK" in os.environ:
+                    dist = _get_dist()
+                    if not dist.is_initialized():
+                        # NCCL is Linux-only; use Gloo for Windows stability
+                        backend = "nccl" if platform.system() != "Windows" else "gloo"
+                        dist.init_process_group(backend=backend)
+                        log.info(f"Initialized DDP environment (backend: {backend})")
 
-                self.is_distributed = True
-                self.rank = dist.get_rank()
-                # Only set device if using CUDA
-                if torch.cuda.is_available():
-                    torch.cuda.set_device(self.rank)
-                    log.info(f"Process Rank {self.rank} bound to GPU {self.rank}")
+                    self.is_distributed = True
+                    self.rank = dist.get_rank()
+                    # Only set device if using CUDA
+                    if torch.cuda.is_available():
+                        torch.cuda.set_device(self.rank)
+                        log.info(f"Process Rank {self.rank} bound to GPU {self.rank}")
 
     def train_model(
         self,
@@ -86,7 +95,7 @@ class TrainingPipeline:
                 log.error(
                     f"GPU OOM on {model_name}. Attempting recovery and cache clear..."
                 )
-                torch.cuda.empty_cache()
+                _get_torch().cuda.empty_cache()
             raise e
 
         train_time = float(time.perf_counter() - t0)

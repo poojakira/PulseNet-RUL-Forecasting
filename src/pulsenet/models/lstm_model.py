@@ -26,7 +26,7 @@ try:
     from torch.utils.data import DataLoader, TensorDataset
 
     TORCH_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError, Exception):
     TORCH_AVAILABLE = False
 
 from pulsenet.logger import get_logger
@@ -307,4 +307,28 @@ else:
         name = "lstm"
 
         def __init__(self, *args, **kwargs):
+            pass  # allow instantiation for registry but methods raise
+
+        def _no_torch(self):
             raise ImportError("PyTorch is required for LSTM model")
+
+        def train(self, X, **kwargs):
+            self._no_torch()
+
+        def predict(self, X):
+            self._no_torch()
+
+        def score(self, X):
+            self._no_torch()
+
+        def decision_function(self, X):
+            self._no_torch()
+
+        def health_index(self, X):
+            self._no_torch()
+
+        def save(self, path):
+            self._no_torch()
+
+        def load(self, path, **kwargs):
+            self._no_torch()
