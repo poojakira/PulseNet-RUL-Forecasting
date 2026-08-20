@@ -82,4 +82,4 @@ The approach demonstrates that AI security extends beyond LLMs and classifiers i
 
 ## License
 
-MIT
+Apache License 2.0
