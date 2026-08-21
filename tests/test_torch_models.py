@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 try:
-    import torch
+    import torch  # noqa: F401
 except (ImportError, OSError):
     pytest.skip("PyTorch not available or broken on this platform", allow_module_level=True)
 

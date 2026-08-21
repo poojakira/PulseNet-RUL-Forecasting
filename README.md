@@ -1,6 +1,6 @@
 # PulseNet-RUL-Forecasting
 
-> **ARCHIVED**  --  Experimental project, not maintained.
+> **ARCHIVED**  --  Experimental project, not maintained. This software is not production-ready.
 
 Remaining useful life prediction on NASA C-MAPSS turbofan data with adversarial input validation for sensor integrity.
 
