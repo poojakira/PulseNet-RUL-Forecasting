@@ -125,9 +125,9 @@ class TestMaintenanceScheduler:
             unit_number=4, predicted_rul=55.0, lower_rul=38.0, confidence_margin=17.0
         )
         d = s.decide(fc)
-        assert d.action == MaintenanceAction.PLAN, (
-            "must use conservative RUL, not point estimate"
-        )
+        assert (
+            d.action == MaintenanceAction.PLAN
+        ), "must use conservative RUL, not point estimate"
 
     def test_decision_serializes(self):
         s = MaintenanceScheduler()

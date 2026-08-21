@@ -11,7 +11,9 @@ import pytest
 try:
     import torch  # noqa: F401
 except (ImportError, OSError):
-    pytest.skip("PyTorch not available or broken on this platform", allow_module_level=True)
+    pytest.skip(
+        "PyTorch not available or broken on this platform", allow_module_level=True
+    )
 
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.models.ensemble import EnsembleModel

@@ -15,6 +15,7 @@ import numpy as np
 
 try:
     import torch as _torch_test
+
     TORCH_AVAILABLE = True
     del _torch_test
 except (ImportError, OSError):
@@ -24,13 +25,16 @@ except (ImportError, OSError):
 def _get_torch():
     """Lazy torch import  --  only called when torch is actually needed."""
     import torch
+
     return torch
 
 
 def _get_dist():
     """Lazy torch.distributed import."""
     import torch.distributed as dist
+
     return dist
+
 
 from pulsenet.config import cfg
 from pulsenet.logger import get_logger
