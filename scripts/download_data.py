@@ -3,7 +3,7 @@ import urllib.request
 from pathlib import Path
 
 CMAPSS_URL = "https://data.nasa.gov/docs/legacy/CMAPSSData.zip"
-EXPECTED_SHA256 = "74bef434a34db25c7bf72e668ea4cd52afe5f2cf8e44367c55a82bfd91a5a34f"
+EXPECTED_SHA256 = "55959b00c7ee12fda9d154d1f0f0026136cade9cd14b15b6d85836b7478b6528"
 
 
 def download_and_verify():
