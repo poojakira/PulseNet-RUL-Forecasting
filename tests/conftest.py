@@ -108,7 +108,14 @@ def temp_dir(tmp_path) -> Path:
 @pytest.fixture
 def cmapss_zip() -> Path:
     """Path to the CMAPSSData.zip archive for tests that need it."""
+    import zipfile
+
     archive = PROJECT_ROOT / "data" / "official" / "CMAPSSData.zip"
     if not archive.exists():
         pytest.skip("CMAPSSData.zip not available")
+    try:
+        with zipfile.ZipFile(archive) as zf:
+            zf.testzip()
+    except (zipfile.BadZipFile, OSError):
+        pytest.skip("CMAPSSData.zip is corrupted or unreadable")
     return archive
