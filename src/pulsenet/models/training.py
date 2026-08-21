@@ -13,8 +13,6 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
-import importlib
-
 try:
     import torch as _torch_test
     TORCH_AVAILABLE = True
