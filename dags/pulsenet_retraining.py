@@ -16,7 +16,7 @@ from airflow.utils.dates import days_ago
 log = logging.getLogger(__name__)
 
 """
-PulseNet Retraining Pipeline — Airflow DAG for Automated Model Retraining.
+PulseNet Retraining Pipeline  --  Airflow DAG for Automated Model Retraining.
 
 This DAG runs weekly to:
 1. Check for data drift

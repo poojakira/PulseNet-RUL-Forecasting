@@ -1,5 +1,5 @@
 """
-PulseNet Vault Integration — JWT Secret Rotation & Secure Secret Management.
+PulseNet Vault Integration  --  JWT Secret Rotation & Secure Secret Management.
 
 Provides:
 - Automatic JWT secret rotation with HashiCorp Vault

@@ -7,17 +7,17 @@ project name.  The existing pipeline only performed binary anomaly detection
 C-MAPSS asymmetric scoring value.  This module fills that gap with an honest,
 classical regression baseline evaluated on the **official per-unit split**.
 
-Split methodology (chronological / per-unit — NOT random)
+Split methodology (chronological / per-unit  --  NOT random)
 ---------------------------------------------------------
 The C-MAPSS archive already ships a proper split by engine unit:
 
-* ``train_FD00x.txt`` — complete run-to-failure trajectories for a set of
+* ``train_FD00x.txt``  --  complete run-to-failure trajectories for a set of
   engines.  For a training row at cycle ``t`` of an engine whose final cycle is
   ``T``, the RUL target is ``min(T - t, rul_cap)`` (piecewise-linear RUL, the
   standard C-MAPSS convention; degradation is assumed negligible early in life).
-* ``test_FD00x.txt`` — trajectories for a **disjoint** set of engines, each
+* ``test_FD00x.txt``  --  trajectories for a **disjoint** set of engines, each
   truncated at some point *before* failure.
-* ``RUL_FD00x.txt`` — the ground-truth RUL at the **last observed cycle** of
+* ``RUL_FD00x.txt``  --  the ground-truth RUL at the **last observed cycle** of
   each test engine.
 
 We fit the scaler and the regressor on the training engines only, then predict

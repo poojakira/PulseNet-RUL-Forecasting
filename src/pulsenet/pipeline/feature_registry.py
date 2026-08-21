@@ -1,5 +1,5 @@
 """
-Feature Registry — Unified feature engineering for training and inference.
+Feature Registry  --  Unified feature engineering for training and inference.
 Provides consistent rolling features and column ordering (Staff-level Gap 1).
 """
 

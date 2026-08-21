@@ -1,6 +1,6 @@
 # PulseNet-RUL-Forecasting
 
-> **ARCHIVED** — Experimental project, not maintained.
+> **ARCHIVED**  --  Experimental project, not maintained.
 
 Remaining useful life prediction on NASA C-MAPSS turbofan data with adversarial input validation for sensor integrity.
 
@@ -50,9 +50,9 @@ Remaining useful life prediction on NASA C-MAPSS turbofan data with adversarial 
 
 The input validator checks sensor readings against physical plausibility bounds before inference. This addresses a practical deployment concern in safety-critical ML systems:
 
-- **Sensor spoofing** — adversarial manipulation of input channels to trigger incorrect predictions
-- **Faulty sensors** — hardware degradation producing out-of-range values
-- **Distribution shift** — operational conditions outside the training envelope
+- **Sensor spoofing**  --  adversarial manipulation of input channels to trigger incorrect predictions
+- **Faulty sensors**  --  hardware degradation producing out-of-range values
+- **Distribution shift**  --  operational conditions outside the training envelope
 
 The validator learns per-channel operational envelopes from training data and rejects inputs that violate these bounds, flagging potential adversarial manipulation or sensor failure before the prediction reaches downstream maintenance scheduling.
 
@@ -76,7 +76,7 @@ python main.py --dataset FD001 --validate-inputs
 
 Safety-critical ML systems (predictive maintenance, autonomous vehicles, medical devices) face a threat model where adversarial inputs have physical consequences. A manipulated RUL prediction could defer maintenance on failing equipment or trigger unnecessary shutdowns.
 
-Input validation against operational envelopes is a minimal-cost defense that catches both adversarial perturbations and sensor faults. This project applies AI security thinking — input validation, bounds checking, anomaly rejection — to a domain where model failure has real-world safety implications beyond information security.
+Input validation against operational envelopes is a minimal-cost defense that catches both adversarial perturbations and sensor faults. This project applies AI security thinking  --  input validation, bounds checking, anomaly rejection  --  to a domain where model failure has real-world safety implications beyond information security.
 
 The approach demonstrates that AI security extends beyond LLMs and classifiers into any ML system where predictions drive physical-world decisions.
 

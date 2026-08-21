@@ -1,5 +1,5 @@
 """
-Ensemble model — combines multiple anomaly detectors via majority voting or weighted scoring.
+Ensemble model  --  combines multiple anomaly detectors via majority voting or weighted scoring.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ class EnsembleModel(BaseAnomalyModel):
         return np.average(stacked, axis=1, weights=self.weights)
 
     def decision_function(self, X: np.ndarray | Any) -> np.ndarray:
-        """Raw decision function — returns weighted anomaly scores."""
+        """Raw decision function  --  returns weighted anomaly scores."""
         return self.score(X)
 
     def health_index(self, X: np.ndarray | Any) -> np.ndarray:

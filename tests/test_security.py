@@ -1,5 +1,5 @@
 """
-Unit tests for security module — encryption, blockchain, audit logging.
+Unit tests for security module  --  encryption, blockchain, audit logging.
 """
 
 from __future__ import annotations

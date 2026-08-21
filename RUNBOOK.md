@@ -1,4 +1,4 @@
-# RUNBOOK — PulseNet-RUL-Forecasting
+# RUNBOOK  --  PulseNet-RUL-Forecasting
 
 ## Prerequisites
 
@@ -64,5 +64,5 @@ pytest tests/ -v
 | CUDA out of memory | Reduce `batch_size` in config YAML |
 | Download script 403 | Manually download from NASA Prognostics repo, place in `data/` |
 | RMSE unexpectedly high | Check `max_rul` clipping value in config (default: 125) |
-| Missing `RUL_FD00x.txt` | Required for evaluation — re-download dataset |
+| Missing `RUL_FD00x.txt` | Required for evaluation  --  re-download dataset |
 | Report generation fails | Install `pip install matplotlib reportlab` |

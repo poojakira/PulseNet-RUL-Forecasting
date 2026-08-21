@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """
-Pipeline orchestrator — coordinates ingestion → preprocess → train → evaluate → log.
+Pipeline orchestrator  --  coordinates ingestion → preprocess → train → evaluate → log.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class PipelineOrchestrator:
     def run_ingestion(self) -> None:
         """Stage 1: Load and clean data."""
         try:
-            log.info("Stage 1 — Ingestion")
+            log.info("Stage 1  --  Ingestion")
             train_path = self.data_dir / cfg.data.train_file
             test_path = self.data_dir / cfg.data.test_file
             rul_path = self.data_dir / cfg.data.rul_file
@@ -93,7 +93,7 @@ class PipelineOrchestrator:
     def run_preprocessing(self) -> None:
         """Stage 2: Preprocessing and scaling."""
         try:
-            log.info("Stage 2 — Preprocessing")
+            log.info("Stage 2  --  Preprocessing")
             if self.train_df is None or self.test_df is None:
                 raise DataError("Run ingestion first")
 
@@ -138,7 +138,7 @@ class PipelineOrchestrator:
     def run_training(self, model_name: Optional[str] = None) -> None:
         """Stage 3: Train model(s)."""
         try:
-            log.info("Stage 3 — Training")
+            log.info("Stage 3  --  Training")
             if self.train_df is None:
                 raise DataError("Run ingestion first")
 
@@ -180,7 +180,7 @@ class PipelineOrchestrator:
     def run_evaluation(self) -> dict[str, Any]:
         """Stage 4: Evaluate on test set."""
         try:
-            log.info("Stage 4 — Evaluation")
+            log.info("Stage 4  --  Evaluation")
             if self.test_df is None or self.rul is None:
                 raise DataError("Run ingestion first")
 
@@ -220,7 +220,7 @@ class PipelineOrchestrator:
     def run_inference(self, model_name: Optional[str] = None) -> pd.DataFrame:
         """Stage 5: Run inference on test set, log to blockchain."""
         try:
-            log.info("Stage 5 — Inference + Logging")
+            log.info("Stage 5  --  Inference + Logging")
             if self.test_df is None:
                 raise DataError("Run ingestion first")
 

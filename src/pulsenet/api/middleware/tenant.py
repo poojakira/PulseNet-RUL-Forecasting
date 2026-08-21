@@ -1,5 +1,5 @@
 """
-Multi-Tenancy Middleware — extracts X-Tenant-ID from headers (Staff-level Gap 3).
+Multi-Tenancy Middleware  --  extracts X-Tenant-ID from headers (Staff-level Gap 3).
 """
 
 from __future__ import annotations

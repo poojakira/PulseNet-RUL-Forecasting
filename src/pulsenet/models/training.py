@@ -19,7 +19,7 @@ TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 
 
 def _get_torch():
-    """Lazy torch import — only called when torch is actually needed."""
+    """Lazy torch import  --  only called when torch is actually needed."""
     import torch
     return torch
 

@@ -1,5 +1,5 @@
 """
-POST /train — Model retraining endpoint.
+POST /train  --  Model retraining endpoint.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ async def train_model(
     return TrainResponse(
         model=request.model_name,
         version=time.strftime("%Y%m%d_%H%M%S"),
-        train_time_sec=0.0,  # background — not yet known
+        train_time_sec=0.0,  # background  --  not yet known
         samples=0,
         status="training_started",
     )

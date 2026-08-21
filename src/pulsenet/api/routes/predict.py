@@ -1,6 +1,6 @@
 # pyre-ignore-all-errors
 """
-POST /predict — Real-time inference endpoint.
+POST /predict  --  Real-time inference endpoint.
 """
 
 from __future__ import annotations

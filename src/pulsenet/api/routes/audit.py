@@ -1,5 +1,5 @@
 """
-GET /audit, GET /verify-chain — Blockchain audit endpoints.
+GET /audit, GET /verify-chain  --  Blockchain audit endpoints.
 """
 
 from __future__ import annotations

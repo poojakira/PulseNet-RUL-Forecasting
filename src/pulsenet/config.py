@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """
-Config loader — reads config.yaml with environment variable overrides.
+Config loader  --  reads config.yaml with environment variable overrides.
 
 Usage:
     from pulsenet.config import cfg

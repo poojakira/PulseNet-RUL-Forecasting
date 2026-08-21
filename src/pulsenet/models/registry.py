@@ -1,5 +1,5 @@
 """
-Multi-model registry — manages model instances and comparison.
+Multi-model registry  --  manages model instances and comparison.
 """
 
 from __future__ import annotations

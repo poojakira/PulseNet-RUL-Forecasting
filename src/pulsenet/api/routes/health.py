@@ -1,5 +1,5 @@
 """
-Health endpoints — /health (full), /healthz (liveness), /readyz (readiness).
+Health endpoints  --  /health (full), /healthz (liveness), /readyz (readiness).
 
 Includes GPU telemetry via pynvml when available.
 """
@@ -86,7 +86,7 @@ def _get_system_resources() -> dict:
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Full system health — model, GPU, blockchain, resources."""
+    """Full system health  --  model, GPU, blockchain, resources."""
     model_loaded = _health_refs.get("model") is not None
     registry = _health_refs.get("registry")
     ledger = _health_refs.get("ledger")
@@ -111,13 +111,13 @@ async def health_check():
 
 @router.get("/healthz", tags=["Kubernetes"])
 async def liveness():
-    """Liveness probe — returns 200 if the process is alive."""
+    """Liveness probe  --  returns 200 if the process is alive."""
     return {"status": "alive"}
 
 
 @router.get("/readyz", tags=["Kubernetes"])
 async def readiness():
-    """Readiness probe — returns 200 only if model is loaded and ready to serve."""
+    """Readiness probe  --  returns 200 only if model is loaded and ready to serve."""
     model_loaded = _health_refs.get("model") is not None
     if not model_loaded:
         from fastapi.responses import JSONResponse

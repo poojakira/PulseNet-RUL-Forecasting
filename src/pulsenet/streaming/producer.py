@@ -1,5 +1,5 @@
 """
-Sensor data stream producer — reads CSV data and pushes to async queue.
+Sensor data stream producer  --  reads CSV data and pushes to async queue.
 """
 
 from __future__ import annotations

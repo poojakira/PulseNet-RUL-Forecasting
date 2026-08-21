@@ -1,6 +1,6 @@
 # pyre-ignore-all-errors
 """
-Benchmarking suite — measures inference latency, throughput, network resilience,
+Benchmarking suite  --  measures inference latency, throughput, network resilience,
 and encryption overhead. Generates graphs and tables.
 """
 
@@ -528,4 +528,4 @@ class BenchmarkSuite:
             plt.close()
             log.info("Benchmark plots saved")
         except ImportError:
-            log.warning("matplotlib not available — skipping plots")
+            log.warning("matplotlib not available  --  skipping plots")

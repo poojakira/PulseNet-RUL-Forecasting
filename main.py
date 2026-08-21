@@ -1,5 +1,5 @@
 """
-PulseNet API Server — FastAPI entry point.
+PulseNet API Server  --  FastAPI entry point.
 
 Usage:
     python main.py                  # Start on default port 8000

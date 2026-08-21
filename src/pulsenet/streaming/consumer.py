@@ -1,5 +1,5 @@
 """
-ML pipeline consumer — drains batches from queue, runs inference, logs results.
+ML pipeline consumer  --  drains batches from queue, runs inference, logs results.
 """
 
 from __future__ import annotations

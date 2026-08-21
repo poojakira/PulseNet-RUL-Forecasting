@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """
-Access audit logging — tracks who accessed what endpoint, when, with what role.
+Access audit logging  --  tracks who accessed what endpoint, when, with what role.
 """
 
 from __future__ import annotations

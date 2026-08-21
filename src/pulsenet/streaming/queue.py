@@ -49,7 +49,7 @@ class AsyncStreamQueue:
             return True
         except asyncio.TimeoutError:
             self._metrics["dropped"] += 1
-            log.warning("Item dropped — queue full")
+            log.warning("Item dropped  --  queue full")
             return False
 
     async def get(self, timeout: float = 5.0) -> Optional[Any]:

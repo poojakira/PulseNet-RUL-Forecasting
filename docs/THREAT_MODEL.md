@@ -71,7 +71,7 @@ flowchart TB
 
 | Asset | Criticality | Description |
 |-------|-------------|-------------|
-| NASA FD001 archive | High | Official C-MAPSS telemetry — source of truth |
+| NASA FD001 archive | High | Official C-MAPSS telemetry  --  source of truth |
 | Model artifacts | High | Trained IsolationForest, scaler, feature registry |
 | JWT signing secret | Critical | Token integrity for all API auth |
 | User password hashes | Critical | bcrypt hashes stored in env |
@@ -81,11 +81,11 @@ flowchart TB
 
 ## Trust Boundaries
 
-1. **Official data boundary** — Only `data.nasa.gov` archive content trusted after SHA-256 verification
-2. **API boundary** — FastAPI receives untrusted client payloads and tenant headers
-3. **Auth boundary** — JWT claims trusted only after signature verification
-4. **Runtime boundary** — Model, scaler, key files are local runtime artifacts (not source-controlled)
-5. **Container boundary** — Container images run as non-root with read-only filesystem
+1. **Official data boundary**  --  Only `data.nasa.gov` archive content trusted after SHA-256 verification
+2. **API boundary**  --  FastAPI receives untrusted client payloads and tenant headers
+3. **Auth boundary**  --  JWT claims trusted only after signature verification
+4. **Runtime boundary**  --  Model, scaler, key files are local runtime artifacts (not source-controlled)
+5. **Container boundary**  --  Container images run as non-root with read-only filesystem
 
 ---
 

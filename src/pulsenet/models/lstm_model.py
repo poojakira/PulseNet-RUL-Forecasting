@@ -35,7 +35,7 @@ from pulsenet.models.base import BaseAnomalyModel
 log = get_logger(__name__)
 
 if not TORCH_AVAILABLE:
-    log.warning("PyTorch not installed — LSTM model unavailable")
+    log.warning("PyTorch not installed  --  LSTM model unavailable")
 
 
 if TORCH_AVAILABLE:
@@ -73,7 +73,7 @@ if TORCH_AVAILABLE:
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             # Encode
             _, (hidden, cell) = self.encoder(x)
-            # Decode — repeat last hidden for each time step
+            # Decode  --  repeat last hidden for each time step
             seq_len = x.size(1)
             # hidden shape: (num_layers, batch, hidden_size)
             decoder_input = hidden[-1].unsqueeze(1).repeat(1, seq_len, 1)

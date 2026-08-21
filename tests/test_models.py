@@ -1,5 +1,5 @@
 """
-Unit tests for ML models — Isolation Forest, registry, training pipeline.
+Unit tests for ML models  --  Isolation Forest, registry, training pipeline.
 """
 
 from __future__ import annotations

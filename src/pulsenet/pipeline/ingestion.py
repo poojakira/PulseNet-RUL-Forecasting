@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """
-Data ingestion — loads NASA C-MAPSS data and applies AES-256 encryption.
+Data ingestion  --  loads NASA C-MAPSS data and applies AES-256 encryption.
 """
 
 from __future__ import annotations
@@ -44,14 +44,14 @@ def load_raw(filepath: Union[str, Path]) -> pd.DataFrame:
 
         if n_nan > 0:
             log.warning(
-                "NaN values detected in raw data — filling with column median",
+                "NaN values detected in raw data  --  filling with column median",
                 extra={"nan_count": n_nan, "file": path.name},
             )
             df = df.fillna(df.median(numeric_only=True))
 
         if n_inf > 0:
             log.warning(
-                "Infinite values detected — clipping to column min/max",
+                "Infinite values detected  --  clipping to column min/max",
                 extra={"inf_count": n_inf, "file": path.name},
             )
             for col in numeric_df.columns:

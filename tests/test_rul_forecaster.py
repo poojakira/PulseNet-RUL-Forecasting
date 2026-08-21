@@ -119,7 +119,7 @@ class TestMaintenanceScheduler:
         assert d.action == MaintenanceAction.HEALTHY
 
     def test_decision_acts_on_conservative_rul(self):
-        """Point estimate healthy but conservative estimate triggers PLAN — safety first."""
+        """Point estimate healthy but conservative estimate triggers PLAN  --  safety first."""
         s = MaintenanceScheduler(plan_threshold=40)
         fc = RULForecast(
             unit_number=4, predicted_rul=55.0, lower_rul=38.0, confidence_margin=17.0

@@ -1,5 +1,5 @@
 """
-Module-level Prometheus metric objects — created once to avoid duplicate registration.
+Module-level Prometheus metric objects  --  created once to avoid duplicate registration.
 """
 
 try:

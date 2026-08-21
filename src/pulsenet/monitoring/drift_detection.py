@@ -1,5 +1,5 @@
 """
-PulseNet Production Monitoring & Drift Detection — Using Evidently AI.
+PulseNet Production Monitoring & Drift Detection  --  Using Evidently AI.
 
 Provides:
 - Data drift detection (PSI, KS-test, Jensen-Shannon)

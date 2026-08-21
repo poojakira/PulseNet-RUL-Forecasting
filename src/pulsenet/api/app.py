@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """
-FastAPI application — central API entry point.
+FastAPI application  --  central API entry point.
 
 Production features:
 - Request correlation IDs (X-Request-ID)
@@ -255,7 +255,7 @@ def create_app() -> FastAPI:
 
         log.info("Prometheus metrics enabled at /metrics")
     except ImportError:
-        log.warning("prometheus-client not installed — /metrics endpoint disabled")
+        log.warning("prometheus-client not installed  --  /metrics endpoint disabled")
 
     # Exception handler
     @app.exception_handler(Exception)
