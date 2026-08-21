@@ -8,7 +8,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-torch = pytest.importorskip("torch", reason="PyTorch not available or broken on this platform")
+try:
+    import torch
+except (ImportError, OSError):
+    pytest.skip("PyTorch not available or broken on this platform", allow_module_level=True)
 
 from pulsenet.models.base import BaseAnomalyModel
 from pulsenet.models.ensemble import EnsembleModel

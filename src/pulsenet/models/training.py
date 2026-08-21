@@ -15,7 +15,12 @@ import numpy as np
 
 import importlib
 
-TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
+try:
+    import torch as _torch_test
+    TORCH_AVAILABLE = True
+    del _torch_test
+except (ImportError, OSError):
+    TORCH_AVAILABLE = False
 
 
 def _get_torch():
